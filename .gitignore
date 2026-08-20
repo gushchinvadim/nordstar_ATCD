@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Виртуальное окружение
+.venv/
+venv/
+ENV/
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+
+# Media и статика (НЕ коммитим!)
+media/
+staticfiles/
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Переменные окружения (секреты!)
+.env
+.env.local
+.env.production
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Миграции (опционально - можно коммитить)
+ */migrations/0*.py
+
+# OS
+Thumbs.db
+.DS_Store

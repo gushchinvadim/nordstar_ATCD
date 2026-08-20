@@ -1,0 +1,345 @@
+<!--docs/templates/docs/schedules/schedule.html-->
+<!DOCTYPE html>
+{% load static %}
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>РАСПИСАНИЕ - {{ group.assigned_number }}</title>
+<style>
+    /* Базовые стили для экрана */
+    body {
+        font-family: 'Times New Roman', serif;
+        font-size: 10pt;
+        margin: 1cm;
+        line-height: 1.2;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }
+
+    td, th {
+        border: 1px solid black;
+        padding: 2px 3px;
+        vertical-align: middle;
+        word-wrap: break-word;
+        font-size: 10pt;
+        line-height: 1.2;
+    }
+
+    .training-table th {
+        background-color: #c0c0c0;
+        text-align: center;
+        font-weight: bold;
+    }
+
+    .header-title { text-align: center; }
+/* Шапка расписания — фиксированная ширина */
+.header-title td {
+    padding: 2px 4px;
+    font-size: 9pt;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.header-title td:first-child {
+    width: 15%;
+}
+
+.header-title td:nth-child(2) {
+    width: 70%;
+}
+
+.header-title td:last-child {
+    width: 15%;
+}
+
+.logo-img {
+    max-height: 25px;
+    max-width: 100%;
+    width: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+    .curator-director {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 10px;
+    }
+
+    .header-schedule {
+        text-align: center;
+        margin-bottom: 10px;
+    }
+
+    /* Жестко задаем 10pt для параграфов в шапке */
+    .header-schedule p {
+        margin: 3px 0;
+        font-size: 10pt;
+    }
+
+    .stage-title {
+        text-align: center;
+        background-color: #edebeb;
+        font-weight: bold;
+        font-size: 10pt;
+    }
+
+    .no-print { margin-top: 20px; text-align: center; }
+    .print-btn {
+        padding: 5px 10px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        margin: 0 5px;
+        font-size: 10pt;
+    }
+    .print-btn:hover { background-color: #0056b3; }
+
+    /* КРИТИЧНО: Стили специально для печати/сохранения в PDF */
+    @page {
+        size: A4 landscape;
+        margin: 10mm;
+    }
+
+    @media print {
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            font-size: 8pt !important; /* Принудительно 10pt */
+        }
+
+        /* Принудительно 10pt для всех элементов внутри */
+        body, table, td, th, p, span, div, h1, h2, h3 {
+            font-size: 8pt !important;
+            line-height: 1.2 !important;
+        }
+
+        .no-print { display: none !important; }
+
+        /* Убираем фоновые цвета при печати, если нужно (опционально) */
+        /* .training_tasks-table th, .stage-title { background-color: transparent !important; } */
+    }
+</style>
+</head>
+<body>
+
+<!-- ВЕРХНЯЯ ТАБЛИЦА (ШАПКА) С ГРАНИЦАМИ -->
+<table>
+    <tr class="header-title">
+        <td style="width: 15%;">
+            {% if logo_base64 %}
+            <img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">
+            {% endif %}
+        </td>
+        <td style="width: 70%; text-align: center; font-weight: bold;">
+            РАСПИСАНИЕ<br>
+            <span style="font-weight: normal;">{{ group.module.course.title }}</span>
+        </td>
+        <td style="width: 15%; text-align: center; font-weight: bold;">
+            {{ group.module.code }}
+        </td>
+    </tr>
+</table>
+
+<!-- ИНФОРМАЦИЯ О ГРУППЕ -->
+<div class="header-schedule">
+    <p style="margin: 5px 0;"><strong>Группа:</strong> {{ group.assigned_number }}</p>
+    <p style="margin: 5px 0;"><strong></strong> {{ group.module.title }}</p>
+    <p style="margin: 5px 0;"><strong>Начало занятий:</strong> {{ group.start_date|date:"d.m.Y" }}</p>
+
+    <div class="curator-director">
+        <p style="margin: 0;">Куратор:  {{ group.mentor.full_name|default:"____________________________" }}, e-mail: {{ group.mentor.email|default:"__________________________" }}</p>
+        <p style="margin: 0;">Утверждаю: ___________________________ {{ group.director.full_name|default:"" }}</p>
+    </div>
+</div>
+
+<!-- ТАБЛИЦА РАСПИСАНИЯ -->
+<table class="training-table">
+    <thead>
+        <tr>
+            <th colspan="1">№ П/П</th>
+            <th colspan="2">Дата начала</th>
+            <th colspan="2">Продолжительность подготовки (план)</th>
+            <th colspan="2">Расписание часов</th>
+            <th colspan="3">Содержание этапов подготовки</th>
+            <th colspan="3">Темы подготовки</th>
+            <th colspan="2">Преподаватель/Инструктор</th>
+            <th colspan="2">Место проведения</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {# Группируем вручную по этапам, сохраняя порядок #}
+        {% regroup schedule_items by section.stage as stage_list %}
+
+        {% for stage in stage_list %}
+        <!-- Заголовок этапа -->
+        <tr class="stage-title">
+            <th colspan="17">{{ stage.grouper.title }}</th>
+        </tr>
+
+        {# Перебираем занятия внутри этапа (уже отсортированы) #}
+        {% for item in stage.list %}
+        <tr>
+            <!-- № П/П -->
+            <td colspan="1" style="text-align: center;">
+                {% if item.subsection and item.subsection.order %}
+                    {{ item.subsection.order }}
+                {% else %}
+                    {{ item.section.order }}
+                {% endif %}
+            </td>
+
+            <!-- Дата начала -->
+            <td colspan="2" style="text-align: center;">{{ item.date|date:"d.m.Y" }}</td>
+
+            <!-- Продолжительность подготовки (план) -->
+            <td colspan="2" style="text-align: center;">
+                {% if item.subsection and item.subsection.duration_hours > 0 %}
+                    {{ item.subsection.duration_hours }} ак.ч.
+                {% else %}
+                    {{ item.section.duration_hours }} ак.ч.
+                {% endif %}
+            </td>
+
+            <!-- Расписание часов (УЛУЧШЕННАЯ ЛОГИКА) -->
+            <td colspan="2" style="text-align: center;">
+                {# Если это СДО (проверяем и session_type, и detail секции на всякий случай) #}
+                {% if item.session_type|lower == 'sdo' or item.section.detail|lower == 'sdo' %}
+                    09:00
+                {% elif item.start_time and item.end_time %}
+                    {{ item.start_time|time:"H:i" }} – {{ item.end_time|time:"H:i" }}
+                {% else %}
+                    Свободный график
+                {% endif %}
+            </td>
+
+            <!-- Содержание этапов подготовки (Название раздела) -->
+            <td colspan="3">{{ item.section.title }}</td>
+
+            <!-- Темы подготовки (Конкретная сессия) -->
+            <td colspan="3" style="vertical-align: middle;">
+                {% if item.subsection %}
+                    {{ item.subsection.title }}
+                {% else %}
+                    <span style="color: #666; font-style: italic;">(Без детализации)</span>
+                {% endif %}
+            </td>
+
+            <!-- Преподаватель/Инструктор -->
+            <td colspan="2">{{ item.instructor.full_name|default:"Не назначен" }}</td>
+
+            <!-- Место проведения (УЛУЧШЕННАЯ ЛОГИКА) -->
+            <td colspan="2">
+                {% if item.session_type|lower == 'sdo' or item.section.detail|lower == 'sdo' %}
+                    nordstar.ispringlearn.ru (СДО)
+                {% elif item.classroom %}
+                    {% if item.classroom.organization %}
+                        <strong>{{ item.classroom.organization.company_name }}</strong><br>
+                    {% endif %}
+                    {{ item.classroom.full_address }}
+                    {% if item.classroom.title %}
+                        {{ item.classroom.title }}
+                    {% endif %}
+                    {% if item.classroom.audience %}
+                        (ауд. {{ item.classroom.audience }})
+                    {% endif %}
+                {% else %}
+                    Не указано
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        {% endfor %}
+    </tbody>
+
+</table>
+<!--Кнопки-->
+<div class="no-print">
+    <button class="print-btn" onclick="window.print()">🖨 Распечатать</button>
+
+    <button class="print-btn" onclick="saveToGroupFolder('schedule')"
+            style="background: #FF9800; margin-left: 12px;">
+        💾 Сохранить в папку группы
+    </button>
+
+    <button class="print-btn" onclick="sendScheduleToEmail()"
+            style="background: #2196F3; margin-left: 12px;">
+        📧 Отправить на почту
+    </button>
+</div>
+<script>
+function sendScheduleToEmail() {
+    const defaultEmail = "{{ group.curator.email|default:'' }}";
+    const email = prompt("Введите email для отправки расписания:", defaultEmail);
+
+    if (email) {
+        fetch("{% url 'docs:send_schedule_email' group.id %}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email: email })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ ' + data.message);
+            } else {
+                alert('❌ Ошибка: ' + data.error);
+            }
+        })
+        .catch(error => alert('❌ Ошибка сети: ' + error));
+    }
+}
+
+function saveToGroupFolder(docType) {
+    if (confirm('Сохранить документ в папку группы?')) {
+        fetch("{% url 'docs:save_document' group.id %}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ document_type: docType })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ Документ сохранён:\nPDF: ' + data.pdf_path);
+            } else {
+                alert('❌ Ошибка: ' + data.error);
+            }
+        })
+        .catch(error => alert('❌ Ошибка сети: ' + error));
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+</body>
+</html>

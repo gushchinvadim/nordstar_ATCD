@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Документы группы {{ group.assigned_number }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; margin-top: 0; }
+        .info-block { background: #e3f2fd; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+
+        .doc-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .doc-table th, .doc-table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        .doc-table th { background: #f0f0f0; font-weight: bold; }
+        .doc-table tr:hover { background: #f9f9f9; }
+
+        .status-saved { color: #27ae60; font-weight: bold; }
+        .status-missing { color: #e74c3c; }
+        .status-soon { color: #95a5a6; font-style: italic; }
+
+        .btn { padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 12pt; display: inline-block; margin-right: 5px; border: none; cursor: pointer; }
+        .btn-view { background: #3498db; color: white; }
+        .btn-save { background: #f39c12; color: white; }
+        .btn-generate-all { background: #27ae60; color: white; padding: 10px 20px; border-radius: 4px; font-size: 14pt; margin-bottom: 20px;}
+        .btn-email { background: #2196F3; color: white; padding: 10px 20px; border-radius: 4px; font-size: 14pt; margin-bottom: 20px; margin-left: 10px;}
+        .btn-back { background: #9e9e9e; color: white; margin-top: 20px; }
+        .btn-download { background: #27ae60; color: white; }
+        .btn-download:hover { background: #229954; }
+        .disabled { opacity: 0.5; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📁 Центр документов: Группа {{ group.assigned_number }}</h1>
+
+        <div class="info-block">
+            <p><strong>Модуль:</strong> {{ group.module.code }} — {{ group.module.title }}</p>
+            <p><strong>Период:</strong> {{ group.start_date|date:"d.m.Y" }} — {{ group.end_date|date:"d.m.Y" }}</p>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div style="padding: 10px; background: {% if message.tags == 'success' %}#d4edda{% else %}#f8d7da{% endif %}; border-radius: 4px; margin-bottom: 15px;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="post" action="{% url 'docs:generate_all_documents' group.id %}" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-generate-all">📄 Сгенерировать и сохранить все доступные PDF</button>
+        </form>
+
+        <button class="btn btn-email" onclick="sendDocumentsByEmail()">📧 Отправить список документов на почту</button>
+
+        <table class="doc-table">
+            <thead>
+                <tr>
+                    <th style="width: 5%;">№</th>
+                    <th style="width: 35%;">Документ</th>
+                    <th style="width: 20%;">Статус в папке</th>
+                    <th style="width: 40%;">Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in documents %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ doc.icon }} {{ doc.name }}</td>
+                    <td>
+                        {% if doc.status == 'coming_soon' %}
+                            <span class="status-soon">В разработке</span>
+                        {% elif doc.is_saved %}
+                            <span class="status-saved">✅ Сохранен</span>
+                        {% else %}
+                            <span class="status-missing">Не сохранен</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if doc.status == 'coming_soon' %}
+                            <span class="btn disabled">Скоро</span>
+                        {% else %}
+                            {% if doc.view_url %}
+                                <a href="{{ doc.view_url }}" class="btn btn-view" target="_blank">👁 Открыть</a>
+                            {% endif %}
+
+                            {% if doc.is_saved %}
+                                <a href="/docs/download/{{ doc.saved_file_path }}" class="btn btn-download" target="_blank">⬇ Скачать PDF</a>
+                            {% else %}
+                                <button class="btn btn-save" onclick="saveSingleDoc('{{ doc.key }}')">💾 Сгенерировать PDF</button>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- ================= СЕКЦИЯ ОТЧЁТОВ РАУЦ ================= -->
+        <h2 style="margin-top: 40px; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+            📊 Отчёты для выгрузки (РАУЦ)
+        </h2>
+
+        <table class="doc-table">
+            <thead>
+                <tr>
+                    <th style="width: 30%;">Тип отчёта</th>
+                    <th style="width: 20%;">Статус в папке</th>
+                    <th style="width: 50%;">Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- РАУЦ Excel -->
+                <tr id="row-rauc-excel">
+                    <td>📗 РАУЦ (Excel .xlsx)</td>
+                    <td id="status-rauc-excel">
+                        {% if rauc_excel_saved %}
+                            <span class="status-saved">✅ Сохранен</span>
+                        {% else %}
+                            <span class="status-missing">Не сохранен</span>
+                        {% endif %}
+                    </td>
+                    <td id="actions-rauc-excel">
+                        {% if rauc_excel_saved %}
+                            <a href="/reporting/rauc/download/{{ rauc_excel_path }}" class="btn btn-view" target="_blank">👁 Открыть / ⬇ Скачать</a>
+                            <a href="/reporting/rauc/download/{{ rauc_excel_path }}" class="btn btn-download">⬇ Скачать</a>
+                        {% else %}
+                            <button class="btn btn-save" onclick="saveRaucFile('excel')">💾 Сгенерировать и сохранить</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                <!-- РАУЦ XML -->
+                <tr id="row-rauc-xml">
+                    <td>📄 РАУЦ (XML .xml)</td>
+                    <td id="status-rauc-xml">
+                        {% if rauc_xml_saved %}
+                            <span class="status-saved">✅ Сохранен</span>
+                        {% else %}
+                            <span class="status-missing">Не сохранен</span>
+                        {% endif %}
+                    </td>
+                    <td id="actions-rauc-xml">
+                        {% if rauc_xml_saved %}
+                            <a href="/reporting/rauc/preview-xml/{{ rauc_xml_path }}" class="btn btn-view" target="_blank">👁 Просмотр (XML)</a>
+                            <a href="/reporting/rauc/download/{{ rauc_xml_path }}" class="btn btn-download">⬇ Скачать</a>
+                        {% else %}
+                            <button class="btn btn-save" onclick="saveRaucFile('xml')">💾 Сгенерировать и сохранить</button>
+                        {% endif %}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <!-- ======================================================= -->
+
+        <!-- ================= СЕКЦИЯ ОТЧЁТОВ ФРДО ================= -->
+        <h2 style="margin-top: 40px; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+            📊 Отчёты для выгрузки (ФИС ФРДО)
+        </h2>
+
+        <table class="doc-table">
+            <thead>
+                <tr>
+                    <th style="width: 30%;">Тип отчёта</th>
+                    <th style="width: 20%;">Статус в папке</th>
+                    <th style="width: 50%;">Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- ФРДО Excel -->
+                <tr id="row-frdo-excel">
+                    <td>📘 ФРДО (Excel .xlsx)</td>
+                    <td id="status-frdo-excel">
+                        {% if frdo_excel_saved %}
+                            <span class="status-saved">✅ Сохранен</span>
+                        {% else %}
+                            <span class="status-missing">Не сохранен</span>
+                        {% endif %}
+                    </td>
+                    <td id="actions-frdo-excel">
+                        {% if frdo_excel_saved %}
+                            <a href="/reporting/frdo/download/{{ frdo_excel_path }}" class="btn btn-view" target="_blank">👁 Открыть / ⬇ Скачать</a>
+                            <a href="/reporting/frdo/download/{{ frdo_excel_path }}" class="btn btn-download">⬇ Скачать</a>
+                        {% else %}
+                            <button class="btn btn-save" onclick="saveFrdoFile('excel')">💾 Сгенерировать и сохранить</button>
+                        {% endif %}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <!-- ======================================================= -->
+
+        <a href="{% url 'admin:execution_group_change' group.id %}" class="btn btn-back">← Вернуться в админку</a>
+    </div>
+
+    <script>
+    function saveSingleDoc(docType) {
+        if (!confirm('Сохранить документ в папку группы?')) return;
+
+        fetch("{% url 'docs:save_document' group.id %}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ document_type: docType })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ Документ сохранён!');
+                location.reload();
+            } else {
+                alert('❌ Ошибка: ' + data.error);
+            }
+        })
+        .catch(error => alert('❌ Ошибка сети: ' + error));
+    }
+
+    function sendDocumentsByEmail() {
+        const standardDocs = [];
+        const reports = [];
+
+        document.querySelectorAll('.doc-table tbody tr').forEach(row => {
+            // Проверяем, есть ли в строке элемент со статусом "Сохранен" (чтобы не захватить "Не сохранен")
+            if (row.querySelector('.status-saved')) {
+                // Определяем тип строки: отчеты имеют id, содержащие 'rauc' или 'frdo'
+                if (row.id && (row.id.includes('rauc') || row.id.includes('frdo'))) {
+                    const name = row.cells[0].textContent.trim();
+                    reports.push('📊 ' + name);
+                } else {
+                    const name = row.cells[1].textContent.trim();
+                    standardDocs.push('📄 ' + name);
+                }
+            }
+        });
+
+        let docsList = '';
+        if (standardDocs.length > 0) {
+            docsList += '📁 Основные документы:\n' + standardDocs.join('\n') + '\n';
+        }
+        if (reports.length > 0) {
+            docsList += '📈 Отчёты для выгрузки (РАУЦ / ФРДО):\n' + reports.join('\n') + '\n';
+        }
+
+        if (docsList === '') {
+            docsList = '⚠️ Документы ещё не сохранены.';
+        }
+
+        const subject = encodeURIComponent(`Документы группы {{ group.assigned_number }} ({{ group.application }})`);
+
+        const body = encodeURIComponent(
+`Здравствуйте!
+
+Направляю информацию по документам группы {{ group.assigned_number }} ({{ group.application }}):
+Модуль: {{ group.module.code }} — {{ group.module.title }}
+Период обучения: {{ group.start_date|date:"d.m.Y" }} — {{ group.end_date|date:"d.m.Y" }}
+
+${docsList}
+Все документы и ссылки на скачивание доступны в Центре документов:
+{{ request.scheme }}://{{ request.get_host }}{% url 'docs:documents_dashboard' group.id %}
+
+--
+С уважением,
+АУЦ НордСтар | Система ATCD`
+        );
+
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function saveRaucFile(format) {
+        if (!confirm('Сгенерировать отчёт и сохранить в папку группы?')) return;
+
+        const url = format === 'excel'
+            ? "{% url 'reporting:save_rauc_excel' group.id %}"
+            : "{% url 'reporting:save_rauc_xml' group.id %}";
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.warnings && data.warnings.length > 0) {
+                    alert('⚠️ Отчёт сохранён, но есть предупреждения:\n\n• ' + data.warnings.join('\n• '));
+                } else {
+                    alert('✅ Отчёт успешно сохранён в папку группы!');
+                }
+
+                const statusCell = document.getElementById(`status-rauc-${format}`);
+                const actionsCell = document.getElementById(`actions-rauc-${format}`);
+                const encodedPath = encodeURIComponent(data.file_path);
+
+                statusCell.innerHTML = '<span class="status-saved">✅ Сохранен</span>';
+
+                let previewBtn = '';
+                if (format === 'xml') {
+                    previewBtn = `<a href="/reporting/rauc/preview-xml/${encodedPath}" class="btn btn-view" target="_blank">👁 Просмотр (XML)</a>`;
+                } else {
+                    previewBtn = `<a href="/reporting/rauc/download/${encodedPath}" class="btn btn-view" target="_blank">👁 Открыть / ⬇ Скачать</a>`;
+                }
+
+                actionsCell.innerHTML = `
+                    ${previewBtn}
+                    <a href="/reporting/rauc/download/${encodedPath}" class="btn btn-download">⬇ Скачать</a>
+                `;
+            } else {
+                alert('❌ Ошибка: ' + data.error);
+            }
+        })
+        .catch(error => alert('❌ Ошибка сети: ' + error));
+    }
+
+    function saveFrdoFile(format) {
+        if (!confirm('Сгенерировать отчёт ФРДО и сохранить в папку группы?')) return;
+
+        const url = "{% url 'reporting:save_frdo_excel' group.id %}";
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.warnings && data.warnings.length > 0) {
+                    alert('⚠️ Отчёт сохранён, но есть предупреждения:\n\n• ' + data.warnings.join('\n• '));
+                } else {
+                    alert('✅ Отчёт ФРДО успешно сохранён в папку группы!');
+                }
+
+                const statusCell = document.getElementById(`status-frdo-excel`);
+                const actionsCell = document.getElementById(`actions-frdo-excel`);
+                const encodedPath = encodeURIComponent(data.file_path);
+
+                statusCell.innerHTML = '<span class="status-saved">✅ Сохранен</span>';
+
+                actionsCell.innerHTML = `
+                    <a href="/reporting/frdo/download/${encodedPath}" class="btn btn-view" target="_blank">👁 Открыть / ⬇ Скачать</a>
+                    <a href="/reporting/frdo/download/${encodedPath}" class="btn btn-download">⬇ Скачать</a>
+                `;
+            } else {
+                alert('❌ Ошибка: ' + data.error);
+            }
+        })
+        .catch(error => alert('❌ Ошибка сети: ' + error));
+    }
+    </script>
+</body>
+</html>

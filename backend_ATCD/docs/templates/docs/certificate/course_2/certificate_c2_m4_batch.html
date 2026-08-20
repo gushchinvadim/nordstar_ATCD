@@ -1,0 +1,311 @@
+<!--docs/templates/docs/certificate/course_2/certificate_c2_m4_batch.html-->
+<!DOCTYPE html>
+{% load static %}
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Удостоверения — {{ group.assigned_number }} (Модуль 4)</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 0;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "Times New Roman", Times, serif;
+            font-size: 10pt;
+            line-height: 1.2;
+            color: #000;
+            background: white;
+        }
+        .a4-page {
+            width: 210mm;
+            height: 297mm;
+            padding: 8mm 8mm 0 8mm;
+            box-sizing: border-box;
+            page-break-after: always;
+            position: relative;
+        }
+        .a4-page:last-child {
+            page-break-after: auto;
+        }
+        .header-table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+        .header-table td { border: 1px solid #000; padding: 2px 4px; vertical-align: middle; }
+        .header-logo { width: 25%; text-align: center; }
+        .logo-img { max-height: 25px; width: auto; display: block; margin: 0 auto; }
+        .header-title { width: 50%; text-align: center; font-size: 10pt; text-transform: uppercase; }
+        .header-appendix { width: 25%; text-align: center; font-size: 8pt; line-height: 1.1; }
+
+        .content-table { width: 100%; border-collapse: collapse; border-top: 1px solid #000; border-right: none; border-left: none; border-bottom: none; }
+        .content-table td { border: none; vertical-align: top; padding: 0; }
+        .left-cell {
+            width: 89%;
+            border-right: 1px solid #000 !important;
+            padding: 3mm 2mm 3mm 3mm;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 260mm;
+            box-sizing: border-box;
+        }
+        .right-cell { width: 72%; padding: 3mm 6mm 3mm 4mm; }
+
+        .left-top { text-align: center; font-size: 8pt; line-height: 1.2; margin-bottom: 10mm; }
+        .left-top p { margin: 1px 0; }
+        .left-bottom { font-size: 7pt; line-height: 1.2; }
+        .license-block, .certificate-block { margin-bottom: 4mm; text-align: center; }
+        .license-block p, .certificate-block p { margin: 1px 0; }
+
+        .intro { text-align: center; margin-bottom: 4mm; font-size: 10pt; }
+        .field-row { margin-bottom: 3mm; font-size: 10pt; }
+        .field-row .field-content { display: flex; align-items: baseline; border-bottom: none; padding-bottom: 1px; }
+        .field-label { text-transform: uppercase; white-space: nowrap; margin-right: 4px; }
+        .field-value { flex: 1; }
+        .period-text { margin: 4mm 0; text-align: justify; font-size: 10pt; line-height: 1.3; }
+        .period-text u { text-decoration: underline; }
+        .approval-block { margin: 3mm 0; }
+        .approval-lines { display: flex; align-items: baseline; gap: 10px; }
+        .approval-organ-line { flex: 1; border-bottom: none; min-height: 16px; padding: 0 4px; text-align: center; font-size: 10pt; }
+        .approval-date-line { width: 100px; border-bottom: none; min-height: 16px; padding: 0 4px; text-align: center; font-size: 10pt; }
+        .approval-hints { display: flex; justify-content: space-between; font-size: 7pt; font-style: italic; margin-top: 1px; }
+        .approval-hints span:first-child { flex: 1; text-align: center; }
+        .approval-hints span:last-child { width: 100px; text-align: center; }
+        .program-title { text-align: center; margin: 4mm 0; font-size: 10pt; line-height: 1.2; }
+
+        .results-table { width: 100%; border-collapse: collapse; font-size: 8pt; margin: 4mm 0; }
+        .results-table th {background: lightgrey; border: 1px solid #000; padding: 2px 3px; text-align: center; font-weight: bold; }
+        .results-table td { border: 1px solid #000; padding: 2px 3px; vertical-align: middle; }
+        .results-table .stage-cell { text-align: center; vertical-align: middle; font-size: 7pt; }
+        .results-table .hours-cell { text-align: center; }
+        .results-table .grade-cell { text-align: center; font-style: italic; }
+
+        .final-exam { margin-top: 4mm; font-size: 10pt; line-height: 1.5; text-align: left; }
+        .signatures { margin-top: 8mm; }
+        .signature-table { width: 100%; border-collapse: collapse; font-size: 10pt; margin-bottom: 4mm; }
+        .signature-table td { vertical-align: bottom; padding-bottom: 1mm; }
+        .signature-line-box { border-bottom: 1px solid #000; height: 1em; min-width: 80px; margin: 0 auto; }
+        .signature-hint-small { font-size: 7pt; font-style: italic; margin-top: 1px; text-align: center; }
+        .meta-row { display: flex; align-items: baseline; margin-bottom: 2mm; justify-content: center; font-size: 10pt; }
+        .meta-label { white-space: nowrap; margin-right: 4px; }
+        .meta-line { width: 180px; border-bottom: none; min-height: 16px; padding: 0 4px; text-align: center; }
+        .footer-note { margin-top: 4mm; text-align: center; font-size: 8pt; font-style: italic; line-height: 1.2; }
+
+        /* === СТИЛИ ДЛЯ ПЕЧАТИ === */
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 0;
+            }
+
+            body {
+                background: white;
+                margin: 0;
+                padding: 0;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                color-adjust: exact;
+            }
+
+            .a4-page {
+                width: 210mm;
+                height: 297mm;
+                padding: 8mm 8mm 0 8mm;
+                page-break-after: always;
+                break-after: page;
+                margin: 0;
+                box-sizing: border-box;
+            }
+
+            .a4-page:last-child {
+                page-break-after: auto;
+                break-after: auto;
+            }
+
+            /* Скрываем всё, что не нужно печатать */
+            .no-print,
+            button,
+            .print-btn {
+                display: none !important;
+            }
+
+            /* Гарантируем переносы страниц */
+            .results-table {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
+            .signatures {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
+            /* Убираем тени и фоны */
+            .a4-page {
+                box-shadow: none;
+                background: white;
+            }
+
+            /* Гарантируем отображение границ */
+            .header-table,
+            .header-table td,
+            .results-table,
+            .results-table th,
+            .results-table td {
+                border: 1px solid #000 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+
+{% for data in batch_data %}
+<div class="a4-page">
+    <!-- ТАБЛИЦА 1: КОЛОНТИТУЛ -->
+    <table class="header-table">
+        <tr>
+            <td class="header-logo">
+                {% if data.logo_base64 %}
+                <img src="data:image/png;base64,{{ data.logo_base64 }}" class="logo-img">
+                {% endif %}
+            </td>
+            <td class="header-title">УДОСТОВЕРЕНИЕ (МОДУЛЬ 4)</td>
+            <td class="header-appendix">Приложение 4<br>{{ data.module.code|default:"ППП.АУЦ.02 - М.4" }}</td>
+        </tr>
+    </table>
+
+    <!-- ТАБЛИЦА 2: КОНТЕНТ -->
+    <table class="content-table">
+        <tr>
+            <td class="left-cell">
+                <div class="left-top">
+                    <p>Авиационный</p><p>учебный центр</p><p>Акционерного общества</p><p>«Авиакомпания</p><p>«НордСтар»</p>
+                </div>
+                <div class="left-bottom">
+                    <div class="license-block">
+                        <p>Лицензия</p>
+                        <p>№ {{ data.license_education.license_number|default:"_______" }}</p>
+                        <p>выдана {{ data.license_education.issue_date|date:"d.m.Y"|default:"_______" }}</p>
+                        <p>Министерством<br>образования Красноярского края</p>
+                    </div>
+                    <div class="certificate-block">
+                        <p>Сертификат</p>
+                        <p>Авиационного учебного</p>
+                        <p>центра № {{ data.license_favt.license_number|default:"_______" }}</p>
+                        <p>выдан {{ data.license_favt.issue_date|date:"d.m.Y"|default:"_______" }}</p>
+                        <p>Федеральным агентством<br>воздушного транспорта</p>
+                    </div>
+                </div>
+            </td>
+            <td class="right-cell">
+                <p class="intro">Настоящим подтверждается, что</p>
+                <div class="field-row">
+                    <div class="field-content">
+                        <span class="field-label">ФАМИЛИЯ</span>
+                        <span class="field-value">{{ data.student.surname }} / {{ data.student.surname_latin|default:"" }}</span>
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field-content">
+                        <span class="field-label">ИМЯ, ОТЧЕСТВО</span>
+                        <span class="field-value">{{ data.student.name }} {{ data.student.patronymic }} / {{ data.student.name_latin|default:"" }}</span>
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field-content">
+                        <span class="field-label">ДАТА РОЖДЕНИЯ</span>
+                        <span class="field-value">{{ data.student.dob|date:"d.m.Y" }}</span>
+                    </div>
+                </div>
+                <div class="period-text">
+                    В период с <u>{{ data.group.start_date|date:"d.m.Y" }}</u> проходил(а) самостоятельную подготовку с использованием ЭО,
+                    с <u>{{ data.group.start_face_to_face|date:"d.m.Y" }}</u> по <u>{{ data.enrollment.completed_at|date:"d.m.Y" }}</u>
+                    обучался(ась) в АУЦ АО «АК «НордСтар»
+                    по Программе подготовки специалистов согласно перечню специалистов авиационного персонала гражданской авиации
+                    «Периодическая наземная подготовка членов лётных экипажей»,
+                </div>
+                <div class="approval-block">
+                    <div class="approval-lines">
+                        <span class="approval-organ-line">утверждённой {{ data.approval_organ|default:"Руководителем Красноярского МТУ Росавиации" }}</span>
+                        <span class="approval-date-line">{{ data.approval_date|default:"11.07.2025" }}</span>
+                    </div>
+                    <div class="approval-hints">
+                        <span>(орган, утвердивший программу)</span>
+                        <span>(дата утверждения)</span>
+                    </div>
+                </div>
+
+                <p class="program-title">
+                    {{ data.program_title|default:"Модуль 4 Периодическая водная подготовка" }},<br>
+                    в объёме {{ data.total_hours|floatformat:1 }} академических часов{% if data.elearning_hours %}, в том числе {{ data.elearning_hours|floatformat:1 }} ак. ч. с использованием электронного обучения{% endif %}
+                </p>
+<!--                <p style="text-align: center; margin: 4mm 0; font-size: 10pt;">И показал(а) следующие знания:</p>-->
+
+
+
+
+                <div class="signatures">
+                    <table class="signature-table">
+                        <tr>
+                            <td style="width: 30%; vertical-align: bottom;">
+                                ДОКУМЕНТ ОФОРМИЛ {% if data.group.curator.position %}{{ data.group.curator.position }}{% else %}Куратор{% endif %}
+                            </td>
+                            <td style="width: 30%; text-align: center; vertical-align: bottom;">
+                                <div class="signature-line-box"></div>
+                                <div class="signature-hint-small">(подпись)</div>
+                            </td>
+                            <td style="width: 40%; text-align: right; vertical-align: bottom;">
+                                <div style="margin-bottom: 1px;">{{ data.group.curator.full_name|default:"_" }}</div>
+                                <div class="signature-hint-small" style="text-align: center;">(ФИО)</div>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <table class="signature-table">
+                        <tr>
+                            <td style="width: 35%; vertical-align: bottom;">
+                                {{ data.group.director.position|default:"Директор АУЦ" }}
+                            </td>
+                            <td style="width: 30%; text-align: center; vertical-align: bottom;">
+                                <div class="signature-line-box"></div>
+                                <div class="signature-hint-small">(подпись)</div>
+                            </td>
+                            <td style="width: 35%; text-align: right; vertical-align: bottom;">
+                                <div style="margin-bottom: 1px;">{{ data.group.director.full_name|default:"—" }}</div>
+                                <div class="signature-hint-small" style="text-align: center;">(ФИО)</div>
+                            </td>
+                        </tr>
+                    </table>
+                    <div class="meta-row">
+                        <span class="meta-label">Регистрационный номер</span>
+                        <span class="meta-line">{{ data.cert_number|default:"" }}</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">Дата выдачи</span>
+                        <span class="meta-line">{{ data.enrollment.completed_at|date:"d.m.Y" }}</span>
+                    </div>
+                </div>
+
+            </td>
+        </tr>
+    </table>
+
+        <p class="footer-note">
+            Удостоверение является документом о повышении квалификации, выдаваемым АУЦ АО «АК «НордСтар» по результатам дополнительного профессионального образования.<br>Перед использованием проверьте актуальность документа на Корпоративном портале (https://gate.nordstar.ru) в разделе:
+            Центр документов / Шаблоны
+        </p>
+
+</div>
+{% endfor %}
+
+<!-- Кнопка печати (скроется при печати) -->
+<div class="no-print" style="text-align: center; margin: 20px 0;">
+    <button onclick="window.print()" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
+         Распечатать все удостоверения
+    </button>
+</div>
+
+</body>
+</html>

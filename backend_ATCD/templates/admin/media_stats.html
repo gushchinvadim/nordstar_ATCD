@@ -1,0 +1,40 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<h2> Статистика медиа-файлов</h2>
+
+<div style="background: #f0f0f0; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+    <p><strong>Общий размер:</strong> {{ total_size_mb|floatformat:2 }} MB</p>
+    <p><strong>Всего файлов:</strong> {{ total_files }}</p>
+</div>
+
+<h3>Топ-50 групп по размеру</h3>
+<table style="width: 100%; border-collapse: collapse;">
+    <thead>
+        <tr style="background: #f0f0f0;">
+            <th style="padding: 10px; border: 1px solid #ddd;">Год</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Модуль</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Группа</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Файлов</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Размер (MB)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for stat in folder_stats %}
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd;">{{ stat.year }}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{{ stat.module }}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{{ stat.group }}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{{ stat.files }}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{{ stat.size_mb|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<p style="margin-top: 20px;">
+    <a href="{% url 'admin:execution_group_changelist' %}" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">
+        ← Вернуться к списку групп
+    </a>
+</p>
+{% endblock %}

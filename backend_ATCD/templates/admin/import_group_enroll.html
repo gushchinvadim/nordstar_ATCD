@@ -1,0 +1,23 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div id="content-main">
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <fieldset class="module aligned">
+            <div class="form-row">
+                <label for="excel_file">Excel файл с группами и зачислениями:</label>
+                <input type="file" name="excel_file" id="excel_file" accept=".xlsx, .xls" required style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+                <p class="help">Файл должен содержать колонки: group, application, module, location, addr, dept, start_date, start_face_to_face, end_date, assigned_by, student, number_in_group, order_in_date</p>
+            </div>
+        </fieldset>
+
+        <div class="submit-row">
+            <input type="submit" value="Импортировать" class="default" />
+            <a href="{% url 'admin:index' %}" class="button">Отмена</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

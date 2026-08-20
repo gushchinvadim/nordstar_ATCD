@@ -1,0 +1,54 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+<div style="padding: 20px;">
+    <h1>📁 Файлы группы: {{ group.assigned_number }}</h1>
+    <p style="color: #666; margin-bottom: 20px;">
+        Путь на сервере: <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 4px;">{{ folder_path }}</code>
+    </p>
+
+    {% if files %}
+    <table style="width: 100%; border-collapse: collapse; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <thead>
+            <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
+                <th style="padding: 12px; text-align: left;">Папка</th>
+                <th style="padding: 12px; text-align: left;">Имя файла</th>
+                <th style="padding: 12px; text-align: right;">Размер</th>
+                <th style="padding: 12px; text-align: center;">Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in files %}
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 12px; color: #666; font-size: 0.9em;">
+                    {% if file.folder != '.' %}{{ file.folder }}/{% else %}Корень{% endif %}
+                </td>
+                <td style="padding: 12px; font-weight: 500;">
+                    {% if '.pdf' in file.name %}📄 {% else %}🌐 {% endif %}{{ file.name }}
+                </td>
+                <td style="padding: 12px; text-align: right; color: #666;">
+                    {{ file.size_kb|floatformat:1 }} КБ
+                </td>
+                <td style="padding: 12px; text-align: center;">
+                    <a href="{{ file.url }}" target="_blank"
+                       style="display: inline-block; padding: 6px 12px; background: #417690; color: white; text-decoration: none; border-radius: 4px; font-size: 0.9em;">
+                       👁 Открыть / Скачать
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="background: #fff3cd; border: 1px solid #ffeeba; color: #856404; padding: 20px; border-radius: 4px; margin-top: 20px;">
+        ⚠️ В папке этой группы пока нет сгенерированных файлов.
+        Сначала сгенерируйте расписание или приказ, либо используйте кнопку "Сохранить в папку группы" в просмотре документа.
+    </div>
+    {% endif %}
+
+    <p style="margin-top: 30px;">
+        <a href="../" style="color: #417690; text-decoration: none; font-weight: bold;">← Вернуться к редактированию группы</a>
+    </p>
+</div>
+{% endblock %}
