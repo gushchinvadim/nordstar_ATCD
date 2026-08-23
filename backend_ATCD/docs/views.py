@@ -596,12 +596,12 @@ def get_journal_context(group):
 
     # Разбивка посещаемости
     if use_landscape:
-        attendance_pages = _split_attendance_into_pages(attendance_by_stage, max_dates_per_page=11)
+        attendance_pages = _split_attendance_into_pages(attendance_by_stage, max_dates_per_page=10)
     else:
         attendance_pages = [attendance_by_stage] if attendance_by_stage else []
 
     # Тематический план
-    rows_per_page = 11 if use_landscape else 7
+    rows_per_page = 10 if use_landscape else 9
     thematic_plan_pages, module_total_hours = _build_thematic_plan(group, rows_per_page=rows_per_page)
 
     # === НАЙТИ ИНСТРУКТОРА ИТОГОВОГО ЭКЗАМЕНА ===
@@ -623,10 +623,22 @@ def get_journal_context(group):
 
         if exam_schedule and exam_schedule.instructor:
             exam_instructor = exam_schedule.instructor
-    # ==========================================
 
-    # Подсчёт страниц
-    total_pages = 1 + 1 + len(attendance_pages) + len(thematic_plan_pages) + 1
+
+    # === ПРОВЕРКА НАЛИЧИЯ ЗАДАНИЙ НА ТРЕНИРОВКУ (АСП) ===
+    has_asp_training = ScheduleItem.objects.filter(
+        group=group,
+        session_type__in=['asp-w', 'asp-l']
+    ).exists()
+    # ====================================================
+
+    num_plan_pages = len(thematic_plan_pages) if thematic_plan_pages else 0
+    attendance_count = len(attendance_pages) if attendance_pages else 0
+
+    zk18_pages = 2 + attendance_count + num_plan_pages + 1
+    zk13_pages = 1
+    zk21_pages = 1
+
 
     return {
         'group': group,
@@ -635,13 +647,20 @@ def get_journal_context(group):
         'attendance_pages': attendance_pages,
         'thematic_plan_pages': thematic_plan_pages,
         'module_total_hours': module_total_hours,
-        'total_pages': total_pages,
+        # 'num_plan_pages': num_plan_pages,
+        # 'total_pages': total_pages,
         'total_columns_students': 4,
         'total_columns_attendance': 2 + sum(len(s['dates']) for s in attendance_by_stage),
         'attendance_pages_count': len(attendance_pages),
         'logo_base64': get_logo_base64(),
         'use_landscape': use_landscape,
         'exam_instructor': exam_instructor,  # ← ДОБАВИТЬ
+
+        # НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ШАБЛОНА:
+        'zk18_pages': zk18_pages,
+        'zk13_pages': zk13_pages,
+        'zk21_pages': zk21_pages,
+        'has_asp_training': has_asp_training,
     }
 
 @staff_member_required
@@ -651,6 +670,8 @@ def journal_view(request, group_id):
     context = get_journal_context(group)
 
     template_name = 'docs/journal/journal_landscape.html' if context['use_landscape'] else 'docs/journal/journal.html'
+
+
     return render(request, template_name, context)
 
 @staff_member_required
@@ -1016,6 +1037,7 @@ def generate_all_documents(request, group_id):
         messages.success(request, f'Сгенерировано документов: {len(generated)}')
     if errors:
         messages.error(request, f'Ошибки: {"; ".join(errors)}')
+
 
     return redirect('docs:documents_dashboard', group_id=group_id)
 

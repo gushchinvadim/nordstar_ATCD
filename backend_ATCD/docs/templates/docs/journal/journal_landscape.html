@@ -10,6 +10,22 @@
             margin: 2mm;
         }
 
+        /* === ПРАВИЛЬНЫЕ СЧЕТЧИКИ WEASYPRINT === */
+        body {
+            counter-reset: current-page 0;
+        }
+        .a4-page {
+            counter-increment: current-page;
+            page-break-after: always;
+        }
+        .exam-start, .registry-start {
+            counter-reset: current-page 0;
+        }
+        .page-num::after {
+            content: counter(current-page);
+        }
+        /* ====================================== */
+
         body {
             background-color: #e0e0e0;
             margin: 0;
@@ -67,14 +83,12 @@
             left: 10mm;
         }
         .footer-note {
-            /*margin-bottom: 2mm;*/
-            /*padding-bottom: 2mm;*/
             text-align: center;
             font-size: 8pt;
             font-style: italic;
             line-height: 1.2;
         }
-            .page-content {
+        .page-content {
             padding-bottom: 10mm;
         }
 
@@ -165,7 +179,6 @@
             line-height: 1.3;
         }
 
-        /* Таблица посещаемости (альбомная) */
         .attendance-table {
             width: 100%;
             border-collapse: collapse;
@@ -228,24 +241,22 @@
         .attendance-table .attendance-cell .sign-cell { height: 18px; min-height: 18px; }
         .attendance-table .attendance-cell .sign-signature { min-height: 14px; border-bottom: 1px dotted #cccccc; }
 
-        /* Тематический план */
-   /* Тематический план - оптимизированный */
         .discipline-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 7.5pt;  /* УМЕНЬШЕНО с 8pt */
-            table-layout: fixed;  /* ФИКСИРОВАННАЯ ШИРИНА КОЛОНОК */
+            font-size: 7.5pt;
+            table-layout: fixed;
         }
 
         .discipline-table th,
         .discipline-table td {
             border: 1px solid black;
-            padding: 2px 2px;  /* УМЕНЬШЕНО с 3px */
+            padding: 2px 2px;
             vertical-align: top;
             word-wrap: break-word;
             overflow-wrap: break-word;
             line-height: 1.1;
-            overflow: hidden;  /* СКРЫВАЕМ ИЗБЫТОЧНЫЙ КОНТЕНТ */
+            overflow: hidden;
         }
 
         .discipline-table th {
@@ -257,59 +268,20 @@
             print-color-adjust: exact;
         }
 
-        /* Чётко задаём ширину каждой колонки */
-        .discipline-table td.number {
-            text-align: center;
-            width: 4%;  /* УМЕНЬШЕНО */
-        }
-
-        .discipline-table td.hours {
-            text-align: center;
-            width: 7%;  /* УМЕНЬШЕНО с 8% */
-        }
-
-.discipline-table td.location {
-    width: 15%;  /* УВЕЛИЧИЛИ с 14% */
-    font-size: 7pt;
-}
-
-.discipline-table td.date {
-    width: 12%;  /* УВЕЛИЧИЛИ с 11% */
-    font-size: 7pt;
-}
-
-.discipline-table td.responsible {
-    width: 15%;  /* УМЕНЬШИЛИ с 18% на ~3-5мм */
-    font-size: 6.5pt;  /* УМЕНЬШИЛИ шрифт */
-    padding: 2px 1px;  /* УМЕНЬШИЛИ padding */
-    text-align: left;  /* ВЫРАВНИВАНИЕ по левому краю */
-}
-
-.discipline-table td.text-left {
-    text-align: left;
-    width: 48%;  /* УВЕЛИЧИЛИ с 46% (освободилось место) */
-}
-
-        /* Ограничиваем высоту для длинных текстов */
-        .discipline-table td.text-left {
-            max-height: 35px;  /* УМЕНЬШЕНО с 40px */
-            overflow: hidden;
-        }
-
-        .discipline-table td.text-left small {
-            font-size: 6.5pt;  /* УМЕНЬШЕНО с 7pt */
-            color: #555;
-            display: block;
-            margin-top: 1px;
-            line-height: 1.0;
-        }
+        .discipline-table td.number { text-align: center; width: 4%; }
+        .discipline-table td.hours { text-align: center; width: 7%; }
+        .discipline-table td.location { width: 15%; font-size: 7pt; }
+        .discipline-table td.date { width: 12%; font-size: 7pt; }
+        .discipline-table td.responsible { width: 15%; font-size: 6.5pt; padding: 2px 1px; text-align: left; }
+        .discipline-table td.text-left { text-align: left; width: 48%; max-height: 35px; overflow: hidden; }
+        .discipline-table td.text-left small { font-size: 6.5pt; color: #555; display: block; margin-top: 1px; line-height: 1.0; }
 
         .stage-header-cell {
             background-color: #d3d3d3;
             font-weight: bold;
             text-align: center;
-            padding: 2px;  /* УМЕНЬШЕНО с 3px */
-            font-size: 8.5pt;  /* УМЕНЬШЕНО с 9pt */
+            padding: 2px;
+            font-size: 8.5pt;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
@@ -324,7 +296,7 @@
         .module-total-row td {
             background: #ffe0b2;
             font-weight: bold;
-            font-size: 7.5pt;  /* УМЕНЬШЕНО с 8pt */
+            font-size: 7.5pt;
             padding: 2px;
         }
 
@@ -348,7 +320,6 @@
                 size: A4 landscape;
                 margin: 2mm;
             }
-
             body {
                 background: none;
                 padding: 0;
@@ -356,7 +327,6 @@
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
-
             .a4-page {
                 box-shadow: none;
                 margin: 0 !important;
@@ -366,32 +336,31 @@
                 break-after: page;
                 page-break-after: page;
             }
-
             .a4-page:last-of-type {
                 break-after: auto;
                 page-break-after: auto;
             }
-
             .header-colontitle { margin-bottom: 2mm; }
             .footer-colontitle { bottom: 3mm; }
             .page-content { padding-bottom: 10mm; }
             .no-print { display: none !important; }
-
             table { page-break-inside: avoid; }
         }
     </style>
 </head>
 <body>
 
-<!-- ==================== СТРАНИЦА 1: ТИТУЛЬНАЯ ==================== -->
+<!-- ==================== ЗК.АУЦ.18: ТИТУЛЬНАЯ ==================== -->
 <div class="a4-page">
     <table class="header-colontitle">
         <tr>
             <td style="width: 20%;">
-                {% if logo_base64 %}<img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">{% endif %}
+                {% if logo_base64 %}
+                <img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">
+                {% endif %}
             </td>
             <td style="width: 60%; text-align: center; font-weight: 400; font-size: 11pt;">ЖУРНАЛ ФИКСАЦИИ ПРОЦЕССА ПОДГОТОВКИ</td>
-            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница 1 из {{ total_pages }}</td>
+            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница <span class="page-num"></span> из {{ zk18_pages }}</td>
         </tr>
     </table>
 
@@ -446,8 +415,7 @@
             <p><b>Дата:</b> «___» ____________ 20__ г.</p>
         </div>
     </div>
-        <p class="footer-note">Перед использованием проверьте актуальность документа на Корпоративном портале (https://gate.nordstar.ru) в разделе:
-            Центр документов / Шаблоны</p>
+    <p class="footer-note">Перед использованием проверьте актуальность документа на Корпоративном портале (https://gate.nordstar.ru) в разделе: Центр документов / Шаблоны</p>
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
@@ -455,11 +423,9 @@
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
-
 </div>
 
-
-<!-- ==================== СТРАНИЦА 2: СПИСОК СЛУШАТЕЛЕЙ ==================== -->
+<!-- ==================== ЗК.АУЦ.18: СПИСОК СЛУШАТЕЛЕЙ ==================== -->
 <div class="a4-page">
     <table class="header-colontitle">
         <tr>
@@ -467,7 +433,7 @@
                 {% if logo_base64 %}<img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">{% endif %}
             </td>
             <td style="width: 60%; text-align: center; font-weight: 400; font-size: 11pt;">ЖУРНАЛ ФИКСАЦИИ ПРОЦЕССА ПОДГОТОВКИ</td>
-            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница 2 из {{ total_pages }}</td>
+            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница <span class="page-num"></span> из {{ zk18_pages }}</td>
         </tr>
     </table>
 
@@ -479,20 +445,13 @@
                 <tr>
                     <th style="width: 5%;">№<br>п/п</th>
                     <th style="width: 55%;">Фамилия, Имя, Отчество<br>(полностью)</th>
-                    <th style="width: 20%;">
-                        ИНСТРУКТАЖИ И СОГЛАСИЯ
-                        <span class="sub-header">(одна подпись за все инструктажи)</span>
-                    </th>
+                    <th style="width: 20%;">ИНСТРУКТАЖИ И СОГЛАСИЯ<br><span class="sub-header">(одна подпись за все инструктажи)</span></th>
                     <th style="width: 20%;">Инструктаж проведен</th>
                 </tr>
                 <tr>
                     <th></th>
                     <th></th>
-                    <th style="font-size: 8pt; font-weight: normal;">
-                        Инструктаж по ОТ, ТБ, ППБ,<br>
-                        согласие на обработку ПД,<br>
-                        ознакомление с порядком
-                    </th>
+                    <th style="font-size: 8pt; font-weight: normal;">Инструктаж по ОТ, ТБ, ППБ,<br>согласие на обработку ПД,<br>ознакомление с порядком</th>
                     <th></th>
                 </tr>
             </thead>
@@ -501,9 +460,7 @@
                 <tr>
                     <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
                     <td class="name-cell">
-                        {{ enrollment.student.surname }}
-                        {{ enrollment.student.name }}
-                        {{ enrollment.student.patronymic|default:"" }}
+                        {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                     </td>
                     <td>
                         <div class="sign-cell">
@@ -543,8 +500,7 @@
     </table>
 </div>
 
-
-<!-- ==================== СТРАНИЦЫ 3+: ПОСЕЩАЕМОСТЬ (разбивка по 14 дат) ==================== -->
+<!-- ==================== ЗК.АУЦ.18: ПОСЕЩАЕМОСТЬ ==================== -->
 {% for attendance_page in attendance_pages %}
 <div class="a4-page">
     <table class="header-colontitle">
@@ -553,7 +509,7 @@
                 {% if logo_base64 %}<img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">{% endif %}
             </td>
             <td style="width: 60%; text-align: center; font-weight: 400; font-size: 11pt;">ЖУРНАЛ ФИКСАЦИИ ПРОЦЕССА ПОДГОТОВКИ</td>
-            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница {{ forloop.counter|add:2 }} из {{ total_pages }}</td>
+            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница <span class="page-num"></span> из {{ zk18_pages }}</td>
         </tr>
     </table>
 
@@ -590,9 +546,7 @@
                 <tr>
                     <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
                     <td class="name-cell">
-                        {{ enrollment.student.surname }}
-                        {{ enrollment.student.name }}
-                        {{ enrollment.student.patronymic|default:"" }}
+                        {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                     </td>
                     {% for stage_data in attendance_page %}
                         {% for date_info in stage_data.dates %}
@@ -619,8 +573,7 @@
 </div>
 {% endfor %}
 
-
-<!-- ==================== СТРАНИЦЫ: ТЕМАТИЧЕСКИЙ ПЛАН ==================== -->
+<!-- ==================== ЗК.АУЦ.18: ТЕМАТИЧЕСКИЙ ПЛАН ==================== -->
 {% for plan_page in thematic_plan_pages %}
 <div class="a4-page">
     <table class="header-colontitle">
@@ -629,7 +582,7 @@
                 {% if logo_base64 %}<img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">{% endif %}
             </td>
             <td style="width: 60%; text-align: center; font-weight: 400; font-size: 11pt;">ЖУРНАЛ ФИКСАЦИИ ПРОЦЕССА ПОДГОТОВКИ</td>
-            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница {{ attendance_pages|length|add:3|add:forloop.counter0 }} из {{ total_pages }}</td>
+            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница <span class="page-num"></span> из {{ zk18_pages }}</td>
         </tr>
     </table>
 
@@ -705,8 +658,7 @@
 </div>
 {% endfor %}
 
-
-<!-- ==================== РЕЗУЛЬТАТЫ ПРОМЕЖУТОЧНОЙ ОЦЕНКИ ЗНАНИЙ ==================== -->
+<!-- ==================== ЗК.АУЦ.18: РЕЗУЛЬТАТЫ ПРОМЕЖУТОЧНОЙ ОЦЕНКИ ==================== -->
 <div class="a4-page">
     <table class="header-colontitle">
         <tr>
@@ -714,7 +666,7 @@
                 {% if logo_base64 %}<img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">{% endif %}
             </td>
             <td style="width: 60%; text-align: center; font-weight: 400; font-size: 11pt;">ЖУРНАЛ ФИКСАЦИИ ПРОЦЕССА ПОДГОТОВКИ</td>
-            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница {{ total_pages }} из {{ total_pages }}</td>
+            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница <span class="page-num"></span> из {{ zk18_pages }}</td>
         </tr>
     </table>
 
@@ -750,9 +702,7 @@
                 <tr>
                     <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
                     <td class="name-cell" style="text-align: left;">
-                        {{ enrollment.student.surname }}
-                        {{ enrollment.student.name }}
-                        {{ enrollment.student.patronymic|default:"" }}
+                        {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                     </td>
                     <td></td>
                     <td></td>
@@ -778,8 +728,8 @@
     </table>
 </div>
 
-<!-- ====================  ЗАЧЕТНО-ЭКЗАМЕНАЦИОННАЯ ВЕДОМОСТЬ ==================== -->
-<div class="a4-page">
+<!-- ==================== ЗК.АУЦ.13: ЗАЧЕТНО-ЭКЗАМЕНАЦИОННАЯ ВЕДОМОСТЬ ==================== -->
+<div class="a4-page exam-start">
     <table class="header-colontitle">
         <tr>
             <td style="width: 20%;">
@@ -788,16 +738,14 @@
                 {% endif %}
             </td>
             <td style="width: 60%; text-align: center; font-weight: 400; font-size: 11pt;">ЗАЧЕТНО-ЭКЗАМЕНАЦИОННАЯ ВЕДОМОСТЬ</td>
-            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.13<br>Страница {{ total_pages }} из {{ total_pages }}</td>
+            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.13<br>Страница <span class="page-num"></span> из {{ zk13_pages }}</td>
         </tr>
     </table>
 
     <div class="page-content">
-<!--        <div class="page-title">ЗАЧЕТНО-ЭКЗАМЕНАЦИОННАЯ ВЕДОМОСТЬ</div>-->
-
-            <p style="text-align: center; margin: 15px 0; font-size: 11pt;"><b>Авиационный учебный центр<br>
-                Акционерного общества «Авиакомпания «НордСтар»<br>Настоящим подтверждается, что нижеперечисленные слушатели успешно
-                    прошли итоговое мероприятие по следующей программе:</b></p>
+        <p style="text-align: center; margin: 15px 0; font-size: 11pt;"><b>Авиационный учебный центр<br>
+            Акционерного общества «Авиакомпания «НордСтар»<br>Настоящим подтверждается, что нижеперечисленные слушатели успешно
+                прошли итоговое мероприятие по следующей программе:</b></p>
 
         <table class="module-table">
             <tr>
@@ -828,9 +776,7 @@
                 <tr>
                     <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
                     <td class="text-left" style="text-align: left;">
-                        {{ enrollment.student.surname }}
-                        {{ enrollment.student.name }}
-                        {{ enrollment.student.patronymic|default:"" }}
+                        {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                     </td>
                     <td style="text-align: center;"></td>
                     <td style="text-align: center;"></td>
@@ -856,8 +802,7 @@
             </tbody>
         </table>
     </div>
-        <p class="footer-note">Перед использованием проверьте актуальность документа на Корпоративном портале (https://gate.nordstar.ru) в разделе:
-            Центр документов / Шаблоны</p>
+    <p class="footer-note">Перед использованием проверьте актуальность документа на Корпоративном портале (https://gate.nordstar.ru) в разделе: Центр документов / Шаблоны</p>
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
@@ -867,9 +812,8 @@
     </table>
 </div>
 
-<!-- ====================  ЖУРНАЛ УЧЁТА ДОКУМЕНТОВ, ПОДТВЕРЖДАЮЩИХ ПРОХОЖДЕНИЕ ОБУЧЕНИЯ ==================== -->
-
-<div class="a4-page">
+<!-- ==================== ЗК.АУЦ.21: ЖУРНАЛ УЧЁТА ДОКУМЕНТОВ ==================== -->
+<div class="a4-page registry-start">
     <table class="header-colontitle">
         <tr>
             <td style="width: 20%;">
@@ -878,7 +822,7 @@
                 {% endif %}
             </td>
             <td style="width: 60%; text-align: center; font-weight: 400; font-size: 11pt;">ЖУРНАЛ УЧЁТА ДОКУМЕНТОВ, ПОДТВЕРЖДАЮЩИХ ПРОХОЖДЕНИЕ ОБУЧЕНИЯ</td>
-            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.21<br>Страница {{ total_pages }} из {{ total_pages }}</td>
+            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.21<br>Страница <span class="page-num"></span> из {{ zk21_pages }}</td>
         </tr>
     </table>
 
@@ -910,17 +854,11 @@
                             <td>{{ certificate.number|default:"Б/Н" }}</td>
                             <td style="text-align: center;">{{ certificate.issue_date|date:"d.m.Y"|default:"—" }}</td>
                             <td class="text-left" style="text-align: left;">
-                                {{ enrollment.student.surname }}
-                                {{ enrollment.student.name }}
-                                {{ enrollment.student.patronymic|default:"" }}
+                                {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                             </td>
                             <td></td>
                             <td class="text-left" style="text-align: left;">
-                                {% if group.curator %}
-                                    {{ group.curator.full_name }}
-                                {% else %}
-                                    —
-                                {% endif %}
+                                {% if group.curator %}{{ group.curator.full_name }}{% else %}—{% endif %}
                             </td>
                             <td></td>
                         </tr>
@@ -932,9 +870,7 @@
                             <td>—</td>
                             <td style="text-align: center;">—</td>
                             <td class="text-left" style="text-align: left;">
-                                {{ enrollment.student.surname }}
-                                {{ enrollment.student.name }}
-                                {{ enrollment.student.patronymic|default:"" }}
+                                {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                             </td>
                             <td></td>
                             <td class="text-left" style="text-align: left;">—</td>
@@ -945,8 +881,72 @@
             </tbody>
         </table>
     </div>
-            <p class="footer-note">Перед использованием проверьте актуальность документа на Корпоративном портале (https://gate.nordstar.ru) в разделе:
-            Центр документов / Шаблоны</p>
+
+        <!-- ... предыдущая таблица с сертификатами ... -->
+            </tbody>
+        </table>
+
+        <!-- ==================== ДИНАМИЧЕСКИЙ БЛОК: ЗАДАНИЯ НА ТРЕНИРОВКУ ==================== -->
+        {% if has_asp_training %}
+        <h3 style="text-align: center; margin: 15px 0 10px 0; text-transform: uppercase;">ЗАДАНИЯ НА ТРЕНИРОВКУ</h3>
+
+        <table class="journal-table">
+            <thead>
+                <tr>
+                    <th style="width: 5%;">№</th>
+                    <th style="width: 15%;">Тип документа</th>
+                    <th style="width: 20%;">№ документа</th>
+                    <th style="width: 10%;">Дата выдачи</th>
+                    <th style="width: 25%;">ФИО лица, прошедшего обучение</th>
+                    <th style="width: 10%;">Подпись</th>
+                    <th style="width: 15%;">ФИО оформившего</th>
+                    <th style="width: 10%;">Подпись</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for enrollment in students %}
+                    <!-- Логика вывода строк (оставлена как у вас, привязанная к сертификатам) -->
+                    {% if enrollment.certificates.all %}
+                        {% for certificate in enrollment.certificates.all %}
+                        <tr>
+                            <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
+                            <td style="text-align: center;">Задание на тренировку</td>
+                            <td>Б/Н</td>
+                            <td style="text-align: center;">{{ certificate.issue_date|date:"d.m.Y"|default:"—" }}</td>
+                            <td class="text-left" style="text-align: left;">
+                                {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
+                            </td>
+                            <td></td>
+                            <td class="text-left" style="text-align: left;">
+<!--                                {% if group.curator %}{{ group.curator.full_name }}{% else %}—{% endif %}-->
+                        {% if exam_instructor %}{{ exam_instructor.full_name }} {% elif group.curator %} {{ group.curator.full_name }} {% else %}
+                            —
+                        {% endif %}
+                            </td>
+                            <td></td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
+                            <td style="text-align: center;">—</td>
+                            <td>—</td>
+                            <td style="text-align: center;">—</td>
+                            <td class="text-left" style="text-align: left;">
+                                {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
+                            </td>
+                            <td></td>
+                            <td class="text-left" style="text-align: left;">—</td>
+                            <td></td>
+                        </tr>
+                    {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        <!-- ================================================================================ -->
+
+    <p class="footer-note">Перед использованием проверьте актуальность документа на Корпоративном портале (https://gate.nordstar.ru) в разделе: Центр документов / Шаблоны</p>
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
@@ -954,18 +954,15 @@
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
-
 </div>
 
 <div class="no-print">
     <button class="print-btn" onclick="window.print()">🖨 Распечатать журнал</button>
-
-    <button class="print-btn" onclick="saveToGroupFolder('journal')"
-            style="background: #FF9800; margin-left: 12px;">
+    <button class="print-btn" onclick="saveToGroupFolder('journal')" style="background: #FF9800; margin-left: 12px;">
         💾 Сохранить в папку группы
     </button>
 </div>
-</div>
+
 <script>
 function saveToGroupFolder(docType) {
     if (confirm('Сохранить документ в папку группы?')) {

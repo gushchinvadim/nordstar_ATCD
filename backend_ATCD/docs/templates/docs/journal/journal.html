@@ -11,6 +11,22 @@
         margin: 0;
     }
 
+    /* === ПРАВИЛЬНЫЕ СЧЕТЧИКИ WEASYPRINT === */
+body {
+    counter-reset: current-page 0;
+}
+.a4-page {
+    counter-increment: current-page;
+    page-break-after: always;
+}
+.exam-start, .registry-start {
+    counter-reset: current-page 0;
+}
+.page-num::after {
+    content: counter(current-page);
+}
+/* ====================================== */
+
     body {
         background-color: #e0e0e0;
         margin: 0;
@@ -436,7 +452,7 @@
 </head>
 <body>
 
-<!-- ==================== СТРАНИЦА 1: ТИТУЛЬНАЯ ==================== -->
+<!-- ==================== ЗК.АУЦ.18: ТИТУЛЬНАЯ ==================== -->
 <div class="a4-page">
     <table class="header-colontitle">
         <tr>
@@ -446,64 +462,62 @@
                 {% endif %}
             </td>
             <td style="width: 60%; text-align: center; font-weight: 400; font-size: 11pt;">ЖУРНАЛ ФИКСАЦИИ ПРОЦЕССА ПОДГОТОВКИ</td>
-            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница 1 из {{ total_pages }}</td>
+            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница <span class="page-num"></span> из {{ zk18_pages }}</td>
         </tr>
     </table>
 
     <div class="page-content">
-        <p style="text-align: center; margin: 25px 0; font-size: 12pt;">
+        <p style="text-align: center; margin: 20px 0; font-size: 12pt;">
             Авиационный учебный центр<br>
             Акционерного общества «Авиакомпания «НордСтар»
         </p>
 
         <div class="page-title">ЖУРНАЛ</div>
-        <h3 style="text-align: center; margin: 5px 0 20px 0;">ФИКСАЦИИ ПРОЦЕССА ТЕОРЕТИЧЕСКОЙ ПОДГОТОВКИ</h3>
+        <h3 style="text-align: center; margin: 5px 0 15px 0;">ФИКСАЦИИ ПРОЦЕССА ТЕОРЕТИЧЕСКОЙ ПОДГОТОВКИ</h3>
 
-        <div style="margin: 20mm 0;">
-            <table class="module-table">
+        <table class="module-table">
+            <tr>
+                <td class="bold">Модуль программы обучения</td>
+                <td>{{ group.module.code }} — {{ group.module.title }}</td>
+            </tr>
+            {% if group.module.aircraft_type %}
+            <tr>
+                <td class="bold">Тип ВС</td>
+                <td>{{ group.module.aircraft_type }}</td>
+            </tr>
+            {% endif %}
+            <tr>
+                <td class="bold">Дата начала обучения</td>
+                <td>{{ group.start_date|date:"d.m.Y" }}</td>
+            </tr>
+            <tr>
+                <td class="bold">Дата окончания обучения</td>
+                <td>{{ group.end_date|date:"d.m.Y" }}</td>
+            </tr>
+        </table>
+
+        <div style="margin-top: 15mm; width: 100%;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 11pt;">
                 <tr>
-                    <td class="bold">Модуль программы обучения</td>
-                    <td>{{ group.module.code }} — {{ group.module.title }}</td>
-                </tr>
-                {% if group.module.aircraft_type %}
-                <tr>
-                    <td class="bold">Тип ВС</td>
-                    <td>{{ group.module.aircraft_type }}</td>
-                </tr>
-                {% endif %}
-                <tr>
-                    <td class="bold">Дата начала обучения</td>
-                    <td>{{ group.start_date|date:"d.m.Y" }}</td>
-                </tr>
-                <tr>
-                    <td class="bold">Дата окончания обучения</td>
-                    <td>{{ group.end_date|date:"d.m.Y" }}</td>
+                    <td style="width: 35%; vertical-align: bottom; padding-bottom: 2mm;">
+                        <b>ПРОВЕРИЛ {% if group.curator.position %}{{ group.curator.position }}{% else %}Куратор{% endif %}</b>
+                    </td>
+                    <td style="width: 30%; text-align: center; vertical-align: bottom; padding-bottom: 2mm;">
+                        <div style="border-bottom: 1px solid black; height: 1em; min-width: 80px;"></div>
+                        <div style="font-size: 8pt; color: #666; margin-top: 2px;">(подпись)</div>
+                    </td>
+                    <td style="width: 35%; text-align: right; vertical-align: bottom; padding-bottom: 2mm;">
+                        {{ group.curator.full_name|default:"_" }}
+                    </td>
                 </tr>
             </table>
-            <div style="margin-top: 15mm; width: 100%;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 11pt;">
-                    <tr>
-                        <td style="width: 35%; vertical-align: bottom; padding-bottom: 2mm;">
-                            <b>ПРОВЕРИЛ {% if group.curator.position %}{{ group.curator.position }}{% else %}Куратор{% endif %}</b>
-                        </td>
-                        <td style="width: 30%; text-align: center; vertical-align: bottom; padding-bottom: 2mm;">
-                            <div style="border-bottom: 1px solid black; height: 1em; min-width: 80px;"></div>
-                            <div style="font-size: 8pt; color: #666; margin-top: 2px;">(подпись)</div>
-                        </td>
-                        <td style="width: 35%; text-align: right; vertical-align: bottom; padding-bottom: 2mm;">
-                            {{ group.curator.full_name|default:"_" }}
-                        </td>
-                    </tr>
-                </table>
-            </div>
+        </div>
 
-            <div style="margin-top: 10mm; font-size: 10pt; text-align: right;">
-                <p><b>Дата:</b> «___» ____________ 20__ г.</p>
-            </div>
+        <div style="margin-top: 10mm; font-size: 10pt; text-align: right;">
+            <p><b>Дата:</b> «___» ____________ 20__ г.</p>
         </div>
     </div>
-    <p class="footer-note">Перед использованием проверьте актуальность документа на Корпоративном портале (https://gate.nordstar.ru) в разделе:
-            Центр документов / Шаблоны</p>
+    <p class="footer-note">Перед использованием проверьте актуальность документа на Корпоративном портале (https://gate.nordstar.ru) в разделе: Центр документов / Шаблоны</p>
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
@@ -511,21 +525,17 @@
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
-
 </div>
 
-
-<!-- ==================== СТРАНИЦА 2: СПИСОК СЛУШАТЕЛЕЙ ==================== -->
+<!-- ==================== ЗК.АУЦ.18: СПИСОК СЛУШАТЕЛЕЙ ==================== -->
 <div class="a4-page">
     <table class="header-colontitle">
         <tr>
             <td style="width: 20%;">
-                {% if logo_base64 %}
-                <img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">
-                {% endif %}
+                {% if logo_base64 %}<img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">{% endif %}
             </td>
             <td style="width: 60%; text-align: center; font-weight: 400; font-size: 11pt;">ЖУРНАЛ ФИКСАЦИИ ПРОЦЕССА ПОДГОТОВКИ</td>
-            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница 2 из {{ total_pages }}</td>
+            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница <span class="page-num"></span> из {{ zk18_pages }}</td>
         </tr>
     </table>
 
@@ -535,25 +545,24 @@
         <table class="students-table">
             <thead>
                 <tr>
-                    <th style="width: 6%;">№<br>п/п</th>
-                    <th style="width: 54%;">Фамилия, Имя, Отчество<br>(полностью)</th>
-                    <th style="width: 20%;">
-                        ИНСТРУКТАЖИ И СОГЛАСИЯ<br>
-                        Инструктаж по ОТ, ТБ, ППБ,<br>согласие на обработку ПД,<br>ознакомление с порядком
-                        <span class="sub-header">(одна подпись за все инструктажи)</span>
-                    </th>
+                    <th style="width: 5%;">№<br>п/п</th>
+                    <th style="width: 55%;">Фамилия, Имя, Отчество<br>(полностью)</th>
+                    <th style="width: 20%;">ИНСТРУКТАЖИ И СОГЛАСИЯ<br><span class="sub-header">(одна подпись за все инструктажи)</span></th>
                     <th style="width: 20%;">Инструктаж проведен</th>
                 </tr>
+                <tr>
+                    <th></th>
+                    <th></th>
+                    <th style="font-size: 8pt; font-weight: normal;">Инструктаж по ОТ, ТБ, ППБ,<br>согласие на обработку ПД,<br>ознакомление с порядком</th>
+                    <th></th>
+                </tr>
             </thead>
-
             <tbody>
                 {% for enrollment in students %}
                 <tr>
                     <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
                     <td class="name-cell">
-                        {{ enrollment.student.surname }}
-                        {{ enrollment.student.name }}
-                        {{ enrollment.student.patronymic|default:"" }}
+                        {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                     </td>
                     <td>
                         <div class="sign-cell">
@@ -569,11 +578,7 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr>
-                    <td colspan="4" style="text-align: center; padding: 10px;">
-                        Слушатели не найдены в группе {{ group.assigned_number }}
-                    </td>
-                </tr>
+                <tr><td colspan="4" style="text-align: center; padding: 10px;">Слушатели не найдены</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -595,41 +600,40 @@
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
-
 </div>
 
-
-<!-- ==================== СТРАНИЦА 3: ОТМЕТКА О ПОСЕЩАЕМОСТИ ==================== -->
+<!-- ==================== ЗК.АУЦ.18: ПОСЕЩАЕМОСТЬ ==================== -->
+{% for attendance_page in attendance_pages %}
 <div class="a4-page">
     <table class="header-colontitle">
         <tr>
             <td style="width: 20%;">
-                {% if logo_base64 %}
-                <img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">
-                {% endif %}
+                {% if logo_base64 %}<img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">{% endif %}
             </td>
             <td style="width: 60%; text-align: center; font-weight: 400; font-size: 11pt;">ЖУРНАЛ ФИКСАЦИИ ПРОЦЕССА ПОДГОТОВКИ</td>
-            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница 3 из {{ total_pages }}</td>
+            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница <span class="page-num"></span> из {{ zk18_pages }}</td>
         </tr>
     </table>
 
     <div class="page-content">
-        <div class="page-title">ОТМЕТКА О ПОСЕЩАЕМОСТИ</div>
+        <div class="page-title">
+            ОТМЕТКА О ПОСЕЩАЕМОСТИ
+            {% if attendance_pages|length > 1 %}({{ forloop.counter }}/{{ attendance_pages|length }}){% endif %}
+        </div>
 
-        {% if attendance_by_stage %}
         <table class="attendance-table">
             <thead>
                 <tr>
                     <th rowspan="2" class="col-num">№<br>п/п</th>
                     <th rowspan="2" class="col-name">Фамилия, Имя, Отчество<br>(полностью)</th>
-                    {% for stage_data in attendance_by_stage %}
+                    {% for stage_data in attendance_page %}
                     <th colspan="{{ stage_data.dates|length }}" class="stage-group-header">
                         {{ stage_data.stage_title }}
                     </th>
                     {% endfor %}
                 </tr>
                 <tr>
-                    {% for stage_data in attendance_by_stage %}
+                    {% for stage_data in attendance_page %}
                         {% for date_info in stage_data.dates %}
                         <th class="date-cell">
                             <div class="date-number">{{ date_info.date_display }}</div>
@@ -639,41 +643,26 @@
                     {% endfor %}
                 </tr>
             </thead>
-
             <tbody>
                 {% for enrollment in students %}
                 <tr>
                     <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
                     <td class="name-cell">
-                        {{ enrollment.student.surname }}
-                        {{ enrollment.student.name }}
-                        {{ enrollment.student.patronymic|default:"" }}
+                        {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                     </td>
-
-                    {% for stage_data in attendance_by_stage %}
+                    {% for stage_data in attendance_page %}
                         {% for date_info in stage_data.dates %}
                         <td class="attendance-cell">
-                            <div class="sign-cell" style="height: 22px;">
-                                <div class="sign-signature" style="min-height: 18px;"></div>
-                            </div>
+                            <div class="sign-cell"><div class="sign-signature"></div></div>
                         </td>
                         {% endfor %}
                     {% endfor %}
                 </tr>
                 {% empty %}
-                <tr>
-                    <td colspan="{{ total_columns_attendance }}" style="text-align: center; padding: 10px;">
-                        Слушатели не найдены
-                    </td>
-                </tr>
+                <tr><td colspan="100" style="text-align: center; padding: 10px;">Слушатели не найдены</td></tr>
                 {% endfor %}
             </tbody>
         </table>
-        {% else %}
-        <div style="text-align: center; padding: 20px; color: #666;">
-            Даты очных занятий не найдены в расписании
-        </div>
-        {% endif %}
     </div>
 
     <table class="footer-colontitle">
@@ -683,22 +672,19 @@
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
-
 </div>
+{% endfor %}
 
-
-<!-- ==================== СТРАНИЦЫ 4+: ТЕМАТИЧЕСКИЙ ПЛАН ==================== -->
+<!-- ==================== ЗК.АУЦ.18: ТЕМАТИЧЕСКИЙ ПЛАН ==================== -->
 {% for plan_page in thematic_plan_pages %}
 <div class="a4-page">
     <table class="header-colontitle">
         <tr>
             <td style="width: 20%;">
-                {% if logo_base64 %}
-                <img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">
-                {% endif %}
+                {% if logo_base64 %}<img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">{% endif %}
             </td>
             <td style="width: 60%; text-align: center; font-weight: 400; font-size: 11pt;">ЖУРНАЛ ФИКСАЦИИ ПРОЦЕССА ПОДГОТОВКИ</td>
-            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница {{ forloop.counter|add:3 }} из {{ total_pages }}</td>
+            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница <span class="page-num"></span> из {{ zk18_pages }}</td>
         </tr>
     </table>
 
@@ -711,41 +697,36 @@
         <table class="discipline-table">
             <thead>
                 <tr>
-                    <th style="width: 5%;">№</th>
-                    <th style="width: 35%;">Наименование дисциплины</th>
-                    <th style="width: 10%;">Часы</th>
+                    <th style="width: 4%;">№</th>
+                    <th style="width: 45%;">Наименование дисциплины</th>
+                    <th style="width: 6%;">Часы</th>
                     <th style="width: 15%;">Место</th>
-                    <th style="width: 15%;">Дата</th>
-                    <th style="width: 20%;">Ответственный/подпись</th>
+                    <th style="width: 10%;">Дата</th>
+                    <th style="width: 20%;">Ответственный</th>
                 </tr>
             </thead>
             <tbody>
                 {% for row in plan_page.rows %}
-
                     {% if row.is_first_of_stage %}
-                    <tr class="stage-header-row">
-                        <td colspan="6">
-                            {{ row.stage.title }}
-                        </td>
-                    </tr>
+                    <tr><td colspan="6" class="stage-header-cell">{{ row.stage.title }}</td></tr>
                     {% endif %}
 
                     <tr>
                         <td class="number">{{ row.number }}</td>
-                        <td class="text-left">
-                            {{ row.title }}
-                            {% if row.subtitle %}<br><small style="color: #555; font-size: 0.9em;">{{ row.subtitle }}</small>{% endif %}
+                        <td class="text-left" style="word-break: break-word;">
+                            <div style="max-height: 35px; overflow: hidden;">
+                                {{ row.title }}
+                                {% if row.subtitle %}<br><small style="font-size: 6.5pt;">{{ row.subtitle }}</small>{% endif %}
+                            </div>
                         </td>
                         <td class="hours">{{ row.hours }} ак.ч.</td>
-
                         <td class="location">{{ row.location|default:"—" }}</td>
-
                         <td class="date">
-                            {% if row.date %}{{ row.date }}{% if row.start_time %}<br>{{ row.start_time }}{% endif %}{% else %}—{% endif %}
+                            {% if row.date %}{{ row.date }}{% if row.start_time %}<br><small>{{ row.start_time }}</small>{% endif %}{% else %}—{% endif %}
                         </td>
                         <td class="responsible">
-                            {{ row.instructor|default:"—" }}
-                            <div style="color: #999; font-size: 8px; padding-top: 8px;">Подпись</div>
+                            <div style="font-size: 7.5pt;">{{ row.instructor|default:"—" }}</div>
+                            <div style="color: #999; font-size: 7px; padding-top: 5px;">Подпись</div>
                         </td>
                     </tr>
 
@@ -753,10 +734,9 @@
                     <tr class="subtotal-row">
                         <td colspan="2" style="text-align: right;"><b>Итого по этапу:</b></td>
                         <td class="hours"><b>{{ row.stage_total_hours|default:"" }} ак.ч.</b></td>
-                        <td colspan="3" style="text-align: center; opacity: 50%"></td>
+                        <td colspan="3"></td>
                     </tr>
                     {% endif %}
-
                 {% endfor %}
 
                 {% if forloop.last %}
@@ -777,23 +757,18 @@
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
-
 </div>
-
 {% endfor %}
 
-
-<!-- ====================  РЕЗУЛЬТАТЫ ПРОМЕЖУТОЧНОЙ ОЦЕНКИ ЗНАНИЙ ==================== -->
+<!-- ==================== ЗК.АУЦ.18: РЕЗУЛЬТАТЫ ПРОМЕЖУТОЧНОЙ ОЦЕНКИ ==================== -->
 <div class="a4-page">
     <table class="header-colontitle">
         <tr>
             <td style="width: 20%;">
-                {% if logo_base64 %}
-                <img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">
-                {% endif %}
+                {% if logo_base64 %}<img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">{% endif %}
             </td>
             <td style="width: 60%; text-align: center; font-weight: 400; font-size: 11pt;">ЖУРНАЛ ФИКСАЦИИ ПРОЦЕССА ПОДГОТОВКИ</td>
-            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница {{ total_pages }} из {{ total_pages }}</td>
+            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.18<br>Страница <span class="page-num"></span> из {{ zk18_pages }}</td>
         </tr>
     </table>
 
@@ -819,8 +794,8 @@
                     <th style="width: 5%;">№</th>
                     <th style="width: 25%;">Фамилия, Имя, Отчество (полностью)</th>
                     <th style="width: 15%;">Оценка / результат</th>
-                    <th style="width: 12%;">Дата</th>
-                    <th style="width: 23%;">ФИО ответственного за организацию подготовки</th>
+                    <th style="width: 10%;">Дата</th>
+                    <th style="width: 25%;">ФИО ответственного за организацию подготовки</th>
                     <th style="width: 20%;">С оценкой ознакомлен и согласен</th>
                 </tr>
             </thead>
@@ -828,25 +803,19 @@
                 {% for enrollment in students %}
                 <tr>
                     <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
-                    <td class="text-left" style="text-align: left;">
-                        {{ enrollment.student.surname }}
-                        {{ enrollment.student.name }}
-                        {{ enrollment.student.patronymic|default:"" }}
+                    <td class="name-cell" style="text-align: left;">
+                        {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                     </td>
-                    <td style="text-align: center;"></td>
-                    <td style="text-align: center;"></td>
+                    <td></td>
+                    <td></td>
                     <td>
                         {{ group.curator.full_name|default:"—" }}
-                        <div style="color: #999; font-size: 9px; padding-top: 10px;">Подпись</div>
+                        <div style="color: #999; font-size: 8px; padding-top: 8px;">Подпись</div>
                     </td>
                     <td></td>
                 </tr>
                 {% empty %}
-                <tr>
-                    <td colspan="6" style="text-align: center; padding: 10px;">
-                        Слушатели не найдены
-                    </td>
-                </tr>
+                <tr><td colspan="6" style="text-align: center; padding: 10px;">Слушатели не найдены</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -859,12 +828,10 @@
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
-
 </div>
 
-
-<!-- ====================  ЗАЧЕТНО-ЭКЗАМЕНАЦИОННАЯ ВЕДОМОСТЬ ==================== -->
-<div class="a4-page">
+<!-- ==================== ЗК.АУЦ.13: ЗАЧЕТНО-ЭКЗАМЕНАЦИОННАЯ ВЕДОМОСТЬ ==================== -->
+<div class="a4-page exam-start">
     <table class="header-colontitle">
         <tr>
             <td style="width: 20%;">
@@ -873,15 +840,15 @@
                 {% endif %}
             </td>
             <td style="width: 60%; text-align: center; font-weight: 400; font-size: 11pt;">ЗАЧЕТНО-ЭКЗАМЕНАЦИОННАЯ ВЕДОМОСТЬ</td>
-            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.13<br>Страница {{ total_pages }} из {{ total_pages }}</td>
+            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.13<br>Страница <span class="page-num"></span> из {{ zk13_pages }}</td>
         </tr>
     </table>
 
     <div class="page-content">
-<!--        <div class="page-title">ЗАЧЕТНО-ЭКЗАМЕНАЦИОННАЯ ВЕДОМОСТЬ</div>-->
-                    <p style="text-align: center; margin: 15px 0; font-size: 11pt;"><b>Авиационный учебный центр<br>
-                Акционерного общества «Авиакомпания «НордСтар»<br>Настоящим подтверждается, что нижеперечисленные слушатели успешно
-                    прошли итоговое мероприятие по следующей программе:</b></p>
+        <p style="text-align: center; margin: 15px 0; font-size: 11pt;"><b>Авиационный учебный центр<br>
+            Акционерного общества «Авиакомпания «НордСтар»<br>Настоящим подтверждается, что нижеперечисленные слушатели успешно
+                прошли итоговое мероприятие по следующей программе:</b></p>
+
         <table class="module-table">
             <tr>
                 <td class="bold">Модуль программы обучения</td>
@@ -911,9 +878,7 @@
                 <tr>
                     <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
                     <td class="text-left" style="text-align: left;">
-                        {{ enrollment.student.surname }}
-                        {{ enrollment.student.name }}
-                        {{ enrollment.student.patronymic|default:"" }}
+                        {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                     </td>
                     <td style="text-align: center;"></td>
                     <td style="text-align: center;"></td>
@@ -939,8 +904,7 @@
             </tbody>
         </table>
     </div>
-    <p class="footer-note">Перед использованием проверьте актуальность документа на Корпоративном портале (https://gate.nordstar.ru) в разделе:
-            Центр документов / Шаблоны</p>
+    <p class="footer-note">Перед использованием проверьте актуальность документа на Корпоративном портале (https://gate.nordstar.ru) в разделе: Центр документов / Шаблоны</p>
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
@@ -950,9 +914,8 @@
     </table>
 </div>
 
-<!-- ====================  ЖУРНАЛ УЧЁТА ДОКУМЕНТОВ, ПОДТВЕРЖДАЮЩИХ ПРОХОЖДЕНИЕ ОБУЧЕНИЯ ==================== -->
-
-<div class="a4-page">
+<!-- ==================== ЗК.АУЦ.21: ЖУРНАЛ УЧЁТА ДОКУМЕНТОВ ==================== -->
+<div class="a4-page registry-start">
     <table class="header-colontitle">
         <tr>
             <td style="width: 20%;">
@@ -961,7 +924,7 @@
                 {% endif %}
             </td>
             <td style="width: 60%; text-align: center; font-weight: 400; font-size: 11pt;">ЖУРНАЛ УЧЁТА ДОКУМЕНТОВ, ПОДТВЕРЖДАЮЩИХ ПРОХОЖДЕНИЕ ОБУЧЕНИЯ</td>
-            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.21<br>Страница {{ total_pages }} из {{ total_pages }}</td>
+            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.21<br>Страница <span class="page-num"></span> из {{ zk21_pages }}</td>
         </tr>
     </table>
 
@@ -993,17 +956,11 @@
                             <td>{{ certificate.number|default:"Б/Н" }}</td>
                             <td style="text-align: center;">{{ certificate.issue_date|date:"d.m.Y"|default:"—" }}</td>
                             <td class="text-left" style="text-align: left;">
-                                {{ enrollment.student.surname }}
-                                {{ enrollment.student.name }}
-                                {{ enrollment.student.patronymic|default:"" }}
+                                {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                             </td>
                             <td></td>
                             <td class="text-left" style="text-align: left;">
-                                {% if group.curator %}
-                                    {{ group.curator.full_name }}
-                                {% else %}
-                                    —
-                                {% endif %}
+                                {% if group.curator %}{{ group.curator.full_name }}{% else %}—{% endif %}
                             </td>
                             <td></td>
                         </tr>
@@ -1015,9 +972,7 @@
                             <td>—</td>
                             <td style="text-align: center;">—</td>
                             <td class="text-left" style="text-align: left;">
-                                {{ enrollment.student.surname }}
-                                {{ enrollment.student.name }}
-                                {{ enrollment.student.patronymic|default:"" }}
+                                {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                             </td>
                             <td></td>
                             <td class="text-left" style="text-align: left;">—</td>
@@ -1028,15 +983,22 @@
             </tbody>
         </table>
 
+    <!-- ... предыдущая таблица с сертификатами ... -->
+            </tbody>
+        </table>
+
+        <!-- ==================== ДИНАМИЧЕСКИЙ БЛОК: ЗАДАНИЯ НА ТРЕНИРОВКУ ==================== -->
+        {% if has_asp_training %}
+        <h3 style="text-align: center; margin: 15px 0 10px 0; text-transform: uppercase;">ЗАДАНИЯ НА ТРЕНИРОВКУ</h3>
 
         <table class="journal-table">
             <thead>
                 <tr>
                     <th style="width: 5%;">№</th>
-                    <th style="width: 10%;">Тип документа</th>
+                    <th style="width: 15%;">Тип документа</th>
                     <th style="width: 20%;">№ документа</th>
                     <th style="width: 10%;">Дата выдачи</th>
-                    <th style="width: 20%;">ФИО лица, прошедшего обучение</th>
+                    <th style="width: 25%;">ФИО лица, прошедшего обучение</th>
                     <th style="width: 10%;">Подпись</th>
                     <th style="width: 15%;">ФИО оформившего</th>
                     <th style="width: 10%;">Подпись</th>
@@ -1044,6 +1006,7 @@
             </thead>
             <tbody>
                 {% for enrollment in students %}
+                    <!-- Логика вывода строк (оставлена как у вас, привязанная к сертификатам) -->
                     {% if enrollment.certificates.all %}
                         {% for certificate in enrollment.certificates.all %}
                         <tr>
@@ -1052,17 +1015,14 @@
                             <td>Б/Н</td>
                             <td style="text-align: center;">{{ certificate.issue_date|date:"d.m.Y"|default:"—" }}</td>
                             <td class="text-left" style="text-align: left;">
-                                {{ enrollment.student.surname }}
-                                {{ enrollment.student.name }}
-                                {{ enrollment.student.patronymic|default:"" }}
+                                {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                             </td>
                             <td></td>
                             <td class="text-left" style="text-align: left;">
-                                {% if group.curator %}
-                                    {{ group.curator.full_name }}
-                                {% else %}
-                                    —
-                                {% endif %}
+<!--                                {% if group.curator %}{{ group.curator.full_name }}{% else %}—{% endif %}-->
+                        {% if exam_instructor %}{{ exam_instructor.full_name }} {% elif group.curator %} {{ group.curator.full_name }} {% else %}
+                            —
+                        {% endif %}
                             </td>
                             <td></td>
                         </tr>
@@ -1074,9 +1034,7 @@
                             <td>—</td>
                             <td style="text-align: center;">—</td>
                             <td class="text-left" style="text-align: left;">
-                                {{ enrollment.student.surname }}
-                                {{ enrollment.student.name }}
-                                {{ enrollment.student.patronymic|default:"" }}
+                                {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                             </td>
                             <td></td>
                             <td class="text-left" style="text-align: left;">—</td>
@@ -1086,11 +1044,11 @@
                 {% endfor %}
             </tbody>
         </table>
-
+        {% endif %}
+        <!-- ================================================================================ -->
 
     </div>
-    <p class="footer-note">Перед использованием проверьте актуальность документа на Корпоративном портале (https://gate.nordstar.ru) в разделе:
-            Центр документов / Шаблоны</p>
+    <p class="footer-note">Перед использованием проверьте актуальность документа на Корпоративном портале (https://gate.nordstar.ru) в разделе: Центр документов / Шаблоны</p>
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
@@ -1100,19 +1058,13 @@
     </table>
 </div>
 
-
-
-
-<!-- Кнопки -->
 <div class="no-print">
     <button class="print-btn" onclick="window.print()">🖨 Распечатать журнал</button>
-
-    <button class="print-btn" onclick="saveToGroupFolder('journal')"
-            style="background: #FF9800; margin-left: 12px;">
+    <button class="print-btn" onclick="saveToGroupFolder('journal')" style="background: #FF9800; margin-left: 12px;">
         💾 Сохранить в папку группы
     </button>
 </div>
-</div>
+
 <script>
 function saveToGroupFolder(docType) {
     if (confirm('Сохранить документ в папку группы?')) {
