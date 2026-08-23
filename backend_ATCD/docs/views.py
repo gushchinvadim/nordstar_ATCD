@@ -601,7 +601,7 @@ def get_journal_context(group):
         attendance_pages = [attendance_by_stage] if attendance_by_stage else []
 
     # Тематический план
-    rows_per_page = 10 if use_landscape else 9
+    rows_per_page = 10 if use_landscape else 8
     thematic_plan_pages, module_total_hours = _build_thematic_plan(group, rows_per_page=rows_per_page)
 
     # === НАЙТИ ИНСТРУКТОРА ИТОГОВОГО ЭКЗАМЕНА ===
