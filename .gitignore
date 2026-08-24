@@ -38,9 +38,6 @@ htmlcov/
 .coverage.*
 coverage.xml
 
-# Миграции (опционально - можно коммитить)
- */migrations/0*.py
-
 # OS
 Thumbs.db
 .DS_Store
