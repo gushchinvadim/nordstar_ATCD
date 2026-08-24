@@ -1,3 +1,4 @@
+# core/management/commands/import_students.py
 from django.core.management.base import BaseCommand
 from core.services.excel_import import import_students
 

@@ -1,7 +1,8 @@
 # docs/views.py
 import json
 import re
-from datetime import date, datetime
+from collections import defaultdict
+from datetime import date, datetime, timedelta
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.mail import EmailMessage
 from django.db import models
@@ -9,10 +10,12 @@ from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.urls import reverse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from weasyprint import HTML
-from execution.models import Group, Enrollment, ScheduleItem, Assessment
+from execution.models import Group, Enrollment, ScheduleItem, Assessment, IndividualStudyPlan
+from execution.services.iup_service import IUPService
 from people.models import Staff
+from references.models import Location, Classroom
 from training.models import Section, Stage
 import os
 from django.conf import settings
@@ -601,7 +604,7 @@ def get_journal_context(group):
         attendance_pages = [attendance_by_stage] if attendance_by_stage else []
 
     # Тематический план
-    rows_per_page = 10 if use_landscape else 8
+    rows_per_page = 10 if use_landscape else 7
     thematic_plan_pages, module_total_hours = _build_thematic_plan(group, rows_per_page=rows_per_page)
 
     # === НАЙТИ ИНСТРУКТОРА ИТОГОВОГО ЭКЗАМЕНА ===
@@ -921,26 +924,6 @@ def dismissal_ot_list_view(request, group_id):
     }
     return render(request, 'docs/orders/dismissal_ot_list.html', context)
 
-@staff_member_required
-def dismissal_ok_view(request, group_id):
-    """Приказ об успешном окончании (ОК)"""
-    group = get_object_or_404(Group, id=group_id)
-    enrollments = Enrollment.objects.filter(
-        group=group,
-        status='completed'
-    ).select_related('student').order_by('number_in_group')
-
-    # Берем дату приказа из первой записи
-    order_date = enrollments.first().order_out_date if enrollments.exists() else date.today()
-
-    context = {
-        'group': group,
-        'enrollments': enrollments,
-        'order_date': order_date,  # ← ОБЯЗАТЕЛЬНО
-        'logo_base64': get_logo_base64(),
-    }
-    return render(request, 'docs/orders/dismissal_ok.html', context)
-
 
 @staff_member_required
 def dismissal_ot_view(request, group_id):
@@ -975,6 +958,40 @@ def dismissal_ot_view(request, group_id):
     }
     return render(request, 'docs/orders/dismissal_ot.html', context)
 
+
+@staff_member_required
+def dismissal_ok_view(request, group_id):
+    """Генерирует один PDF со всеми приказами ОК группы (сгруппированными по дате/номеру)"""
+    group = get_object_or_404(Group, id=group_id)
+
+    # Получаем всех зачисленных со статусом completed
+    enrollments = Enrollment.objects.filter(
+        group=group,
+        status='completed'
+    ).select_related('student').order_by('order_out_date', 'order_out_number', 'number_in_group')
+
+    # Группируем их по номеру приказа
+    orders_dict = defaultdict(list)
+    for enrollment in enrollments:
+        # Если номера нет (редкий случай), используем заглушку
+        order_key = enrollment.order_out_number or f"Б/Н-{enrollment.id}"
+        orders_dict[order_key].append(enrollment)
+
+    # Преобразуем в список для удобного цикла в шаблоне
+    orders_list = []
+    for order_number, ens in orders_dict.items():
+        orders_list.append({
+            'order_number': order_number,
+            'order_date': ens[0].order_out_date,
+            'enrollments': ens
+        })
+
+    context = {
+        'group': group,
+        'orders_list': orders_list,
+        'logo_base64': get_logo_base64(),
+    }
+    return render(request, 'docs/orders/dismissal_ok.html', context)
 
 @staff_member_required
 def download_document(request, file_path):
@@ -1174,6 +1191,42 @@ def group_documents_dashboard(request, group_id):
         'frdo_excel_path': frdo_excel_path,    # ← ДОБАВЛЕНО
     }
 
+    # === ПОЛУЧЕНИЕ СПИСКА ИУП ДЛЯ ГРУППЫ ===
+    iup_documents = []
+    year = str(group.start_date.year) if group.start_date else str(date.today().year)
+    module_code = re.sub(r'[^\w\-]', '_', group.module.code) if group.module else 'unknown_module'
+    iup_folder_rel = f"documents/{year}/groups/{module_code}/{group.assigned_number}/iup"
+
+    iups = IndividualStudyPlan.objects.filter(
+        group=group
+    ).select_related('student').order_by('-created_at')
+
+    for iup in iups:
+        surname = iup.student.surname
+        name = iup.student.name
+        patronymic = iup.student.patronymic or ''
+
+        sched_rel_path = f"{iup_folder_rel}/ИУП_{surname}_{name}_расписание.pdf"
+        theme_rel_path = f"{iup_folder_rel}/ИУП_{surname}_{name}_тематический_план.pdf"
+
+        sched_exists = os.path.exists(os.path.join(settings.MEDIA_ROOT, sched_rel_path))
+        theme_exists = os.path.exists(os.path.join(settings.MEDIA_ROOT, theme_rel_path))
+
+        iup_documents.append({
+            'id': iup.id,  # <--- ДОБАВЛЕНО: ID необходим для кнопки перегенерации
+            'student_name': f"{surname} {name} {patronymic}".strip(),
+            'reason': iup.reason,
+            'created_at': iup.created_at,
+            'status': iup.get_status_display(),
+            'schedule_path': sched_rel_path,
+            'thematic_path': theme_rel_path,
+            'schedule_exists': sched_exists,
+            'thematic_exists': theme_exists,
+        })
+
+    context['iup_documents'] = iup_documents
+    # ==========================================
+
     return render(request, 'docs/dashboard/documents_dashboard.html', context)
 
 @staff_member_required
@@ -1220,3 +1273,199 @@ def certificate_batch_view(request, group_id):
         messages.error(request, f"Ошибка генерации сертификата: {str(e)}")
         return redirect('docs:group_documents_dashboard', group_id=group.id)
 
+
+@staff_member_required
+def create_iup_view(request, enrollment_id):
+    """Создание индивидуального учебного плана для студента"""
+
+    enrollment = get_object_or_404(Enrollment, id=enrollment_id)
+    student = enrollment.student
+    group = enrollment.group
+
+    if request.method == 'POST':
+        start_date = request.POST.get('start_date')
+        end_date = request.POST.get('end_date')
+        start_face_to_face = request.POST.get('start_face_to_face')
+        reason = request.POST.get('reason', '')
+        reason_details = request.POST.get('reason_details', '')
+        schedule_data_json = request.POST.get('schedule_data', '[]')
+
+        if not start_date or not end_date:
+            messages.error(request, 'Укажите даты начала и окончания ИУП')
+            return redirect('docs:create_iup', enrollment_id=enrollment.id)
+
+        if not reason:
+            messages.error(request, 'Выберите причину назначения ИУП')
+            return redirect('docs:create_iup', enrollment_id=enrollment.id)
+
+        # Объединяем основную причину и детали
+        if reason_details:
+            reason = f"{reason} | {reason_details}"
+
+        try:
+            schedule_data = json.loads(schedule_data_json)
+        except json.JSONDecodeError:
+            messages.error(request, 'Ошибка в данных расписания')
+            return redirect('docs:create_iup', enrollment_id=enrollment.id)
+
+        new_dates = {
+            'start_date': date.fromisoformat(start_date),
+            'end_date': date.fromisoformat(end_date),
+            'start_face_to_face': date.fromisoformat(start_face_to_face) if start_face_to_face else None,
+            'schedule_data': schedule_data,
+        }
+
+        try:
+            service = IUPService(enrollment, new_dates)
+
+            staff_user = getattr(request.user, 'staff', None)
+            result = service.create_iup(
+                reason=reason,
+                created_by=staff_user
+            )
+
+            messages.success(
+                request,
+                f'✅ ИУП создан для {student.surname} {student.name}. '
+                f'Документы сохранены в папку группы.'
+            )
+
+        except Exception as e:
+            messages.error(request, f'Ошибка создания ИУП: {str(e)}')
+
+        return redirect('docs:group_grades', group_id=group.id)
+
+    context = {
+        'enrollment': enrollment,
+        'student': student,
+        'group': group,
+    }
+    return render(request, 'docs/iup/create_iup.html', context)
+
+
+
+@staff_member_required
+@require_GET
+def iup_preview_schedule(request, enrollment_id):
+    """AJAX: возвращает список занятий для предпросмотра ИУП"""
+
+    enrollment = get_object_or_404(Enrollment, id=enrollment_id)
+    group = enrollment.group
+
+    start_date_str = request.GET.get('start_date')
+    start_face_to_face_str = request.GET.get('start_face_to_face')
+
+    if not start_date_str:
+        return JsonResponse({'error': 'Не указана дата начала'}, status=400)
+
+
+    start_date = date.fromisoformat(start_date_str)
+    start_face_to_face = date.fromisoformat(start_face_to_face_str) if start_face_to_face_str else None
+
+    # Получаем расписание группы
+    schedule_items = ScheduleItem.objects.filter(
+        group=group
+    ).select_related(
+        'section', 'section__stage', 'instructor', 'classroom'
+    ).order_by('section__stage__order', 'section__order', 'date')
+
+    # Списки для select
+    instructors = Staff.objects.filter(is_active=True).order_by('full_name')
+    classrooms = Classroom.objects.all().order_by('title')
+
+    # === РАЗДЕЛЬНЫЙ РАСЧЁТ ДАТ ДЛЯ СДО И ОЧНЫХ ===
+    # Для очных: offset от даты начала очных занятий группы
+    face_to_face_offset = 0
+    if start_face_to_face and group.start_face_to_face:
+        face_to_face_offset = (start_face_to_face - group.start_face_to_face).days
+    elif not start_face_to_face and group.start_date:
+        # Если дата очных не указана, используем offset от общей даты начала
+        face_to_face_offset = (start_date - group.start_date).days
+
+    virtual_schedule = []
+    for item in schedule_items:
+        # КЛЮЧЕВОЕ РАЗЛИЧИЕ:
+        if item.session_type == 'sdo':
+            # СДО: дата = start_date ИУП (которую указал методист)
+            virtual_date = start_date
+            is_sdo = True
+        else:
+            # Очные: дата = оригинальная дата + offset
+            virtual_date = item.date + timedelta(days=face_to_face_offset) if item.date else None
+            is_sdo = False
+
+        virtual_schedule.append({
+            'id': item.id,
+            'section_id': item.section_id,
+            'section_title': item.section.title,
+            'stage_title': item.section.stage.title,
+            'session_type': item.session_type,
+            'is_sdo': is_sdo,
+            'original_date': item.date.strftime('%Y-%m-%d') if item.date else None,
+            'new_date': virtual_date.strftime('%Y-%m-%d') if virtual_date else None,
+            'start_time': item.start_time.strftime('%H:%M') if item.start_time else '',
+            'end_time': item.end_time.strftime('%H:%M') if item.end_time else '',
+            'instructor_id': item.instructor_id,
+            'instructor_name': item.instructor.full_name if item.instructor else '',
+            'classroom_id': item.classroom_id,
+            'classroom_name': item.classroom.title if item.classroom else '',
+        })
+
+    instructors_list = [{'id': i.id, 'name': i.full_name} for i in instructors]
+    classrooms_list = [{'id': c.id, 'name': c.title} for c in classrooms]
+
+    return JsonResponse({
+        'schedule': virtual_schedule,
+        'instructors': instructors_list,
+        'classrooms': classrooms_list,
+        'offset_days': face_to_face_offset,
+        'iup_start_date': start_date.strftime('%Y-%m-%d'),
+    })
+
+
+@staff_member_required
+@require_POST
+def regenerate_iup(request, iup_id):
+    """Перегенерирует PDF-файлы ИУП из данных, сохраненных в БД"""
+
+    from execution.models import IndividualStudyPlan
+    from execution.services.iup_service import IUPService
+
+    iup = get_object_or_404(IndividualStudyPlan, id=iup_id)
+
+    try:
+        # Находим зачисление студента в эту группу
+        enrollment = Enrollment.objects.get(
+            student=iup.student,
+            group=iup.group
+        )
+
+        # Создаем сервис с существующими данными
+        new_dates = {
+            'start_date': iup.start_date,
+            'end_date': iup.end_date,
+            'start_face_to_face': iup.start_face_to_face,
+            'schedule_data': iup.schedule_data or [],
+        }
+
+        service = IUPService(enrollment, new_dates)
+        result = service.create_iup(
+            reason=iup.reason,
+            created_by=iup.created_by
+        )
+
+        messages.success(
+            request,
+            f'✅ ИУП для {iup.student} перегенерирован. '
+            f'Файлы сохранены в папку группы.'
+        )
+
+    except Enrollment.DoesNotExist:
+        messages.error(
+            request,
+            f'Ошибка: не найдено зачисление студента {iup.student} в группу {iup.group.assigned_number}'
+        )
+    except Exception as e:
+        messages.error(request, f'Ошибка перегенерации ИУП: {str(e)}')
+
+    return redirect('docs:documents_dashboard', group_id=iup.group.id)

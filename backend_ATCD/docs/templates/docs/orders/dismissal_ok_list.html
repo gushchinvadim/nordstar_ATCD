@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 20px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <h2 style="margin-bottom: 20px;">Приказы об успешном окончании (ОК) <br>
+        <small style="font-size: 16px; color: #666;">Группа {{ group.assigned_number }} ({{ group.application }})</small>
+    </h2>
+
+    {% if orders %}
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px;">
+            <thead>
+                <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                    <th style="padding: 12px; text-align: left;">Номер приказа</th>
+                    <th style="padding: 12px; text-align: left;">Дата приказа</th>
+                    <th style="padding: 12px; text-align: center;">Кол-во слушателей</th>
+                    <th style="padding: 12px; text-align: center;">Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr style="border-bottom: 1px solid #dee2e6;">
+                    <td style="padding: 12px; font-weight: bold;">{{ order.order_out_number }}</td>
+                    <td style="padding: 12px;">{{ order.order_out_date|date:"d.m.Y" }}</td>
+                    <td style="padding: 12px; text-align: center;">
+                        <span style="background: #e9ecef; padding: 4px 10px; border-radius: 12px; font-weight: bold;">{{ order.student_count }}</span>
+                    </td>
+                    <td style="padding: 12px; text-align: center;">
+                    <!-- Было: -->
+<!-- <a href="{% url 'docs:dismissal_ok' group.id %}">Приказ ОК</a> -->
+
+<!-- Стало: -->
+<a href="{% url 'docs:dismissal_ok_list' group.id %}" class="button">📜 Приказы ОК</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div style="text-align: center; padding: 40px; color: #666;">
+            <p style="font-size: 16px;">В этой группе пока нет слушателей со статусом "Успешно завершен".</p>
+            <a href="{% url 'docs:group_grades' group.id %}" style="color: #007bff; text-decoration: none;">← Вернуться к журналу оценок</a>
+        </div>
+    {% endif %}
+
+    <div style="margin-top: 20px; text-align: right;">
+        <a href="{% url 'docs:documents_dashboard' group.id %}" style="color: #6c757d; text-decoration: none;">← Назад к документам группы</a>
+    </div>
+</div>
+{% endblock %}

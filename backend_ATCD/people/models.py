@@ -34,7 +34,7 @@ class Student(models.Model):
     name_latin = models.CharField("Имя (латиницей)", max_length=100, blank=True)
     surname_latin = models.CharField("Фамилия (латиницей)", max_length=100, blank=True)
     employee_id = models.CharField("ID сотрудника", max_length=50, blank=True)
-    dcat_id = models.CharField("Код профессии РАУЦ", max_length=50, blank=True)
+    # dcat_id = models.CharField("Код сертификата РАУЦ", max_length=50, blank=True)
     email = models.EmailField("Email", blank=True)
     is_active = models.BooleanField("Активен", default=True)
     class Meta:

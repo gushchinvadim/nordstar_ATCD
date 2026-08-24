@@ -27,7 +27,9 @@ urlpatterns = [
     path('generate-all/<int:group_id>/', views.generate_all_documents, name='generate_all_documents'),
     path('dismissal-ot-list/<int:group_id>/', views.dismissal_ot_list_view, name='dismissal_ot_list'),  # <-- ДОБАВИТЬ
     path('group/<int:group_id>/certificate/', views.certificate_batch_view, name='certificate_batch'),
-
+    path('enrollment/<int:enrollment_id>/create-iup/', views.create_iup_view, name='create_iup'),
+    path('api/enrollment/<int:enrollment_id>/iup-preview/', views.iup_preview_schedule, name='iup_preview_schedule'),
+    path('iup/<int:iup_id>/regenerate/', views.regenerate_iup, name='regenerate_iup'),
 ]
 
 # Раздача медиа-файлов в режиме DEBUG

@@ -1,0 +1,258 @@
+<!-- docs/templates/docs/iup/iup_thematic_plan.html -->
+<!DOCTYPE html>
+{% load static %}
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>ИУП Тематический план — {{ iup_student.surname }} {{ iup_student.name }}</title>
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 2mm;
+        }
+
+        body {
+            background-color: #e0e0e0;
+            margin: 0;
+            padding: 10px;
+            font-family: "Times New Roman", Times, serif;
+            font-size: 10pt;
+            line-height: 1.3;
+            color: #000;
+        }
+
+        .a4-page {
+            background: white;
+            width: 297mm;
+            min-height: 206mm;
+            padding: 3mm 5mm 3mm 10mm;
+            box-sizing: border-box;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            margin: 0 auto 20px auto;
+            position: relative;
+            page-break-after: always;
+            overflow: hidden;
+        }
+
+        .a4-page:last-of-type {
+            page-break-after: auto;
+        }
+
+        .header-colontitle {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 3mm;
+        }
+
+        .header-colontitle td,
+        .footer-colontitle td {
+            border: 1px solid black;
+            padding: 2px 6px;
+            vertical-align: middle;
+        }
+
+        .logo-img {
+            max-height: 20px;
+            width: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .footer-colontitle {
+            width: calc(100% - 20mm);
+            border-collapse: collapse;
+            position: absolute;
+            bottom: 6mm;
+            left: 10mm;
+        }
+
+        .page-title {
+            text-align: center;
+            font-size: 14pt;
+            font-weight: bold;
+            margin: 5px 0 10px 0;
+            text-transform: uppercase;
+        }
+
+        .iup-info {
+            background: #fff3cd;
+            border: 1px solid #f39c12;
+            padding: 8px;
+            margin-bottom: 10px;
+            font-size: 9pt;
+        }
+
+        .discipline-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 7.5pt;
+            table-layout: fixed;
+        }
+
+        .discipline-table th,
+        .discipline-table td {
+            border: 1px solid black;
+            padding: 2px 2px;
+            vertical-align: top;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.1;
+            overflow: hidden;
+        }
+
+        .discipline-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            text-align: center;
+            vertical-align: middle;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .discipline-table td.number { text-align: center; width: 4%; }
+        .discipline-table td.hours { text-align: center; width: 7%; }
+        .discipline-table td.location { width: 15%; font-size: 7pt; }
+        .discipline-table td.date { width: 12%; font-size: 7pt; }
+        .discipline-table td.responsible { width: 15%; font-size: 6.5pt; padding: 2px 1px; text-align: left; }
+        .discipline-table td.text-left { text-align: left; width: 48%; max-height: 35px; overflow: hidden; }
+
+        .stage-header-cell {
+            background-color: #d3d3d3;
+            font-weight: bold;
+            text-align: center;
+            padding: 2px;
+            font-size: 8.5pt;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .subtotal-row td {
+            background: #fff9e6;
+            font-weight: bold;
+            padding: 2px;
+            font-size: 7.5pt;
+        }
+
+        .module-total-row td {
+            background: #ffe0b2;
+            font-weight: bold;
+            font-size: 7.5pt;
+            padding: 2px;
+        }
+
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 2mm;
+            }
+            body {
+                background: none;
+                padding: 0;
+                margin: 0;
+            }
+            .a4-page {
+                box-shadow: none;
+                margin: 0;
+                width: 295mm;
+                min-height: auto;
+                padding: 3mm 10mm 3mm 10mm;
+            }
+        }
+    </style>
+</head>
+<body>
+
+{% for plan_page in thematic_plan_pages %}
+<div class="a4-page">
+    <!-- Колонтитул -->
+    <table class="header-colontitle">
+        <tr>
+            <td style="width: 20%;">
+                {% if logo_base64 %}
+                <img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">
+                {% endif %}
+            </td>
+            <td style="width: 60%; text-align: center; font-weight: 400; font-size: 11pt;">
+                ИНДИВИДУАЛЬНЫЙ УЧЕБНЫЙ ПЛАН<br>ТЕМАТИЧЕСКИЙ ПЛАН МОДУЛЯ
+            </td>
+            <td style="width: 20%; text-align: right; font-size: 9pt;">
+                ИУП {{ iup_student.surname }} {{ iup_student.name|slice:":1" }}.<br>
+                {{ group.assigned_number }}
+            </td>
+        </tr>
+    </table>
+
+    <!-- Информация об ИУП -->
+    <div class="iup-info">
+        <b>Студент:</b> {{ iup_student.surname }} {{ iup_student.name }} {{ iup_student.patronymic|default:"" }}<br>
+        <b>Период ИУП:</b> {{ iup_start_date|date:"d.m.Y" }} — {{ iup_end_date|date:"d.m.Y" }}<br>
+        <b>Модуль:</b> {{ group.module.code }} — {{ group.module.title }}
+    </div>
+
+    <table class="discipline-table">
+        <thead>
+            <tr>
+                <th style="width: 4%;">№</th>
+                <th style="width: 45%;">Наименование дисциплины</th>
+                <th style="width: 6%;">Часы</th>
+                <th style="width: 15%;">Место</th>
+                <th style="width: 10%;">Дата</th>
+                <th style="width: 20%;">Ответственный</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in plan_page.rows %}
+                {% if row.is_first_of_stage %}
+                <tr><td colspan="6" class="stage-header-cell">{{ row.stage.title }}</td></tr>
+                {% endif %}
+
+                <tr>
+                    <td class="number">{{ row.number }}</td>
+                    <td class="text-left" style="word-break: break-word;">
+                        <div style="max-height: 35px; overflow: hidden;">
+                            {{ row.title }}
+                            {% if row.subtitle %}<br><small style="font-size: 6.5pt;">{{ row.subtitle }}</small>{% endif %}
+                        </div>
+                    </td>
+                    <td class="hours">{{ row.hours }} ак.ч.</td>
+                    <td class="location">{{ row.location|default:"—" }}</td>
+                    <td class="date">
+                        {% if row.date %}{{ row.date }}{% if row.start_time %}<br><small>{{ row.start_time }}</small>{% endif %}{% else %}—{% endif %}
+                    </td>
+                    <td class="responsible">
+                        <div style="font-size: 7.5pt;">{{ row.instructor|default:"—" }}</div>
+                        <div style="color: #999; font-size: 7px; padding-top: 5px;">Подпись</div>
+                    </td>
+                </tr>
+
+                {% if row.is_last_of_stage %}
+                <tr class="subtotal-row">
+                    <td colspan="2" style="text-align: right;"><b>Итого по этапу:</b></td>
+                    <td class="hours"><b>{{ row.stage_total_hours|default:"" }} ак.ч.</b></td>
+                    <td colspan="3"></td>
+                </tr>
+                {% endif %}
+            {% endfor %}
+
+            {% if forloop.last %}
+            <tr class="module-total-row">
+                <td colspan="2" style="text-align: right;"><b>ИТОГО ПО МОДУЛЮ:</b></td>
+                <td class="hours"><b>{{ module_total_hours }} ак.ч.</b></td>
+                <td colspan="3"></td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    <table class="footer-colontitle">
+        <tr>
+            <td style="width: 15%;"><b>№ группы</b></td>
+            <td style="width: 60%;">{{ group.assigned_number }} - {{ group.application|default:"—" }}</td>
+            <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
+        </tr>
+    </table>
+</div>
+{% endfor %}
+
+</body>
+</html>

@@ -12,7 +12,6 @@ from execution.models import Enrollment
 class FRDOExportService:
     """Сервис генерации отчёта для ФИС ФРДО с поддержкой нескольких шаблонов"""
 
-    # Заголовки для бортпроводников
     HEADERS_ATTENDANT = [
         'Вид документа', 'Статус документа', 'Подтверждение утраты', 'Подтверждение обмена',
         'Подтверждение уничтожения', 'Серия документа', 'Номер документа', 'Дата выдачи документа',
@@ -28,7 +27,6 @@ class FRDOExportService:
         'Имя получателя (оригинала)', 'Отчество получателя (оригинала)', 'Номер документа для изменения',
     ]
 
-    # Заголовки для пилотов и инженеров
     HEADERS_PILOT = [
         'Вид документа', 'Статус документа', 'Подтверждение утраты', 'Подтверждение обмена',
         'Подтверждение уничтожения', 'Серия документа', 'Номер документа', 'Дата выдачи документа',
@@ -113,9 +111,25 @@ class FRDOExportService:
         doc_num = f"{g.application}-{enrollment.number_in_group}" if g.application else str(enrollment.number_in_group)
         doc_number = f"{doc_series}-{doc_num}" if doc_series else doc_num
 
-        # Годы и часы
+        # Годы обучения
         year_start = g.start_date.year if g.start_date else ''
-        year_end = cert.issue_date.year if cert.issue_date else ''
+
+        if enrollment.completed_at:
+            year_end = enrollment.completed_at.year
+        elif cert.issue_date:
+            year_end = cert.issue_date.year
+            errors.append(f"Студент {s.surname}: не заполнена completed_at")
+        else:
+            year_end = ''
+            errors.append(f"Студент {s.surname}: не заполнены completed_at и issue_date")
+
+        # === Дата выдачи документа (дата приказа) ===
+        issue_date = enrollment.order_out_date
+        if not issue_date:
+            errors.append(f"Студент {s.surname}: не заполнена order_out_date")
+            issue_date = cert.issue_date  # fallback
+        # ==========================================
+
         duration_hours = math.ceil(float(module.duration)) if module and module.duration else 0
 
         # Пол
@@ -124,17 +138,14 @@ class FRDOExportService:
                    'f': 'Женский', 'M': 'Муж', 'F': 'Жен'}
         sex = sex_map.get(str(sex_value).lower().strip(), '')
         if not sex:
-            errors.append(f"Студент {s.surname}: не заполнен или неверно указан пол (sex={sex_value})")
+            errors.append(f"Студент {s.surname}: не заполнен или неверно указан пол")
 
-        # СНИЛС
         formatted_snils = self._format_snils(s, errors)
 
-        # Форма обучения
         form_of_education = course.form_of_education if course and course.form_of_education else ''
         if not form_of_education:
-            errors.append(f"Программа '{course.title if course else 'неизвестно'}': не заполнена форма обучения")
+            errors.append(f"Программа: не заполнена форма обучения")
 
-        # Валидация
         if not s.dob: errors.append(f"Студент {s.surname}: не заполнена дата рождения")
         if not doc_series: errors.append(f"Группа: не заполнен assigned_number")
 
@@ -143,6 +154,7 @@ class FRDOExportService:
             'doc_series': doc_series, 'doc_num': doc_num, 'doc_number': doc_number,
             'year_start': year_start, 'year_end': year_end, 'duration_hours': duration_hours,
             'sex': sex, 'formatted_snils': formatted_snils, 'form_of_education': form_of_education,
+            'issue_date': issue_date,  # ← ДОБАВЛЕНО
             'frdo_doc_type': self.FRDO_DOCUMENT_TYPES.get(cert.certificate_type,
                                                           'Удостоверение о повышении квалификации')
         }
@@ -166,7 +178,7 @@ class FRDOExportService:
             'Подтверждение утраты': 'Нет', 'Подтверждение обмена': 'Нет', 'Подтверждение уничтожения': 'Нет',
             'Серия документа': data['doc_series'],
             'Номер документа': data['doc_num'],
-            'Дата выдачи документа': cert.issue_date.strftime('%d.%m.%Y') if cert.issue_date else '',
+            'Дата выдачи документа': data['issue_date'].strftime('%d.%m.%Y') if data['issue_date'] else '',
             'Регистрационный номер': data['doc_number'],
             'Программа профессионального обучения, направление подготовки': 'Программа повышения квалификации рабочих, служащих',
             'Наименование программы профессионального обучения': f"{course.title} — {module.title}" if course and module else (
@@ -174,7 +186,7 @@ class FRDOExportService:
             'Наименование профессий рабочих, должностей служащих': 'Бортпроводник',
             'Присвоенный квалификационный разряд, класс, категория (при наличии)': 'Нет',
             'Год начала обучения': str(data['year_start']) if data['year_start'] else '',
-            'Год окончания обучения': str(data['year_end']) if data['year_end'] else '',
+            'Год окончания обучения': str(data['year_end']) if data['year_end'] else '',  # ← ИСПРАВЛЕНО
             'Срок обучения, часов': str(data['duration_hours']) if data['duration_hours'] else '0',
             'Фамилия получателя': s.surname,
             'Имя получателя': s.name,
@@ -201,7 +213,7 @@ class FRDOExportService:
             'Подтверждение утраты': 'Нет', 'Подтверждение обмена': 'Нет', 'Подтверждение уничтожения': 'Нет',
             'Серия документа': data['doc_series'],
             'Номер документа': data['doc_num'],
-            'Дата выдачи документа': cert.issue_date.strftime('%d.%m.%Y') if cert.issue_date else '',
+            'Дата выдачи документа': data['issue_date'].strftime('%d.%m.%Y') if data['issue_date'] else '',
             'Регистрационный номер': data['doc_number'],
             'Дополнительная профессиональная программа (повышение квалификации/ профессиональная переподготовка)': 'Повышение квалификации',
             'Наименование дополнительной профессиональной программы': f"{course.title} — {module.title}" if course and module else (
@@ -214,6 +226,7 @@ class FRDOExportService:
             'Серия документа о ВО/СПО': '', 'Номер документа о ВО/СПО': '',
             'Год начала обучения (для документа о квалификации)': str(data['year_start']) if data['year_start'] else '',
             'Год окончания обучения (для документа о квалификации)': str(data['year_end']) if data['year_end'] else '',
+            # ← ИСПРАВЛЕНО
             'Срок обучения, часов (для документа о квалификации)': str(data['duration_hours']) if data[
                 'duration_hours'] else '0',
             'Фамилия получателя': s.surname,
@@ -293,20 +306,17 @@ class FRDOExportService:
         report.save()
 
         for row in rows:
-            # 1. Извлекаем ФИО из payload для поиска студента
             surname = row.get('Фамилия получателя', '')
             name = row.get('Имя получателя', '')
             patronymic = row.get('Отчество получателя', '')
 
             try:
-                # 2. Ищем студента в БД (это обязательно, т.к. поле student NOT NULL)
                 student_obj = Student.objects.get(
                     surname=surname,
                     name=name,
                     patronymic=patronymic
                 )
 
-                # 3. Ищем зачисление и сертификат
                 enrollment_obj = Enrollment.objects.filter(
                     group=self.group,
                     student=student_obj
@@ -314,19 +324,19 @@ class FRDOExportService:
 
                 certificate_obj = enrollment_obj.certificates.first() if enrollment_obj else None
 
-                # 4. Проверяем валидность конкретной строки
                 row_errors = []
                 snils_digits = ''.join(filter(str.isdigit, row.get('СНИЛС', '')))
                 if len(snils_digits) != 11:
                     row_errors.append("Некорректный СНИЛС")
                 if not row.get('Дата рождения получателя'):
                     row_errors.append("Не заполнена дата рождения")
+                if not row.get('Год окончания обучения'):
+                    row_errors.append("Не заполнен год окончания обучения")
 
-                # 5. Создаем запись, ОБЯЗАТЕЛЬНО передавая student=student_obj
                 RegulatoryReportItem.objects.create(
                     report=report,
                     enrollment=enrollment_obj,
-                    student=student_obj,  # <-- ЭТО ИСПРАВЛЯЕТ ОШИБКУ NOT NULL
+                    student=student_obj,
                     certificate=certificate_obj,
                     is_valid=len(row_errors) == 0,
                     validation_error='; '.join(row_errors),
@@ -334,11 +344,8 @@ class FRDOExportService:
                 )
 
             except Student.DoesNotExist:
-                # Если студента нет в БД, мы не можем создать RegulatoryReportItem.
-                # Фиксируем это как критическую ошибку всего отчета.
                 errors.append(f"Критическая ошибка: Студент {surname} {name} {patronymic} не найден в базе данных")
 
-        # Если появились новые ошибки в цикле, обновляем статус отчета
         if errors and report.status == 'generated':
             report.status = 'draft'
             report.save()

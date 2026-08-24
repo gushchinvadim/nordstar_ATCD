@@ -1,0 +1,102 @@
+<!-- docs/templates/docs/iup/iup_schedule.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>ИУП Расписание - {{ student.surname }} {{ student.name }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 15mm;
+        }
+        body {
+            font-family: "Times New Roman", Times, serif;
+            font-size: 11pt;
+            line-height: 1.4;
+        }
+        h1 {
+            text-align: center;
+            font-size: 14pt;
+            margin-bottom: 20px;
+        }
+        .info-block {
+            margin-bottom: 20px;
+            border: 1px solid #000;
+            padding: 10px;
+        }
+        .info-block p {
+            margin: 5px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 6px;
+            text-align: left;
+        }
+        th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+        .signature-block {
+            margin-top: 40px;
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+    <h1>ИНДИВИДУАЛЬНЫЙ УЧЕБНЫЙ ПЛАН<br>РАСПИСАНИЕ ЗАНЯТИЙ</h1>
+
+    <div class="info-block">
+        <p><b>Студент:</b> {{ student.surname }} {{ student.name }} {{ student.patronymic }}</p>
+        <p><b>Группа:</b> {{ group.assigned_number }} ({{ group.module.code }})</p>
+        <p><b>Период обучения по ИУП:</b> {{ iup_start_date|date:"d.m.Y" }} - {{ iup_end_date|date:"d.m.Y" }}</p>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Дата</th>
+                <th>Время</th>
+                <th>Раздел/Тема</th>
+                <th>Преподаватель</th>
+                <th>Аудитория</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in schedule_items %}
+            <tr>
+                <td>{{ item.date|date:"d.m.Y" }}</td>
+                <td>
+                    {% if item.start_time and item.end_time %}
+                        {{ item.start_time|time:"H:i" }} - {{ item.end_time|time:"H:i" }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td>{{ item.section.title }}</td>
+                <td>{{ item.instructor.full_name|default:"—" }}</td>
+                <td>{{ item.classroom.title|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center;">Расписание не сформировано</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="signature-block">
+        <div>
+            <p>Методист: _________________</p>
+        </div>
+        <div>
+            <p>Студент: _________________</p>
+        </div>
+    </div>
+</body>
+</html>

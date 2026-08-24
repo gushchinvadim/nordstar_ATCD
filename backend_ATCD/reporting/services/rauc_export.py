@@ -31,9 +31,8 @@ class RAUCExportService:
 
     def __init__(self, group, user=None):
         self.group = group
-        self.user = user  # Пользователь, который генерирует отчёт
+        self.user = user
 
-        # Инициализация пути к папке группы
         year = str(group.start_date.year) if group.start_date else 'unknown_year'
         module_code = re.sub(r'[^\w\-]', '_', group.module.code) if group.module else 'unknown_module'
 
@@ -78,33 +77,41 @@ class RAUCExportService:
             errors.append(f"Студент {s.surname} {s.name}: нет сертификата")
             return None, errors
 
-        # FPTITLE_ID и TPTITLE_ID из rauts_id куратора и директора
-        fptitle_id = getattr(g.curator, 'rauts_id', '') if g.curator else ''
-        tptitle_id = getattr(g.director, 'rauts_id', '') if g.director else ''
+        # === DEND: дата окончания обучения ===
+        dend = enrollment.completed_at
+        if not dend:
+            errors.append(f"Студент {s.surname}: не заполнена completed_at")
+            dend = g.end_date
 
-        if not fptitle_id:
-            errors.append(f"У куратора '{g.curator}' не заполнен rauts_id")
-        if not tptitle_id:
-            errors.append(f"У директора '{g.director}' не заполнен rauts_id")
+        # === DDOC: дата выдачи документа (дата приказа) ===
+        ddoc = enrollment.order_out_date
+        if not ddoc:
+            errors.append(f"Студент {s.surname}: не заполнена order_out_date (дата приказа)")
+            ddoc = cert.issue_date  # fallback
 
-        # DENDDOC: расчёт даты окончания действия
+        # === DENDDOC: дата окончания действия (от даты приказа) ===
         denndoc = ''
-        if cert.issue_date:
+        if ddoc:
             if module and getattr(module, 'validity_period', None):
-                expiry_date = cert.issue_date + relativedelta(months=module.validity_period)
+                expiry_date = ddoc + relativedelta(months=module.validity_period)
                 denndoc = expiry_date.strftime('%d.%m.%Y')
             else:
-                denndoc = (cert.issue_date + timedelta(days=365)).strftime('%d.%m.%Y')
+                denndoc = (ddoc + timedelta(days=365)).strftime('%d.%m.%Y')
                 errors.append(f"Модуль '{module.code}': не указан validity_period, использован fallback +1 год")
+        else:
+            errors.append(f"Студент {s.surname}: невозможно рассчитать DENDDOC (нет даты приказа)")
 
-        # Валидация обязательных полей
+        # DCAT_ID
+        dcat_id = cert.dcat_id
+        if not dcat_id:
+            errors.append(f"Студент {s.surname}: не удалось определить DCAT_ID")
+
+        # Валидация
         if not s.dob: errors.append(f"Студент {s.surname}: нет даты рождения")
         if not course or not course.prog_id: errors.append(f"Программа: не заполнен prog_id")
         if not module or not module.mod_id: errors.append(f"Модуль: не заполнен mod_id")
-        if not loc or not loc.addr: errors.append(f"Локация: не заполнен addr (код РАУЦ)")
-        if not getattr(s, 'dcat_id', None): errors.append(f"Студент {s.surname}: не заполнен dcat_id")
+        if not loc or not loc.addr: errors.append(f"Локация: не заполнен addr")
 
-        # Формирование строки строго по шаблону
         row = {
             'SURNAME': s.surname,
             'NAME': s.name,
@@ -114,15 +121,15 @@ class RAUCExportService:
             'MOD_ID': module.mod_id if module else '',
             'DBEGINEXT': g.start_date.strftime('%d.%m.%Y') if g.start_date else '',
             'DBEGIN': g.start_face_to_face.strftime('%d.%m.%Y') if g.start_face_to_face else '',
-            'DEND': g.end_date.strftime('%d.%m.%Y') if g.end_date else '',
+            'DEND': dend.strftime('%d.%m.%Y') if dend else '',
             'NGROUP': f"{g.assigned_number} - {g.application}" if g.application else g.assigned_number,
             'ADDR_ID': loc.addr if loc else '',
-            'DCAT_ID': getattr(s, 'dcat_id', '') or '',
+            'DCAT_ID': dcat_id,
             'NDOC': cert.number,
-            'DDOC': cert.issue_date.strftime('%d.%m.%Y') if cert.issue_date else '',
-            'FPTITLE_ID': fptitle_id,
-            'TPTITLE_ID': tptitle_id,
-            'DENDDOC': denndoc,
+            'DDOC': ddoc.strftime('%d.%m.%Y') if ddoc else '',  # ← ИЗ order_out_date
+            'FPTITLE_ID': getattr(g.curator, 'rauts_id', '') if g.curator else '',
+            'TPTITLE_ID': getattr(g.director, 'rauts_id', '') if g.director else '',
+            'DENDDOC': denndoc,  # ← Рассчитан от ddoc
             'DEPT_ID': loc.dept if loc else '',
         }
 
@@ -245,11 +252,13 @@ class RAUCExportService:
                 if not row.get('PROG_ID'): row_errors.append("Не заполнен PROG_ID")
                 if not row.get('MOD_ID'): row_errors.append("Не заполнен MOD_ID")
                 if not row.get('DBIRTH'): row_errors.append("Не заполнена дата рождения")
+                if not row.get('DCAT_ID'): row_errors.append("Не удалось определить DCAT_ID")
+                if not row.get('DEND'): row_errors.append("Не заполнена дата окончания обучения (DEND)")
 
                 RegulatoryReportItem.objects.create(
                     report=report,
                     enrollment=enrollment_obj,
-                    student=student_obj,  # <-- ЭТО ИСПРАВЛЯЕТ ОШИБКУ NOT NULL
+                    student=student_obj,
                     certificate=certificate_obj,
                     is_valid=len(row_errors) == 0,
                     validation_error='; '.join(row_errors),

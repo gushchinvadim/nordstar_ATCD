@@ -21,9 +21,10 @@ REQUIRED_STAFF_COLUMNS = [
     'email', 'phone', 'organization', 'location'
 ]
 
+# dcat_id убран из обязательных колонок — он больше не используется для Student
 REQUIRED_STUDENTS_COLUMNS = [
     'surname', 'name', 'patronymic', 'sex', 'dob', 'snils', 'surname_latin',
-    'name_latin', 'profession', 'dcat_id', 'citizenship_code', 'email',
+    'name_latin', 'profession', 'citizenship_code', 'email',
     'is_active', 'aircraft_type', 'employee_id'
 ]
 
@@ -148,14 +149,13 @@ def import_training_program(file_path):
                 updated_courses += 1
 
         # === MODULE ===
-        # === MODULE ===
         module = None
         if pd.notna(row.get('MODULE')) and course:
             module_title = str(row['MODULE']).strip()
             module, created = Module.objects.get_or_create(
                 course=course,
                 title=module_title,
-                aircraft_type=aircraft_type,  # ← ДОБАВИТЬ ЭТУ СТРОКУ
+                aircraft_type=aircraft_type,
                 defaults={
                     'duration': safe_float(row.get('DURATION')),
                     'mod_id': str(row.get('MOD_ID', '')).strip() if pd.notna(row.get('MOD_ID')) else '',
@@ -403,9 +403,9 @@ def import_students(file_path):
         profession = None
         if pd.notna(row.get('profession')):
             prof_name = str(row['profession']).strip()
-            prof_code = str(row.get('dcat_id', '')).strip() if pd.notna(row.get('dcat_id')) else ''
-            if prof_code.endswith('.0'):
-                prof_code = prof_code[:-2]
+            # dcat_id из Excel — это код сертификата, не код профессии
+            # Код профессии берётся из справочника или оставляется пустым
+            prof_code = ''  # Код профессии не берём из dcat_id
 
             profession, created = StudentProfession.objects.get_or_create(
                 name=prof_name,
@@ -424,7 +424,7 @@ def import_students(file_path):
 
             if not aircraft_type:
                 print(
-                    f"️ ВНИМАНИЕ: Тип ВС '{row['aircraft_type']}' не найден в справочнике и не описан в словаре маппинга. "
+                    f"⚠️ ВНИМАНИЕ: Тип ВС '{row['aircraft_type']}' не найден в справочнике и не описан в словаре маппинга. "
                     f"Слушатель {surname} {name} будет сохранен без привязки к типу ВС.")
 
         sex_raw = str(row.get('sex', 'Муж')).strip().lower()
@@ -439,7 +439,7 @@ def import_students(file_path):
                     row.get('surname_latin')) else '',
                 'name_latin': str(row.get('name_latin', '')).strip() if pd.notna(row.get('name_latin')) else '',
                 'profession': profession,
-                'dcat_id': str(row.get('dcat_id', '')).strip() if pd.notna(row.get('dcat_id')) else '',
+                # dcat_id больше не сохраняется в Student — он теперь в Certificate
                 'citizenship': citizenship,
                 'email': str(row.get('email', '')).strip() if pd.notna(row.get('email')) else '',
                 'is_active': parse_bool(row.get('is_active', 1)),
@@ -458,7 +458,7 @@ def import_students(file_path):
                 row.get('surname_latin')) else ''
             student.name_latin = str(row.get('name_latin', '')).strip() if pd.notna(row.get('name_latin')) else ''
             student.profession = profession
-            student.dcat_id = str(row.get('dcat_id', '')).strip() if pd.notna(row.get('dcat_id')) else ''
+            # dcat_id больше не обновляется в Student
             student.citizenship = citizenship
             student.email = str(row.get('email', '')).strip() if pd.notna(row.get('email')) else ''
             student.is_active = parse_bool(row.get('is_active', 1))

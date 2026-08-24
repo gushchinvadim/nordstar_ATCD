@@ -151,6 +151,15 @@
     </tr>
 </table>
 
+<!-- В начале body, после колонтитула, добавьте: -->
+{% if iup_mode %}
+<div style="background: #fff3cd; border: 1px solid #f39c12; padding: 8px; margin-bottom: 10px; font-size: 9pt;">
+    <b>ИНДИВИДУАЛЬНЫЙ УЧЕБНЫЙ ПЛАН</b><br>
+    <b>Студент:</b> {{ iup_student.surname }} {{ iup_student.name }} {{ iup_student.patronymic|default:"" }}<br>
+    <b>Период ИУП:</b> {{ iup_start_date|date:"d.m.Y" }} — {{ iup_end_date|date:"d.m.Y" }}
+</div>
+{% endif %}
+
 <!-- ИНФОРМАЦИЯ О ГРУППЕ -->
 <div class="header-schedule">
     <p style="margin: 5px 0;"><strong>Группа:</strong> {{ group.assigned_number }}</p>

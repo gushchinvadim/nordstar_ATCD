@@ -20,6 +20,7 @@ class Group(models.Model):
         ('enrolling', 'Набор'),
         ('in_progress', 'Обучение'),
         ('completed', 'Завершена'),
+        ('archived', 'Архив'),
         ('cancelled', 'Отменена'),
     ]
 
@@ -409,16 +410,25 @@ class Certificate(models.Model):
         ('credential', 'Удостоверение'),
     ]
 
+    # Маппинг типов сертификатов на коды РАУЦ
+    DCAT_ID_MAPPING = {
+        'diploma': '1',        # Диплом о профессиональной переподготовке
+        'witness': '2',        # Свидетельство о профессии рабочего, должности служащего
+        'credential': '3',     # Удостоверение о повышении квалификации
+        'certificate': '4',    # Сертификат
+        'reference': '5',      # Справка об обучении или о периоде обучения
+    }
+
     enrollment = models.ForeignKey(
         Enrollment,
-        on_delete=models.PROTECT,  # ← Changed from CASCADE
-        related_name='certificates',  # ← Changed from 'certificate' (OneToOne → FK)
+        on_delete=models.PROTECT,
+        related_name='certificates',
         verbose_name="Зачисление"
     )
 
     license = models.ForeignKey(
-        'references.License',  # ← НОВАЯ СВЯЗЬ
-        on_delete=models.PROTECT,  # Нельзя удалить лицензию, пока есть сертификаты
+        'references.License',
+        on_delete=models.PROTECT,
         related_name='certificates',
         verbose_name="Лицензия АУЦ",
         null=True,
@@ -463,6 +473,14 @@ class Certificate(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def dcat_id(self):
+        """
+        Возвращает код вида документа РАУЦ на основе типа сертификата.
+        Используется в отчёте РАУЦ.
+        """
+        return self.DCAT_ID_MAPPING.get(self.certificate_type, '')
 
     def get_expiry_date(self):
         """
@@ -544,7 +562,7 @@ class Certificate(models.Model):
             module_code=enrollment.group.module.code if enrollment.group.module else "",
             module_title=enrollment.group.module.title if enrollment.group.module else "",
             issue_date=enrollment.completed_at or date.today(),
-            certificate_type=certificate_type,  # ← ДОБАВИТЬ
+            certificate_type=certificate_type,
             **kwargs
         )
 
@@ -557,3 +575,78 @@ class Certificate(models.Model):
 
     def __str__(self):
         return f"{self.number} — {self.student_full_name}"
+
+
+class IndividualStudyPlan(models.Model):
+    """Индивидуальный учебный план для студента"""
+
+    STATUS_CHOICES = [
+        ('draft', 'Черновик'),
+        ('active', 'Активен'),
+        ('completed', 'Завершен'),
+        ('cancelled', 'Отменен'),
+    ]
+
+    REASON_CHOICES = [
+        ('business', 'Производственная необходимость'),
+        ('disease', 'Болезнь'),
+        ('vacation', 'Отпуск'),
+        ('family', 'Семейные обстоятельства'),
+    ]
+
+
+    student = models.ForeignKey(
+        'people.Student',
+        on_delete=models.CASCADE,
+        verbose_name="Студент"
+    )
+    group = models.ForeignKey(
+        'Group',
+        on_delete=models.CASCADE,
+        verbose_name="Группа"
+    )
+
+    # Основные даты
+    start_date = models.DateField("Дата начала ИУП")
+    end_date = models.DateField("Дата окончания ИУП")
+    start_face_to_face = models.DateField(
+        "Дата начала очных занятий ИУП",
+        null=True, blank=True
+    )
+
+    # JSON с полным расписанием ИУП
+    schedule_data = models.JSONField(
+        "Расписание ИУП (JSON)",
+        blank=True, null=True,
+        help_text="Массив занятий с индивидуальными датами, инструкторами и аудиториями"
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='draft',
+        verbose_name="Статус"
+    )
+
+    reason = models.TextField(
+        "Причина назначения ИУП",
+        blank=True,
+        choices=REASON_CHOICES
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        'people.Staff',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name="Создал"
+    )
+
+    class Meta:
+        verbose_name = "Индивидуальный учебный план"
+        verbose_name_plural = "Индивидуальные учебные планы"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"ИУП: {self.student} (группа {self.group.assigned_number})"

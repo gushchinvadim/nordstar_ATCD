@@ -1,4 +1,4 @@
-
+<!--docs/templates/docs/dashboard/documents_dashboard.html-->
 <!DOCTYPE html>
 
 <html lang="ru">
@@ -280,14 +280,24 @@
         </td>
         {% endfor %}
 
-<td>
+<td style="white-space: nowrap; vertical-align: middle; text-align: center;">
+    <!-- КНОПКА СОЗДАНИЯ ИУП -->
+    <a href="{% url 'docs:create_iup' enrollment.id %}"
+       class="btn"
+       style="background: #f39c12; color: white; font-size: 10pt; padding: 4px 8px; margin-bottom: 4px; display: inline-block; text-decoration: none;"
+       title="Назначить индивидуальный учебный план (расписание и тематический план)">
+       📋 ИУП
+    </a>
+    <br>
+
+    <!-- Существующая кнопка завершения -->
     {% if enrollment.status != 'completed' %}
     <button type="button" class="btn btn-complete"
             onclick="completeEnrollment({{ enrollment.id }}, '{{ enrollment.student }}')">
         ✓ Завершить
     </button>
     {% else %}
-    <span style="color: green; font-weight: bold;">✓ Завершён</span>
+    <span style="color: green; font-weight: bold; font-size: 10pt;">✓ Завершён</span>
     {% endif %}
 </td>
     </tr>

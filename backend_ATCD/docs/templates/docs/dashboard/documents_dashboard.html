@@ -1,3 +1,4 @@
+<!--docs/templates/docs/dashboard/documents_dashboard.html-->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -37,6 +38,21 @@
             <p><strong>Модуль:</strong> {{ group.module.code }} — {{ group.module.title }}</p>
             <p><strong>Период:</strong> {{ group.start_date|date:"d.m.Y" }} — {{ group.end_date|date:"d.m.Y" }}</p>
         </div>
+
+        <!-- ================= СЕКЦИЯ ИНДИВИДУАЛЬНЫХ УЧЕБНЫХ ПЛАНОВ (ИУП) ================= -->
+        <div style="background: #fff3cd; padding: 15px; border-radius: 4px; margin-bottom: 20px; border-left: 4px solid #f39c12;">
+            <h3 style="margin-top: 0; color: #856404; font-size: 14pt;">📋 Индивидуальные учебные планы (ИУП)</h3>
+            <p style="margin-bottom: 15px; color: #856404; font-size: 10pt; line-height: 1.4;">
+                Если студент отсутствовал на занятиях, вы можете назначить ему индивидуальный график.
+                Система сгенерирует отдельные файлы расписания и тематического плана с новыми датами, инструкторами и аудиториями, не затрагивая основную группу.
+                <br>
+                <strong>Кнопка создания ИУП находится в <a href="{% url 'docs:group_grades' group.id %}" style="color: #856404; font-weight: bold; text-decoration: underline;">Журнале оценок</a> рядом с каждым студентом.</strong>
+            </p>
+            <a href="{% url 'docs:group_grades' group.id %}" class="btn" style="background: #f39c12; color: white;">
+                👥 Перейти к журналу оценок
+            </a>
+        </div>
+        <!-- ============================================================================== -->
 
         {% if messages %}
             {% for message in messages %}
@@ -95,6 +111,100 @@
                 {% endfor %}
             </tbody>
         </table>
+
+
+                <!-- ================= СЕКЦИЯ ИНДИВИДУАЛЬНЫХ УЧЕБНЫХ ПЛАНОВ (ИУП) ================= -->
+        <h2 style="margin-top: 40px; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+            📋 Индивидуальные учебные планы (ИУП)
+        </h2>
+
+        {% if iup_documents %}
+            <div style="background: #fff3cd; padding: 12px 15px; border-radius: 4px; margin-bottom: 15px; border-left: 4px solid #f39c12;">
+                <p style="margin: 0; color: #856404; font-size: 10pt;">
+                    <strong>Найдено ИУП:</strong> {{ iup_documents|length }}.
+                    Для создания нового ИУП перейдите в
+                    <a href="{% url 'docs:group_grades' group.id %}" style="color: #856404; font-weight: bold;">Журнал оценок</a>
+                    и нажмите кнопку 📋 ИУП рядом с нужным студентом.
+                </p>
+            </div>
+
+            <table class="doc-table">
+                <thead>
+                    <tr>
+                        <th style="width: 5%;">№</th>
+                        <th style="width: 25%;">Студент</th>
+                        <th style="width: 25%;">Причина</th>
+                        <th style="width: 12%;">Дата создания</th>
+                        <th style="width: 8%;">Статус</th>
+                        <th style="width: 25%;">Документы ИУП</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for iup_doc in iup_documents %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td><strong>{{ iup_doc.student_name }}</strong></td>
+                        <td style="font-size: 10pt; color: #555;">{{ iup_doc.reason|truncatechars:80|default:"—" }}</td>
+                        <td>{{ iup_doc.created_at|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            {% if iup_doc.status == 'Активен' %}
+                                <span style="color: #27ae60; font-weight: bold;">{{ iup_doc.status }}</span>
+                            {% elif iup_doc.status == 'Завершен' %}
+                                <span style="color: #3498db; font-weight: bold;">{{ iup_doc.status }}</span>
+                            {% elif iup_doc.status == 'Отменен' %}
+                                <span style="color: #e74c3c;">{{ iup_doc.status }}</span>
+                            {% else %}
+                                <span style="color: #95a5a6;">{{ iup_doc.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="white-space: nowrap;">
+                            {% if iup_doc.schedule_exists and iup_doc.thematic_exists %}
+                                <a href="/docs/download/{{ iup_doc.schedule_path }}" class="btn btn-view" target="_blank" title="Открыть расписание">
+                                    📅 Расписание
+                                </a>
+                                <a href="/docs/download/{{ iup_doc.schedule_path }}" class="btn btn-download" target="_blank" title="Скачать расписание">
+                                    ⬇
+                                </a>
+                                <a href="/docs/download/{{ iup_doc.thematic_path }}" class="btn btn-view" target="_blank" title="Открыть тематический план" style="margin-left: 5px;">
+                                    📚 Тем. план
+                                </a>
+                                <a href="/docs/download/{{ iup_doc.thematic_path }}" class="btn btn-download" target="_blank" title="Скачать тем. план">
+                                    ⬇
+                                </a>
+                            {% else %}
+                                <span class="status-missing" style="font-size: 9pt;">Файлы не найдены</span>
+                                <br>
+                                <form method="post" action="{% url 'docs:regenerate_iup' iup_doc.id %}" style="display: inline; margin-top: 5px;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-save" style="font-size: 9pt; padding: 4px 8px;">
+                                        🔄 Сгенерировать заново
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <!-- Блок-подсказка, если ИУП ещё нет -->
+            <div style="background: #fff3cd; padding: 15px; border-radius: 4px; margin-bottom: 20px; border-left: 4px solid #f39c12;">
+                <p style="margin: 0 0 10px 0; color: #856404; font-size: 10pt; line-height: 1.4;">
+                    Если студент отсутствовал на занятиях, вы можете назначить ему индивидуальный график.
+                    Система сгенерирует отдельные файлы расписания и тематического плана с новыми датами,
+                    инструкторами и аудиториями, не затрагивая основную группу.
+                </p>
+                <p style="margin: 0; color: #856404; font-size: 10pt;">
+                    <strong>Созданных ИУП пока нет.</strong>
+                    Кнопка создания ИУП находится в
+                    <a href="{% url 'docs:group_grades' group.id %}" style="color: #856404; font-weight: bold; text-decoration: underline;">Журнале оценок</a>
+                    рядом с каждым студентом.
+                </p>
+                <a href="{% url 'docs:group_grades' group.id %}" class="btn" style="background: #f39c12; color: white; margin-top: 10px;">
+                    👥 Перейти к журналу оценок
+                </a>
+            </div>
+        {% endif %}
 
         <!-- ================= СЕКЦИЯ ОТЧЁТОВ РАУЦ ================= -->
         <h2 style="margin-top: 40px; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px;">
@@ -221,9 +331,7 @@
         const reports = [];
 
         document.querySelectorAll('.doc-table tbody tr').forEach(row => {
-            // Проверяем, есть ли в строке элемент со статусом "Сохранен" (чтобы не захватить "Не сохранен")
             if (row.querySelector('.status-saved')) {
-                // Определяем тип строки: отчеты имеют id, содержащие 'rauc' или 'frdo'
                 if (row.id && (row.id.includes('rauc') || row.id.includes('frdo'))) {
                     const name = row.cells[0].textContent.trim();
                     reports.push('📊 ' + name);

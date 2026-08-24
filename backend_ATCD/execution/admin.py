@@ -1,17 +1,18 @@
 # execution/admin.py
 import os
+import shutil
 from django.contrib import admin, messages
 from django.utils.html import format_html
 from django.urls import path, reverse
 from django.shortcuts import render, get_object_or_404, redirect
 from core.services.schedule_generator import generate_schedule_for_group
-from .models import Enrollment, Assessment, Certificate, ScheduleItem, Group
+from .models import Enrollment, Assessment, Certificate, ScheduleItem, Group, IndividualStudyPlan
 from django.conf import settings
 
 
 class AssessmentInline(admin.TabularInline):
     model = Assessment
-    extra = 0  # ← изменено
+    extra = 0
     verbose_name = "Оценка"
     verbose_name_plural = "Оценки по разделам"
     fields = [
@@ -40,10 +41,10 @@ class AssessmentAdmin(admin.ModelAdmin):
 class CertificateAdmin(admin.ModelAdmin):
     list_display = [
         'number', 'student_full_name', 'module_code',
-        'certificate_type', 'license',  # ← ДОБАВИТЬ
+        'certificate_type', 'license',
         'issue_date', 'total_hours'
     ]
-    list_filter = ['certificate_type', 'license', 'issue_date']  # ← ДОБАВИТЬ license
+    list_filter = ['certificate_type', 'license', 'issue_date']
     search_fields = ['number', 'student_full_name', 'module_code']
     readonly_fields = ['created_at', 'updated_at']
 
@@ -66,10 +67,10 @@ class CertificateAdmin(admin.ModelAdmin):
         }),
     )
 
+
 class EnrollmentInline(admin.TabularInline):
     model = Enrollment
     extra = 1
-    # Убрали order_in_number и order_in_date — они теперь в Group
     fields = ['student', 'number_in_group', 'status', 'order_out_number', 'order_out_date']
     autocomplete_fields = ['student']
 
@@ -81,6 +82,38 @@ class ScheduleItemInline(admin.TabularInline):
     autocomplete_fields = ['section', 'classroom', 'instructor']
 
 
+# =====================================================================
+# УТИЛИТА: надёжный поиск папки группы на диске
+# =====================================================================
+def find_group_folder(group):
+    """
+    Находит папку группы сканированием подпапок модулей.
+    Возвращает полный путь или None.
+    """
+    if not group.start_date:
+        return None
+
+    year = str(group.start_date.year)
+    groups_base = os.path.join(settings.MEDIA_ROOT, 'documents', year, 'groups')
+
+    if not os.path.exists(groups_base):
+        return None
+
+    for module_folder in os.listdir(groups_base):
+        module_path = os.path.join(groups_base, module_folder)
+        if not os.path.isdir(module_path):
+            continue
+
+        group_path = os.path.join(module_path, group.assigned_number)
+        if os.path.exists(group_path):
+            return group_path
+
+    return None
+
+
+# =====================================================================
+# ДЕЙСТВИЯ (ACTIONS)
+# =====================================================================
 @admin.action(description='📅 Сгенерировать расписание (с учетом лимита 8ч/день)')
 def generate_schedule_action(modeladmin, request, queryset):
     success_count = 0
@@ -90,55 +123,95 @@ def generate_schedule_action(modeladmin, request, queryset):
             success_count += 1
             messages.success(request, f"✅ {group.assigned_number}: создано {count} занятий")
         except Exception as e:
-            messages.error(request, f" {group.assigned_number}: {str(e)}")
+            messages.error(request, f"❌ {group.assigned_number}: {str(e)}")
 
-# ==========================Очистка media папок групп====================
 
-@admin.action(description='🗑 Очистить медиа-файлы выбранных групп')
-def cleanup_selected_groups_media(modeladmin, request, queryset):
-    """Action для удаления файлов выбранных групп"""
-    total_deleted = 0
-    total_size = 0
+@admin.action(description='📦 Архивировать группу и удалить медиа-файлы')
+def archive_groups(modeladmin, request, queryset):
+    """
+    Архивирует группу: удаляет папку с медиа и меняет статус на 'archived'.
+    Данные в БД сохраняются полностью — документы можно сгенерировать заново.
+    """
+    archived_count = 0
+    skipped = []
+    errors = []
 
     for group in queryset:
-        year = str(group.start_date.year) if group.start_date else 'unknown'
-        module_code = group.module.code.replace('/', '_').replace('.', '_') if group.module else 'unknown'
-        group_folder = os.path.join(
-            settings.MEDIA_ROOT,
-            'documents', year, 'groups', module_code, group.assigned_number
-        )
-
-        if not os.path.exists(group_folder):
+        # Защита: архивируем только завершённые группы
+        if group.status != 'completed':
+            skipped.append(
+                f"{group.assigned_number} (статус: {group.get_status_display()})"
+            )
             continue
 
-        for root, dirs, files in os.walk(group_folder):
-            # Сохраняем папку reports
-            if 'reports' in root:
-                continue
+        folder_path = find_group_folder(group)
 
-            for file in files:
-                filepath = os.path.join(root, file)
-                total_size += os.path.getsize(filepath)
-                os.remove(filepath)
-                total_deleted += 1
+        try:
+            if folder_path and os.path.exists(folder_path):
+                shutil.rmtree(folder_path)
 
-        # Удаляем пустые папки
-        for root, dirs, files in os.walk(group_folder, topdown=False):
-            if not files and not dirs:
-                os.rmdir(root)
+            # Меняем статус на архивный (даже если папки не было)
+            group.status = 'archived'
+            group.save(update_fields=['status'])
+            archived_count += 1
 
-    size_mb = total_size / (1024 * 1024)
-    messages.success(
-        request,
-        f'✅ Удалено {total_deleted} файлов ({size_mb:.2f} MB) из {queryset.count()} групп'
-    )
+        except Exception as e:
+            errors.append(f"{group.assigned_number}: {str(e)}")
 
+    if archived_count > 0:
+        messages.success(
+            request,
+            f'✅ Архивировано групп: {archived_count}. '
+            f'Медиа-файлы удалены, данные в БД сохранены.'
+        )
+    if skipped:
+        messages.warning(
+            request,
+            f'️ Пропущено (не completed): {"; ".join(skipped)}'
+        )
+    if errors:
+        messages.error(request, f'❌ Ошибки: {"; ".join(errors)}')
+
+
+@admin.action(description='♻️ Восстановить группу из архива')
+def restore_groups(modeladmin, request, queryset):
+    """Возвращает архивную группу в статус 'completed'"""
+    restored_count = 0
+    skipped = []
+
+    for group in queryset:
+        if group.status == 'archived':
+            group.status = 'completed'
+            group.save(update_fields=['status'])
+            restored_count += 1
+        else:
+            skipped.append(
+                f"{group.assigned_number} (статус: {group.get_status_display()})"
+            )
+
+    if restored_count > 0:
+        messages.success(
+            request,
+            f'✅ Восстановлено групп: {restored_count}. '
+            f'Документы можно сгенерировать заново в Центре документов.'
+        )
+    if skipped:
+        messages.warning(
+            request,
+            f'⚠️ Пропущено (не архивные): {"; ".join(skipped)}'
+        )
+
+
+# =====================================================================
+# РЕГИСТРАЦИЯ GROUP
+# =====================================================================
 @admin.register(Group)
 class GroupAdmin(admin.ModelAdmin):
     list_display = [
         'assigned_number', 'application', 'order_in_number', 'order_in_date',
-        'module', 'location', 'start_date','mentor', 'curator', 'director', 'status',
-        'schedule_button',           # ← должны быть методы класса
+        'module', 'location', 'start_date', 'mentor', 'curator', 'director',
+        'status',
+        'schedule_button',
         'enrollment_order_button',
         'journal_button',
         'land_task_button',
@@ -147,22 +220,22 @@ class GroupAdmin(admin.ModelAdmin):
         'dismissal_ot_button',
         'grades_button',
         'documents_dashboard_button',
-
     ]
     list_filter = ['status', 'location', 'is_sdo']
     search_fields = ['assigned_number', 'application']
     inlines = [EnrollmentInline, ScheduleItemInline]
     actions = [
         generate_schedule_action,
-        cleanup_selected_groups_media,
+        archive_groups,          # ← было cleanup_selected_groups_media
+        restore_groups,          # ← новое действие
         'generate_rauc_action',
         'generate_frdo_action',
     ]
 
     fieldsets = (
-        ('Основная информация', {'fields': ('assigned_number', 'application', 'order_in_number','order_in_date', 'module', 'status')}),
+        ('Основная информация', {'fields': ('assigned_number', 'application', 'order_in_number', 'order_in_date', 'module', 'status')}),
         ('Место и время', {'fields': ('location', 'start_date', 'start_face_to_face', 'end_date', 'is_sdo', 'start_time_default')}),
-        ('Преподавательский состав', {'fields': ('mentor','curator', 'director')}),
+        ('Преподавательский состав', {'fields': ('mentor', 'curator', 'director')}),
     )
 
     def save_model(self, request, obj, form, change):
@@ -170,8 +243,23 @@ class GroupAdmin(admin.ModelAdmin):
             obj.order_in_number = obj.get_generated_order_in_number()
         super().save_model(request, obj, form, change)
 
-    # ↓↓↓ ВСЕ ЭТИ МЕТОДЫ ДОЛЖНЫ БЫТЬ ВНУТРИ КЛАССА (с отступом 4 пробела) ↓↓↓
+    # =================================================================
+    # СКРЫТИЕ АРХИВНЫХ ГРУПП ИЗ ОСНОВНОГО СПИСКА
+    # =================================================================
+    def get_queryset(self, request):
+        """
+        По умолчанию скрываем архивные группы.
+        Чтобы их увидеть — используйте фильтр "Статус → Архив" в правой панели.
+        """
+        qs = super().get_queryset(request)
+        # Если в URL уже есть фильтр по статусу — не трогаем queryset
+        if 'status__exact' in request.GET:
+            return qs
+        return qs.exclude(status='archived')
 
+    # =================================================================
+    # КНОПКИ В СПИСКЕ (без изменений)
+    # =================================================================
     def documents_dashboard_button(self, obj):
         url = reverse('docs:documents_dashboard', args=[obj.id])
         return format_html(
@@ -183,7 +271,7 @@ class GroupAdmin(admin.ModelAdmin):
     def schedule_button(self, obj):
         url = reverse('docs:schedule', args=[obj.id])
         return format_html(
-            '<a class="button" href="{}" target="_blank" style="background-color: #4CAF50; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none;"> Расписание</a>',
+            '<a class="button" href="{}" target="_blank" style="background-color: #4CAF50; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none;">📅 Расписание</a>',
             url
         )
     schedule_button.short_description = 'Документы'
@@ -199,25 +287,23 @@ class GroupAdmin(admin.ModelAdmin):
     def journal_button(self, obj):
         url = reverse('docs:journal', args=[obj.id])
         return format_html(
-            '<a class="button" href="{}" target="_blank" style="background-color: #FF5722; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; margin-left: 5px;"> Журнал</a>',
+            '<a class="button" href="{}" target="_blank" style="background-color: #FF5722; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; margin-left: 5px;">📖 Журнал</a>',
             url
         )
     journal_button.short_description = ' '
 
     def land_task_button(self, obj):
-        from execution.models import ScheduleItem
         has_asp_land = ScheduleItem.objects.filter(group=obj, session_type='asp-l').exists()
         if not has_asp_land:
             return '-'
         url = reverse('docs:land_training_task', args=[obj.id])
         return format_html(
-            '<a class="button" href="{}" target="_blank" style="background-color: #FF5722; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none;"> АСП Суша</a>',
+            '<a class="button" href="{}" target="_blank" style="background-color: #FF5722; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none;">🏜 АСП Суша</a>',
             url
         )
     land_task_button.short_description = 'Задания АСП'
 
     def water_task_button(self, obj):
-        from execution.models import ScheduleItem
         has_asp_water = ScheduleItem.objects.filter(group=obj, session_type='asp-w').exists()
         if not has_asp_water:
             return '-'
@@ -256,8 +342,9 @@ class GroupAdmin(admin.ModelAdmin):
         )
     dismissal_ot_button.short_description = 'Приказ ОТ'
 
-
-
+    # =================================================================
+    # СТАТИСТИКА МЕДИА (без изменений)
+    # =================================================================
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
@@ -272,7 +359,6 @@ class GroupAdmin(admin.ModelAdmin):
         total_files = 0
         folder_stats = []
 
-        # Сканируем папку documents
         docs_folder = os.path.join(media_root, 'documents')
         if os.path.exists(docs_folder):
             for year in os.listdir(docs_folder):
@@ -327,6 +413,10 @@ class GroupAdmin(admin.ModelAdmin):
 
         return render(request, 'admin/media_stats.html', context)
 
+
+# =====================================================================
+# РЕГИСТРАЦИЯ ENROLLMENT (без изменений)
+# =====================================================================
 @admin.register(Enrollment)
 class EnrollmentAdmin(admin.ModelAdmin):
     list_display = ['student', 'group', 'number_in_group', 'status', 'order_out_number', 'order_out_date']
@@ -335,7 +425,6 @@ class EnrollmentAdmin(admin.ModelAdmin):
     autocomplete_fields = ['student', 'group']
     inlines = [AssessmentInline]
 
-    # ← ДОБАВИТЬ ЭТУ СТРОКУ
     readonly_fields = ['order_in_number_display', 'order_in_date_display']
 
     fieldsets = (
@@ -365,15 +454,11 @@ class EnrollmentAdmin(admin.ModelAdmin):
     )
 
     def order_in_number_display(self, obj):
-        """Отображает номер приказа о зачислении из группы"""
         return obj.group.order_in_number if obj.group else '-'
-
     order_in_number_display.short_description = 'Номер приказа о зачислении'
 
     def order_in_date_display(self, obj):
-        """Отображает дату приказа о зачислении из группы"""
         return obj.group.order_in_date if obj.group and obj.group.order_in_date else '-'
-
     order_in_date_display.short_description = 'Дата приказа о зачислении'
 
     actions = ['complete_selected_enrollments', 'dismiss_selected_enrollments']
@@ -409,9 +494,116 @@ class EnrollmentAdmin(admin.ModelAdmin):
                 count += 1
         messages.success(request, f'Отчислено: {count} чел.')
 
+
+# =====================================================================
+# РЕГИСТРАЦИЯ SCHEDULEITEM (без изменений)
+# =====================================================================
 @admin.register(ScheduleItem)
 class ScheduleItemAdmin(admin.ModelAdmin):
     list_display = ['date', 'start_time', 'end_time', 'group', 'section', 'instructor', 'status']
     list_filter = ['group', 'status', 'date']
     search_fields = ['group__assigned_number', 'section__title']
     date_hierarchy = 'date'
+
+
+@admin.action(description='🗑 Удалить выбранные черновики ИУП')
+def delete_iup_drafts(modeladmin, request, queryset):
+    """Удаляет только ИУП со статусом 'draft' (черновик)"""
+    drafts = queryset.filter(status='draft')
+    count = drafts.count()
+
+    if count == 0:
+        messages.warning(request, 'Нет черновиков для удаления')
+        return
+
+    # Удаляем только черновики
+    drafts.delete()
+
+    messages.success(request, f'✅ Удалено черновиков ИУП: {count}')
+
+
+@admin.action(description='📦 Архивировать выбранные ИУП')
+def archive_iups(modeladmin, request, queryset):
+    """Меняет статус ИУП на 'completed'"""
+    count = queryset.filter(status='active').update(status='completed')
+    messages.success(request, f'✅ Архивировано ИУП: {count}')
+
+
+@admin.action(description='️ Вернуть в активные')
+def activate_iups(modeladmin, request, queryset):
+    """Меняет статус ИУП обратно на 'active'"""
+    count = queryset.filter(status='completed').update(status='active')
+    messages.success(request, f'✅ Активировано ИУП: {count}')
+
+
+@admin.register(IndividualStudyPlan)
+class IndividualStudyPlanAdmin(admin.ModelAdmin):
+    list_display = [
+        'student',
+        'group',
+        'status',
+        'start_date',
+        'end_date',
+        'created_at',
+        'created_by',
+        'reason_short',
+    ]
+
+    list_filter = [
+        'status',
+        'group',
+        'group__module',
+        'created_at',
+    ]
+
+    search_fields = [
+        'student__surname',
+        'student__name',
+        'student__patronymic',
+        'group__assigned_number',
+        'reason',
+    ]
+
+    readonly_fields = [
+        'created_at',
+        'updated_at',
+    ]
+
+    actions = [
+        delete_iup_drafts,
+        archive_iups,
+        activate_iups,
+    ]
+
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('student', 'group', 'status', 'reason')
+        }),
+        ('Даты ИУП', {
+            'fields': ('start_date', 'end_date', 'start_face_to_face'),
+        }),
+        ('Расписание (JSON)', {
+            'fields': ('schedule_data',),
+            'classes': ('collapse',),
+            'description': 'Полное расписание ИУП в формате JSON. Редактируйте осторожно.'
+        }),
+        ('Системные поля', {
+            'fields': ('created_by', 'created_at', 'updated_at'),
+            'classes': ('collapse',),
+        }),
+    )
+
+    def reason_short(self, obj):
+        """Короткая версия причины для списка"""
+        if obj.reason:
+            # Берем только основную причину (до разделителя |)
+            main_reason = obj.reason.split('|')[0].strip()
+            return main_reason[:50] + ('...' if len(main_reason) > 50 else '')
+        return '—'
+    reason_short.short_description = 'Причина'
+    reason_short.admin_order_field = 'reason'
+
+    def get_queryset(self, request):
+        """Оптимизируем запросы"""
+        qs = super().get_queryset(request)
+        return qs.select_related('student', 'group', 'group__module', 'created_by')
