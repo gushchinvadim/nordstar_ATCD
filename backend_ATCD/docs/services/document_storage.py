@@ -437,32 +437,45 @@ class DocumentStorageService:
         if not enrollments.exists():
             raise ValueError(f"В группе {self.group.assigned_number} нет отчисленных студентов.")
 
-        # Получаем ВСЕ разделы модуля (упорядоченные по этапам)
         all_sections = Section.objects.filter(
             stage__module=self.group.module
         ).select_related('stage').order_by('stage__order', 'order')
 
+        # Примерное количество строк таблицы на одну страницу А4
+        ROWS_PER_PAGE = 14
+
         students_data = []
         for enrollment in enrollments:
-            # Словарь оценок студента: section_id -> assessment
             assessments_dict = {
                 a.section_id: a
                 for a in enrollment.assessments.select_related('section').all()
             }
 
-            passed_sections = []
-            total_hours_passed = 0
+            has_any_grade = any(a.score is not None for a in assessments_dict.values())
 
-            # Итерируемся по ВСЕМ разделам модуля
+            passed_sections = []
+            total_hours_passed = 0.0
+            counting_stopped = False
+
             for section in all_sections:
                 assessment = assessments_dict.get(section.id)
+                grade = assessment.score if assessment else None
 
-                # Если оценка есть — берем её, иначе — None (будет "Не явка")
-                if assessment and assessment.score is not None:
-                    grade = assessment.score
-                    total_hours_passed += float(section.duration_hours or 0)
-                else:
-                    grade = None  # "Не явка"
+                if not counting_stopped:
+                    if grade is not None:
+                        if section.grade_type == 'binary':
+                            is_positive = grade >= 1
+                        else:
+                            min_score = section.min_score if section.min_score else 4
+                            is_positive = grade >= min_score
+
+                        if is_positive:
+                            total_hours_passed += float(section.duration_hours or 0)
+                        else:
+                            counting_stopped = True
+                    else:
+                        if has_any_grade:
+                            total_hours_passed += float(section.duration_hours or 0)
 
                 passed_sections.append({
                     'title': section.title,
@@ -472,8 +485,8 @@ class DocumentStorageService:
                     'grade_type': section.grade_type,
                 })
 
-            sections_per_page = 15
-            total_pages = max(1, (len(passed_sections) + sections_per_page - 1) // sections_per_page)
+            # === РАСЧЕТ КОЛИЧЕСТВА СТРАНИЦ ДЛЯ ЭТОЙ СПРАВКИ ===
+            total_pages = max(1, (len(passed_sections) + ROWS_PER_PAGE - 1) // ROWS_PER_PAGE)
 
             students_data.append({
                 'enrollment': enrollment,
@@ -483,7 +496,7 @@ class DocumentStorageService:
                 'dismissal_reason': enrollment.dismissal_reason,
                 'passed_sections': passed_sections,
                 'total_hours_passed': total_hours_passed,
-                'total_pages': total_pages,
+                'total_pages': total_pages,  # <-- ВОЗВРАЩАЕМ В КОНТЕКСТ
             })
 
         zk20_pages = len(students_data)
