@@ -51,7 +51,16 @@ class DocumentStorageService:
         pdf_filename = filename.replace('.html', '.pdf')
         file_path = os.path.join(folder, pdf_filename)
 
+        # Рендерим шаблон
         html_content = render_to_string(template_name, context)
+
+        # Проверяем, что HTML не пустой
+        if not html_content or len(html_content.strip()) < 100:
+            raise ValueError(
+                f"Шаблон '{template_name}' вернул пустой HTML. "
+                f"Возможно, в контексте нет данных (например, нет завершенных студентов)."
+            )
+
         base_url = f'file://{settings.BASE_DIR}/'
 
         HTML(string=html_content).write_pdf(
@@ -59,6 +68,14 @@ class DocumentStorageService:
             base_url=base_url,
             presentational_hints=True
         )
+
+        # Проверяем размер PDF
+        if os.path.exists(file_path):
+            file_size = os.path.getsize(file_path)
+            if file_size < 100:  # Менее 100 байт — подозрительно
+                os.remove(file_path)
+                raise ValueError(f"Сгенерирован пустой PDF ({file_size} байт): {file_path}")
+
         return file_path
 
     # === Основные документы ===
@@ -157,20 +174,80 @@ class DocumentStorageService:
         raw_filename = f"Задание_АСП_Вода_{self.group.assigned_number}.html"
         filename = sanitize_filename(raw_filename)
         return self.save_both(template_name, context, ['training_tasks'], filename)
+
     def save_dismissal_ok(self):
         """Сохраняет приказ об успешном окончании"""
-        enrollments = Enrollment.objects.filter(group=self.group, status='completed').select_related(
-            'student').order_by('number_in_group')
-        context = {'group': self.group, 'enrollments': enrollments, 'logo_base64': get_logo_base64()}
+        from collections import defaultdict  # Убедитесь, что это импортировано в начале файла
+
+        # 1. Получаем всех зачисленных со статусом completed
+        enrollments = Enrollment.objects.filter(
+            group=self.group,
+            status='completed'
+        ).select_related('student').order_by('order_out_date', 'order_out_number', 'number_in_group')
+
+        if not enrollments.exists():
+            raise ValueError(f"В группе {self.group.assigned_number} нет студентов со статусом 'completed'.")
+
+        # 2. Группируем их по номеру приказа (точно так же, как во view)
+        orders_dict = defaultdict(list)
+        for enrollment in enrollments:
+            order_key = enrollment.order_out_number or f"Б/Н-{enrollment.id}"
+            orders_dict[order_key].append(enrollment)
+
+        # 3. Преобразуем в список для шаблона
+        orders_list = []
+        for order_number, ens in orders_dict.items():
+            orders_list.append({
+                'order_number': order_number,
+                'order_date': ens[0].order_out_date,
+                'enrollments': ens
+            })
+
+        # 4. Передаем ПРАВИЛЬНЫЙ контекст, который ждет шаблон!
+        context = {
+            'group': self.group,
+            'orders_list': orders_list,  # <-- ВОТ ЭТОГО НЕ ХВАТАЛО
+            'logo_base64': get_logo_base64(),
+        }
+
         raw_filename = f"Приказ_ОК_{self.group.assigned_number}.html"
         filename = sanitize_filename(raw_filename)
         return self.save_both('docs/orders/dismissal_ok.html', context, ['orders'], filename)
 
     def save_dismissal_ot(self):
-        """Сохраняет приказ об отчислении"""
-        enrollments = Enrollment.objects.filter(group=self.group, status='dismissed').select_related(
-            'student').order_by('number_in_group')
-        context = {'group': self.group, 'enrollments': enrollments, 'logo_base64': get_logo_base64()}
+        """Сохраняет приказы об отчислении (группирует по номерам приказов)"""
+        from collections import defaultdict
+
+        enrollments = Enrollment.objects.filter(
+            group=self.group,
+            status='dismissed'
+        ).select_related('student').order_by('order_out_date', 'order_out_number', 'number_in_group')
+
+        if not enrollments.exists():
+            raise ValueError(f"В группе {self.group.assigned_number} нет отчисленных студентов.")
+
+        # Группируем отчисленных по номеру приказа
+        orders_dict = defaultdict(list)
+        for enrollment in enrollments:
+            order_key = enrollment.order_out_number or f"Б/Н-{enrollment.id}"
+            orders_dict[order_key].append(enrollment)
+
+        # Формируем список для шаблона
+        orders_list = []
+        for order_number, ens in orders_dict.items():
+            orders_list.append({
+                'order_number': order_number,
+                'order_date': ens[0].order_out_date,
+                'enrollments': ens
+            })
+
+        # Передаем ПРАВИЛЬНЫЙ контекст (orders_list вместо плоского enrollments)
+        context = {
+            'group': self.group,
+            'orders_list': orders_list,
+            'logo_base64': get_logo_base64(),
+        }
+
         raw_filename = f"Приказ_ОТ_{self.group.assigned_number}.html"
         filename = sanitize_filename(raw_filename)
         return self.save_both('docs/orders/dismissal_ot.html', context, ['orders'], filename)
@@ -341,7 +418,84 @@ class DocumentStorageService:
 
         # Используем шаблон, указанный в модели Module
         template_name = module.certificate_template
-        raw_filename = f"Удостоверения_{module.code or 'module'}_{group.assigned_number}.html"
+        raw_filename = f"Сертификат_{module.code or 'module'}_{group.assigned_number}.html"
         filename = sanitize_filename(raw_filename)
 
         return self.save_both(template_name, {'batch_data': batch_data, 'group': group}, ['certificates'], filename)
+
+    def save_dismissal_reference(self):
+        """Сохраняет справки об обучении для всех отчисленных (один PDF на всех)"""
+        from training.models import Section
+
+        enrollments = Enrollment.objects.filter(
+            group=self.group,
+            status='dismissed'
+        ).select_related(
+            'student', 'group', 'group__module'
+        ).order_by('number_in_group')
+
+        if not enrollments.exists():
+            raise ValueError(f"В группе {self.group.assigned_number} нет отчисленных студентов.")
+
+        # Получаем ВСЕ разделы модуля (упорядоченные по этапам)
+        all_sections = Section.objects.filter(
+            stage__module=self.group.module
+        ).select_related('stage').order_by('stage__order', 'order')
+
+        students_data = []
+        for enrollment in enrollments:
+            # Словарь оценок студента: section_id -> assessment
+            assessments_dict = {
+                a.section_id: a
+                for a in enrollment.assessments.select_related('section').all()
+            }
+
+            passed_sections = []
+            total_hours_passed = 0
+
+            # Итерируемся по ВСЕМ разделам модуля
+            for section in all_sections:
+                assessment = assessments_dict.get(section.id)
+
+                # Если оценка есть — берем её, иначе — None (будет "Не явка")
+                if assessment and assessment.score is not None:
+                    grade = assessment.score
+                    total_hours_passed += float(section.duration_hours or 0)
+                else:
+                    grade = None  # "Не явка"
+
+                passed_sections.append({
+                    'title': section.title,
+                    'hours': float(section.duration_hours or 0),
+                    'stage_title': section.stage.title if section.stage else '',
+                    'grade': grade,
+                    'grade_type': section.grade_type,
+                })
+
+            sections_per_page = 15
+            total_pages = max(1, (len(passed_sections) + sections_per_page - 1) // sections_per_page)
+
+            students_data.append({
+                'enrollment': enrollment,
+                'student': enrollment.student,
+                'dismissal_order_number': enrollment.order_out_number,
+                'dismissal_order_date': enrollment.order_out_date,
+                'dismissal_reason': enrollment.dismissal_reason,
+                'passed_sections': passed_sections,
+                'total_hours_passed': total_hours_passed,
+                'total_pages': total_pages,
+            })
+
+        zk20_pages = len(students_data)
+
+        context = {
+            'group': self.group,
+            'students_data': students_data,
+            'logo_base64': get_logo_base64(),
+            'zk20_pages': zk20_pages,
+        }
+
+        raw_filename = f"Справки_об_обучении_{self.group.assigned_number}.html"
+        filename = sanitize_filename(raw_filename)
+
+        return self.save_both('docs/references/dismissal_reference.html', context, ['references'], filename)

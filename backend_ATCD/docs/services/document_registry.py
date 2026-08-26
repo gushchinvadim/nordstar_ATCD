@@ -93,7 +93,19 @@ class DocumentRegistry:
             'status': 'coming_soon',
             'visible_if': None,
         },
+
+        'dismissal_reference': {
+            'name': 'Справка об обучении (при отчислении)',
+            'icon': '',
+            'view_name': 'docs:dismissal_reference',
+            'save_method': 'save_dismissal_reference',
+            'status': 'active',
+            'visible_if': '_has_dismissed_students',
+        },
     }
+
+
+
 
     @classmethod
     def get_all_documents(cls):

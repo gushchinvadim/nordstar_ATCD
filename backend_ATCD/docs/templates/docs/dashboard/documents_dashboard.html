@@ -68,7 +68,12 @@
         </form>
 
         <button class="btn btn-email" onclick="sendDocumentsByEmail()">📧 Отправить список документов на почту</button>
-
+        <!-- Кнопка скачивания ZIP -->
+        <a href="{% url 'docs:download_group_folder' group.id %}"
+           class="btn"
+           style="background: #9b59b6; color: white; font-size: 12pt; padding: 10px 20px;">
+           📦 Скачать всю папку (ZIP)
+        </a>
         <table class="doc-table">
             <thead>
                 <tr>

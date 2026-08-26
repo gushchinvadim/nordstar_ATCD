@@ -1,6 +1,8 @@
 # docs/views.py
+import io
 import json
 import re
+import zipfile
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from django.contrib.admin.views.decorators import staff_member_required
@@ -751,9 +753,6 @@ def save_document_view(request, group_id):
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
-    import json
-    import os
-    from django.conf import settings
     data = json.loads(request.body)
     doc_type = data.get('document_type')
 
@@ -770,7 +769,8 @@ def save_document_view(request, group_id):
             'water_training_task': service.save_water_training_task,
             'dismissal_ok': service.save_dismissal_ok,
             'dismissal_ot': service.save_dismissal_ot,
-            'certificate': service.save_certificate,  # ← Универсальный метод
+            'dismissal_reference': service.save_dismissal_reference,  # ← ДОБАВЛЕНО
+            'certificate': service.save_certificate,
         }
 
         if doc_type not in save_methods:
@@ -927,35 +927,52 @@ def dismissal_ot_list_view(request, group_id):
 
 @staff_member_required
 def dismissal_ot_view(request, group_id):
-    """Приказ об отчислении (ОТ) по конкретному номеру приказа"""
-    from django.http import HttpResponseBadRequest
+    """Приказ об отчислении (ОТ) — предпросмотр (поддерживает группировку по приказам)"""
+    from collections import defaultdict
 
     group = get_object_or_404(Group, id=group_id)
-    order_number = request.GET.get('order_number')
+    target_order_number = request.GET.get('order_number')
 
-    if not order_number:
-        return HttpResponseBadRequest("Не указан номер приказа. Используйте список приказов.")
-
-    # ФИЛЬТРУЕМ строго по номеру приказа!
+    # Получаем всех отчисленных
     enrollments = Enrollment.objects.filter(
         group=group,
-        status='dismissed',
-        order_out_number=order_number
-    ).select_related('student').order_by('number_in_group')
+        status='dismissed'
+    ).select_related('student').order_by('order_out_date', 'order_out_number', 'number_in_group')
 
     if not enrollments.exists():
+        messages.error(request, "Нет отчисленных студентов для формирования приказа.")
+        return redirect('docs:dismissal_ot_list', group_id=group_id)
+
+    # Группируем по номеру приказа
+    orders_dict = defaultdict(list)
+    for enrollment in enrollments:
+        # Если запрошен конкретный номер приказа (переход из списка), игнорируем остальные
+        if target_order_number and enrollment.order_out_number != target_order_number:
+            continue
+
+        order_key = enrollment.order_out_number or f"Б/Н-{enrollment.id}"
+        orders_dict[order_key].append(enrollment)
+
+    # Если искали конкретный номер и не нашли
+    if target_order_number and not orders_dict:
         messages.error(request, "Студенты с таким номером приказа не найдены")
         return redirect('docs:dismissal_ot_list', group_id=group_id)
 
-    order_date = enrollments.first().order_out_date
+    # Формируем список для шаблона (точно такой же, как в save_dismissal_ot)
+    orders_list = []
+    for order_number, ens in orders_dict.items():
+        orders_list.append({
+            'order_number': order_number,
+            'order_date': ens[0].order_out_date,
+            'enrollments': ens
+        })
 
     context = {
         'group': group,
-        'enrollments': enrollments,
-        'order_date': order_date,
-        'order_number': order_number,  # Передаем в шаблон
+        'orders_list': orders_list,  # <-- ТЕПЕРЬ ШАБЛОН ПОЛУЧИТ ТО, ЧТО ОЖИДАЕТ
         'logo_base64': get_logo_base64(),
     }
+
     return render(request, 'docs/orders/dismissal_ot.html', context)
 
 
@@ -1099,11 +1116,12 @@ def group_documents_dashboard(request, group_id):
         'enrollment_order': ['зачисл', 'enrollment', '-сз', '_сз', '-з.pdf'],
         'dismissal_ok': ['_ок', '-ок', '_ok', '-ok', 'оконч'],
         'dismissal_ot': ['_от', '-от', '_ot', '-ot', 'отчисл'],
+        'dismissal_reference': ['справк', 'reference'],  # ← ДОБАВЛЕНО
         'journal': ['журнал', 'journal'],
         'schedule': ['распис', 'schedule'],
         'land_training_task': ['суша', 'land', 'asp-l', 'суш'],
         'water_training_task': ['вода', 'water', 'asp-w', 'вод'],
-        'certificate': ['удостовер', 'модуль', 'certificate', 'cert'],
+        'certificate': ['удостовер', 'сертификат', 'модуль', 'certificate', 'cert'],
     }
 
     # 3. Сопоставляем файлы с типами документов
@@ -1469,3 +1487,130 @@ def regenerate_iup(request, iup_id):
         messages.error(request, f'Ошибка перегенерации ИУП: {str(e)}')
 
     return redirect('docs:documents_dashboard', group_id=iup.group.id)
+
+
+@staff_member_required
+def download_group_folder(request, group_id):
+    """Скачивание всей папки группы в виде ZIP-архива"""
+
+
+    group = get_object_or_404(Group, id=group_id)
+
+    # Формируем путь к папке группы
+    year = str(group.start_date.year) if group.start_date else 'unknown'
+    module_code = re.sub(r'[^\w\-]', '_', group.module.code) if group.module else 'unknown_module'
+    group_folder = os.path.join(
+        settings.MEDIA_ROOT,
+        'documents', str(year), 'groups', module_code, group.assigned_number
+    )
+
+    # Проверяем существование папки
+    if not os.path.exists(group_folder):
+        raise Http404(f"Папка группы не найдена: {group.assigned_number}")
+
+    # Подсчет файлов
+    file_count = 0
+    total_size = 0
+    for root, dirs, files in os.walk(group_folder):
+        for file in files:
+            file_count += 1
+            file_path = os.path.join(root, file)
+            total_size += os.path.getsize(file_path)
+
+    # Можно передать в контекст и показать в шаблоне
+    # или просто создать архив
+    # Создаем ZIP-архив в памяти
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        # Проходим по всем файлам в папке
+        for root, dirs, files in os.walk(group_folder):
+            for file in files:
+                file_path = os.path.join(root, file)
+                # Получаем относительный путь для сохранения в архиве
+                arcname = os.path.relpath(file_path, group_folder)
+                zip_file.write(file_path, arcname)
+
+    # Возвращаем архив
+    zip_buffer.seek(0)
+    response = HttpResponse(
+        zip_buffer.getvalue(),
+        content_type='application/zip'
+    )
+    response['Content-Disposition'] = f'attachment; filename="Group_{group.assigned_number}.zip"'
+
+    return response
+
+
+@staff_member_required
+def dismissal_reference_view(request, group_id):
+    """Предпросмотр справок об обучении для отчисленных"""
+    from training.models import Section
+
+    group = get_object_or_404(Group, id=group_id)
+
+    enrollments = Enrollment.objects.filter(
+        group=group, status='dismissed'
+    ).select_related('student', 'group', 'group__module').order_by('number_in_group')
+
+    if not enrollments.exists():
+        messages.warning(request, "Нет отчисленных студентов для формирования справок.")
+        return redirect('docs:documents_dashboard', group_id=group.id)
+
+    # Получаем ВСЕ разделы модуля
+    all_sections = Section.objects.filter(
+        stage__module=group.module
+    ).select_related('stage').order_by('stage__order', 'order')
+
+    students_data = []
+    for enrollment in enrollments:
+        # Словарь оценок студента
+        assessments_dict = {
+            a.section_id: a
+            for a in enrollment.assessments.select_related('section').all()
+        }
+
+        passed_sections = []
+        total_hours_passed = 0
+
+        # Итерируемся по ВСЕМ разделам модуля
+        for section in all_sections:
+            assessment = assessments_dict.get(section.id)
+
+            if assessment and assessment.score is not None:
+                grade = assessment.score
+                total_hours_passed += float(section.duration_hours or 0)
+            else:
+                grade = None  # "Не явка"
+
+            passed_sections.append({
+                'title': section.title,
+                'hours': float(section.duration_hours or 0),
+                'stage_title': section.stage.title if section.stage else '',
+                'grade': grade,
+                'grade_type': section.grade_type,
+            })
+
+        sections_per_page = 15
+        total_pages = max(1, (len(passed_sections) + sections_per_page - 1) // sections_per_page)
+
+        students_data.append({
+            'enrollment': enrollment,
+            'student': enrollment.student,
+            'dismissal_order_number': enrollment.order_out_number,
+            'dismissal_order_date': enrollment.order_out_date,
+            'dismissal_reason': enrollment.dismissal_reason,
+            'passed_sections': passed_sections,
+            'total_hours_passed': total_hours_passed,
+            'total_pages': total_pages,
+        })
+
+    zk20_pages = len(students_data)
+
+    context = {
+        'group': group,
+        'students_data': students_data,
+        'logo_base64': get_logo_base64(),
+        'zk20_pages': zk20_pages,
+    }
+    return render(request, 'docs/references/dismissal_reference.html', context)

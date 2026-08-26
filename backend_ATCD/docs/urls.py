@@ -30,6 +30,8 @@ urlpatterns = [
     path('enrollment/<int:enrollment_id>/create-iup/', views.create_iup_view, name='create_iup'),
     path('api/enrollment/<int:enrollment_id>/iup-preview/', views.iup_preview_schedule, name='iup_preview_schedule'),
     path('iup/<int:iup_id>/regenerate/', views.regenerate_iup, name='regenerate_iup'),
+    path('group/<int:group_id>/download-folder/', views.download_group_folder, name='download_group_folder'),
+    path('group/<int:group_id>/dismissal-reference/', views.dismissal_reference_view, name='dismissal_reference'),
 ]
 
 # Раздача медиа-файлов в режиме DEBUG

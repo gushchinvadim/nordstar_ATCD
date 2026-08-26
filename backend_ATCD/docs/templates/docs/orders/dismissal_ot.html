@@ -145,6 +145,7 @@
 </head>
 <body>
 
+{% for order in orders_list %}
 <div class="a4-page">
 
     <!-- КОЛОНТИТУЛ -->
@@ -159,7 +160,7 @@
                 ПРИКАЗ ОБ ОТЧИСЛЕНИИ
             </td>
             <td style="width: 20%; text-align: right; font-size: 9pt;">
-                {{ order_number }}
+                {{ order.order_number }}
             </td>
         </tr>
     </table>
@@ -167,8 +168,8 @@
     <h4>ПРИКАЗ</h4>
 
     <div class="header-order">
-            <p>От {{ order_date|date:"d.m.Y" }} г.</p>
-        <p>№ {{ order_number }}</p>
+        <p>От {{ order.order_date|date:"d.m.Y" }} г.</p>
+        <p>№ {{ order.order_number }}</p>
     </div>
 
     <p style="text-align: left; margin: 10px 0;">Об отчислении слушателей</p>
@@ -214,7 +215,7 @@
             </tr>
         </thead>
         <tbody>
-            {% for enrollment in enrollments %}
+            {% for enrollment in order.enrollments %}
             <tr>
                 <td style="text-align: center;">{{ forloop.counter }}</td>
                 <td>{{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic }}</td>
@@ -230,45 +231,41 @@
     </table>
 
     <p>2. Определить уровень доступа к настоящему приказу: АУЦ</p>
-<!--    <p>3. Контроль за исполнением настоящего приказа возложить на {{ group.curator.full_name|default:"—" }}</p>-->
-   <p>3. Ответственный за исполнение настоящего приказа:<br> {{ group.curator.position|default:"-" }} - {{ group.curator.full_name|default:"—" }}</p>
+    <p>3. Ответственный за исполнение настоящего приказа:<br> {{ group.curator.position|default:"-" }} - {{ group.curator.full_name|default:"—" }}</p>
 
-        <div style="margin-top: 15mm; width: 100%;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 11pt;">
-                <tr>
-                    <td style="width: 35%; vertical-align: bottom; padding-bottom: 2mm;">
-                        {{ group.director.position|default:"Директор АУЦ" }}
-                    </td>
-                    <td style="width: 30%; text-align: center; vertical-align: bottom; padding-bottom: 2mm;">
-                        <div style="border-bottom: 1px solid black; height: 1em; min-width: 80px;"></div>
-                        <div style="font-size: 8pt; color: #666; margin-top: 2px;">(подпись)</div>
-                    </td>
-                    <td style="width: 35%; text-align: right; vertical-align: bottom; padding-bottom: 2mm;">
-                        {{ group.director.full_name|default:"—" }}
-                    </td>
-                </tr>
-            </table>
-        </div>
-
-<!--<div style="margin-top: 10mm; font-size: 10pt; text-align: right;">-->
-<!--    <p><b>Дата:</b> «___» ____________ 20__ г.</p>-->
-<!--</div>-->
-
-    <!-- Кнопки скрыты при печати -->
-    <div class="no-print" style="margin-top: 20px;">
-        <button class="print-btn" onclick="window.print()">🖨 Распечатать</button>
-
-        <button class="print-btn" onclick="saveToGroupFolder('dismissal_ot')"
-                style="background: #FF9800; margin-left: 12px;">
-            💾 Сохранить в папку
-        </button>
-
-        <!-- НОВАЯ КНОПКА -->
-        <button class="print-btn" onclick="sendToEmail()"
-                style="background: #2196F3; margin-left: 12px;">
-            📧 Отправить на почту
-        </button>
+    <div style="margin-top: 15mm; width: 100%;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 11pt;">
+            <tr>
+                <td style="width: 35%; vertical-align: bottom; padding-bottom: 2mm;">
+                    {{ group.director.position|default:"Директор АУЦ" }}
+                </td>
+                <td style="width: 30%; text-align: center; vertical-align: bottom; padding-bottom: 2mm;">
+                    <div style="border-bottom: 1px solid black; height: 1em; min-width: 80px;"></div>
+                    <div style="font-size: 8pt; color: #666; margin-top: 2px;">(подпись)</div>
+                </td>
+                <td style="width: 35%; text-align: right; vertical-align: bottom; padding-bottom: 2mm;">
+                    {{ group.director.full_name|default:"—" }}
+                </td>
+            </tr>
+        </table>
     </div>
+
+</div>
+{% endfor %}
+
+<!-- Кнопки скрыты при печати -->
+<div class="no-print" style="margin-top: 20px; text-align: center;">
+    <button class="print-btn" onclick="window.print()">🖨 Распечатать</button>
+
+    <button class="print-btn" onclick="saveToGroupFolder('dismissal_ot')"
+            style="background: #FF9800; margin-left: 12px;">
+        💾 Сохранить в папку
+    </button>
+
+    <button class="print-btn" onclick="sendToEmail()"
+            style="background: #2196F3; margin-left: 12px;">
+        📧 Отправить на почту
+    </button>
 
 </div>
 <script>
