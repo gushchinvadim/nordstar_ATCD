@@ -79,13 +79,12 @@
 <body>
     <div class="header">
         <h1>📄 Документы группы {{ group.assigned_number }}</h1>
-        <p style="margin: 5px 0 0 0; font-size: 14px;">{{ group.application }} — {{ group.module.title }}</p>
+        <p style="margin: 5px 0 0 0; font-size: 14px;">{{ group.module.title }}</p>
     </div>
 
     <div class="content">
         <p>Здравствуйте!</p>
-        <p>Сформированы документы по группе <strong>{{ group.assigned_number }}</strong> ({{ group.application }}):</p>
-
+        <p>Сформированы документы по группе <strong>{{ group.assigned_number }}</strong>:</p>
         {% for doc in documents %}
         <div class="document-item">
             <div class="document-type">{{ doc.type }}</div>

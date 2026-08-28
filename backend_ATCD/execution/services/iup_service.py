@@ -10,7 +10,7 @@ from weasyprint import HTML
 from execution.models import Group, Enrollment, ScheduleItem, IndividualStudyPlan
 from training.models import Section, Stage
 from people.models import Staff
-from references.models import Location
+from references.models import Location, Classroom
 
 
 class IUPService:
@@ -28,9 +28,13 @@ class IUPService:
 
         year = str(self.group.start_date.year) if self.group.start_date else 'unknown'
         module_code = re.sub(r'[^\w\-]', '_', self.group.module.code) if self.group.module else 'unknown'
+
+        # ИСПРАВЛЕНО: используем safe_group_number вместо assigned_number
+        safe_group_number = re.sub(r'[^\w\.\-]', '_', self.group.assigned_number)
+
         self.group_folder = os.path.join(
             settings.MEDIA_ROOT,
-            'documents', year, 'groups', module_code, self.group.assigned_number, 'iup'
+            'documents', year, 'groups', module_code, safe_group_number, 'iup'
         )
         os.makedirs(self.group_folder, exist_ok=True)
 
@@ -59,31 +63,75 @@ class IUPService:
         }
 
     def _get_virtual_schedule_from_json(self):
-        """Получает расписание из JSON, подставляя объекты Django"""
-        from references.models import Classroom  # ← Импортируем правильную модель
+        """Получает расписание из JSON, подставляя объекты Django и преобразуя даты"""
+        from datetime import datetime, date as date_type
+        from references.models import Classroom
 
         virtual_schedule = []
 
         for item in self.schedule_data:
             # Получаем объекты по ID
             instructor = Staff.objects.get(id=item['instructor_id']) if item.get('instructor_id') else None
-
-            # ← ИСПРАВЛЕНО: используем Classroom вместо Location
             classroom = Classroom.objects.get(id=item['classroom_id']) if item.get('classroom_id') else None
-
-            # Получаем section
-            from training.models import Section
             section = Section.objects.get(id=item['section_id']) if item.get('section_id') else None
 
+            # === ПРЕОБРАЗОВАНИЕ ДАТ И ВРЕМЕНИ ===
+            # Дата может быть строкой "2026-08-10" или объектом date
+            raw_date = item.get('new_date')
+            if isinstance(raw_date, str):
+                try:
+                    parsed_date = datetime.strptime(raw_date, '%Y-%m-%d').date()
+                except ValueError:
+                    try:
+                        parsed_date = datetime.strptime(raw_date, '%d.%m.%Y').date()
+                    except ValueError:
+                        parsed_date = None
+            elif isinstance(raw_date, date_type):
+                parsed_date = raw_date
+            else:
+                parsed_date = None
+
+            # Время может быть строкой "09:00" или объектом time
+            raw_start_time = item.get('start_time')
+            if isinstance(raw_start_time, str):
+                try:
+                    parsed_start_time = datetime.strptime(raw_start_time, '%H:%M').time()
+                except ValueError:
+                    parsed_start_time = None
+            else:
+                parsed_start_time = raw_start_time
+
+            raw_end_time = item.get('end_time')
+            if isinstance(raw_end_time, str):
+                try:
+                    parsed_end_time = datetime.strptime(raw_end_time, '%H:%M').time()
+                except ValueError:
+                    parsed_end_time = None
+            else:
+                parsed_end_time = raw_end_time
+
             virtual_schedule.append({
-                'date': item.get('new_date'),
-                'start_time': item.get('start_time'),
-                'end_time': item.get('end_time'),
+                'date': parsed_date,
+                'start_time': parsed_start_time,
+                'end_time': parsed_end_time,
                 'section': section,
                 'instructor': instructor,
                 'classroom': classroom,
                 'session_type': item.get('session_type', ''),
+                'subsection': None,  # ИУП не использует подразделы
             })
+
+        # Помечаем первый элемент каждого этапа
+        prev_stage_id = None
+        for item in virtual_schedule:
+            if not item.get('section'):
+                item['is_first_of_stage'] = False
+                continue
+
+            stage = item['section'].stage
+            is_first = (prev_stage_id != stage.id)
+            item['is_first_of_stage'] = is_first
+            prev_stage_id = stage.id
 
         return virtual_schedule
 
@@ -112,10 +160,7 @@ class IUPService:
 
     def _generate_thematic_plan_pdf(self):
         """Генерирует PDF тематического плана ИУП"""
-        # Используем ту же логику, что и для расписания
         virtual_schedule = self._get_virtual_schedule_from_json()
-
-        # Преобразуем в формат тематического плана
         virtual_plan_pages = self._convert_to_thematic_plan(virtual_schedule)
 
         context = {
@@ -180,7 +225,7 @@ class IUPService:
                 'is_first_of_stage': is_first,
                 'is_last_of_stage': False,
                 'stage': stage,
-                'stage_total_hours': 0,  # заполним ниже
+                'stage_total_hours': 0,
             })
 
             prev_stage_id = stage.id

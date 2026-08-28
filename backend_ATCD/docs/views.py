@@ -724,7 +724,7 @@ def send_enrollment_order_email(request, group_id):
     subject = f"Приказ о зачислении - Группа {group.assigned_number}"
     body = (
         f"Добрый день!\n\n"
-        f"Во вложении направляю приказ о зачислении группы {group.assigned_number} "
+        f"Во вложении направляю приказ о зачислении группы {group.assigned_number} " 
         f"({group.module.code}).\n\n"
         f"С уважением,\nАУЦ"
     )
@@ -1051,27 +1051,53 @@ def download_document(request, file_path):
 @staff_member_required
 @require_POST
 def generate_all_documents(request, group_id):
-    """Массовая генерация всех активных документов"""
+    """Массовая генерация всех активных документов с умной обработкой пропусков"""
     group = get_object_or_404(Group, id=group_id)
     service = DocumentStorageService(group)
 
     generated = []
+    skipped = []
     errors = []
 
     for doc_key, doc_info in DocumentRegistry.get_active_documents().items():
+        method_name = doc_info.get('save_method')
+        doc_name = doc_info['name']
+
+        if not method_name:
+            continue
+
         try:
-            method = getattr(service, doc_info['save_method'], None)
+            method = getattr(service, method_name, None)
             if method:
-                method()  # Вызываем метод сохранения
-                generated.append(doc_info['name'])
+                result = method()  # Вызываем метод сохранения
+
+                # Если метод вернул путь к файлу — успех
+                if result:
+                    generated.append(doc_name)
+                # Если метод вернул None (например, нет занятий АСП в расписании)
+                else:
+                    skipped.append(f"{doc_name} (нет данных в расписании)")
+
+        except ValueError as e:
+            # Ожидаемые ситуации: нет отчисленных, нет завершенных и т.д.
+            # Методы сервиса специально кидают ValueError с понятным текстом
+            skipped.append(f"{doc_name} ({str(e)})")
+
         except Exception as e:
-            errors.append(f"{doc_info['name']}: {str(e)}")
+            # Неожиданные критические ошибки (проблемы с шаблоном, правами и т.д.)
+            errors.append(f"{doc_name}: {str(e)}")
 
+    # Формируем сообщения для пользователя
     if generated:
-        messages.success(request, f'Сгенерировано документов: {len(generated)}')
-    if errors:
-        messages.error(request, f'Ошибки: {"; ".join(errors)}')
+        messages.success(request, f'✅ Успешно сгенерировано: {len(generated)} ({", ".join(generated)})')
 
+    if skipped:
+        # Используем warning (желтый), а не error (красный), так как это штатная ситуация
+        messages.warning(request, f'ℹ️ Пропущено (нет данных): {len(skipped)}')
+
+    if errors:
+        # Красный цвет только для реальных сбоев
+        messages.error(request, f'❌ Ошибки генерации: {"; ".join(errors)}')
 
     return redirect('docs:documents_dashboard', group_id=group_id)
 
@@ -1088,7 +1114,10 @@ def group_documents_dashboard(request, group_id):
     year = str(group.start_date.year) if group.start_date else str(date.today().year)
     module_code = re.sub(r'[^\w\-]', '_', group.module.code) if group.module else 'unknown_module'
 
-    group_folder_name = f"documents/{year}/groups/{module_code}/{group.assigned_number}"
+    # БЕЗОПАСНЫЙ НОМЕР ДЛЯ ПУТИ (заменяем / на _)
+    safe_group_number = re.sub(r'[^\w\.\-]', '_', group.assigned_number)
+
+    group_folder_name = f"documents/{year}/groups/{module_code}/{safe_group_number}"
     expected_base = os.path.join(settings.MEDIA_ROOT, group_folder_name.replace('/', os.sep))
 
     if os.path.exists(expected_base):
@@ -1213,7 +1242,10 @@ def group_documents_dashboard(request, group_id):
     iup_documents = []
     year = str(group.start_date.year) if group.start_date else str(date.today().year)
     module_code = re.sub(r'[^\w\-]', '_', group.module.code) if group.module else 'unknown_module'
-    iup_folder_rel = f"documents/{year}/groups/{module_code}/{group.assigned_number}/iup"
+
+    # ИСПРАВЛЕНО: используем safe_group_number вместо group.assigned_number
+    safe_group_number = re.sub(r'[^\w\.\-]', '_', group.assigned_number)
+    iup_folder_rel = f"documents/{year}/groups/{module_code}/{safe_group_number}/iup"
 
     iups = IndividualStudyPlan.objects.filter(
         group=group
@@ -1227,11 +1259,12 @@ def group_documents_dashboard(request, group_id):
         sched_rel_path = f"{iup_folder_rel}/ИУП_{surname}_{name}_расписание.pdf"
         theme_rel_path = f"{iup_folder_rel}/ИУП_{surname}_{name}_тематический_план.pdf"
 
-        sched_exists = os.path.exists(os.path.join(settings.MEDIA_ROOT, sched_rel_path))
-        theme_exists = os.path.exists(os.path.join(settings.MEDIA_ROOT, theme_rel_path))
+        # Используем os.sep для корректной проверки на любой ОС
+        sched_exists = os.path.exists(os.path.join(settings.MEDIA_ROOT, sched_rel_path.replace('/', os.sep)))
+        theme_exists = os.path.exists(os.path.join(settings.MEDIA_ROOT, theme_rel_path.replace('/', os.sep)))
 
         iup_documents.append({
-            'id': iup.id,  # <--- ДОБАВЛЕНО: ID необходим для кнопки перегенерации
+            'id': iup.id,
             'student_name': f"{surname} {name} {patronymic}".strip(),
             'reason': iup.reason,
             'created_at': iup.created_at,
@@ -1294,7 +1327,7 @@ def certificate_batch_view(request, group_id):
 
 @staff_member_required
 def create_iup_view(request, enrollment_id):
-    """Создание индивидуального учебного плана для студента"""
+    """Создание или обновление индивидуального учебного плана для студента"""
 
     enrollment = get_object_or_404(Enrollment, id=enrollment_id)
     student = enrollment.student
@@ -1333,23 +1366,73 @@ def create_iup_view(request, enrollment_id):
             'schedule_data': schedule_data,
         }
 
+        # === ПРОВЕРКА НА СУЩЕСТВУЮЩИЙ АКТИВНЫЙ ИУП ===
+        from execution.models import IndividualStudyPlan
+        existing_iup = IndividualStudyPlan.objects.filter(
+            student=student,
+            group=group,
+            status='active'
+        ).order_by('-created_at').first()
+
+        staff_user = getattr(request.user, 'staff', None)
+
         try:
-            service = IUPService(enrollment, new_dates)
+            if existing_iup:
+                # === ОБНОВЛЕНИЕ СУЩЕСТВУЮЩЕГО ИУП ===
+                existing_iup.start_date = new_dates['start_date']
+                existing_iup.end_date = new_dates['end_date']
+                existing_iup.start_face_to_face = new_dates.get('start_face_to_face')
+                existing_iup.schedule_data = schedule_data
+                existing_iup.reason = reason
+                existing_iup.created_by = staff_user
+                existing_iup.save()
 
-            staff_user = getattr(request.user, 'staff', None)
-            result = service.create_iup(
-                reason=reason,
-                created_by=staff_user
-            )
+                # Удаляем старые PDF файлы перед перегенерацией
+                import os
+                from django.conf import settings
+                import re
 
-            messages.success(
-                request,
-                f'✅ ИУП создан для {student.surname} {student.name}. '
-                f'Документы сохранены в папку группы.'
-            )
+                year = str(group.start_date.year) if group.start_date else 'unknown'
+                module_code = re.sub(r'[^\w\-]', '_', group.module.code) if group.module else 'unknown'
+                safe_group_number = re.sub(r'[^\w\.\-]', '_', group.assigned_number)
+
+                iup_folder = os.path.join(
+                    settings.MEDIA_ROOT,
+                    'documents', year, 'groups', module_code, safe_group_number, 'iup'
+                )
+
+                # Удаляем старые файлы ИУП для этого студента
+                if os.path.exists(iup_folder):
+                    for file in os.listdir(iup_folder):
+                        if file.startswith(f'ИУП_{student.surname}_{student.name}_'):
+                            file_path = os.path.join(iup_folder, file)
+                            try:
+                                os.remove(file_path)
+                            except Exception as e:
+                                print(f"Не удалось удалить старый файл {file}: {e}")
+
+                # Перегенерируем PDF
+                service = IUPService(enrollment, new_dates)
+                service.create_iup(reason=reason, created_by=staff_user)
+
+                messages.success(
+                    request,
+                    f'✅ ИУП для {student.surname} {student.name} обновлён. '
+                    f'Старые документы заменены новыми.'
+                )
+            else:
+                # === СОЗДАНИЕ НОВОГО ИУП ===
+                service = IUPService(enrollment, new_dates)
+                service.create_iup(reason=reason, created_by=staff_user)
+
+                messages.success(
+                    request,
+                    f'✅ ИУП создан для {student.surname} {student.name}. '
+                    f'Документы сохранены в папку группы.'
+                )
 
         except Exception as e:
-            messages.error(request, f'Ошибка создания ИУП: {str(e)}')
+            messages.error(request, f'Ошибка {"обновления" if existing_iup else "создания"} ИУП: {str(e)}')
 
         return redirect('docs:group_grades', group_id=group.id)
 
@@ -1492,42 +1575,33 @@ def regenerate_iup(request, iup_id):
 @staff_member_required
 def download_group_folder(request, group_id):
     """Скачивание всей папки группы в виде ZIP-архива"""
-
+    from urllib.parse import quote
 
     group = get_object_or_404(Group, id=group_id)
 
     # Формируем путь к папке группы
     year = str(group.start_date.year) if group.start_date else 'unknown'
     module_code = re.sub(r'[^\w\-]', '_', group.module.code) if group.module else 'unknown_module'
+
+    # Санитизируем номер группы для пути (заменяем / на _)
+    safe_group_number = re.sub(r'[^\w\.\-]', '_', group.assigned_number)
+
     group_folder = os.path.join(
         settings.MEDIA_ROOT,
-        'documents', str(year), 'groups', module_code, group.assigned_number
+        'documents', str(year), 'groups', module_code, safe_group_number
     )
 
     # Проверяем существование папки
     if not os.path.exists(group_folder):
-        raise Http404(f"Папка группы не найдена: {group.assigned_number}")
+        raise Http404(f"Папка группы не найдена: {safe_group_number}")
 
-    # Подсчет файлов
-    file_count = 0
-    total_size = 0
-    for root, dirs, files in os.walk(group_folder):
-        for file in files:
-            file_count += 1
-            file_path = os.path.join(root, file)
-            total_size += os.path.getsize(file_path)
-
-    # Можно передать в контекст и показать в шаблоне
-    # или просто создать архив
     # Создаем ZIP-архив в памяти
     zip_buffer = io.BytesIO()
 
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        # Проходим по всем файлам в папке
         for root, dirs, files in os.walk(group_folder):
             for file in files:
                 file_path = os.path.join(root, file)
-                # Получаем относительный путь для сохранения в архиве
                 arcname = os.path.relpath(file_path, group_folder)
                 zip_file.write(file_path, arcname)
 
@@ -1537,10 +1611,37 @@ def download_group_folder(request, group_id):
         zip_buffer.getvalue(),
         content_type='application/zip'
     )
-    response['Content-Disposition'] = f'attachment; filename="Group_{group.assigned_number}.zip"'
+
+    # Формируем максимально безопасное имя файла
+    # 001.2026-СЗ_28-001 -> group_001_2026_SZ_28_001.zip
+    def make_safe_filename(text):
+        """Транслитерация + замена всех спецсимволов на подчёркивания"""
+        mapping = {
+            'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo',
+            'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+            'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+            'ф': 'f', 'х': 'kh', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
+            'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+            'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'Yo',
+            'Ж': 'Zh', 'З': 'Z', 'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M',
+            'Н': 'N', 'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U',
+            'Ф': 'F', 'Х': 'Kh', 'Ц': 'Ts', 'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Sch',
+            'Ъ': '', 'Ы': 'Y', 'Ь': '', 'Э': 'E', 'Ю': 'Yu', 'Я': 'Ya'
+        }
+        # Транслитерируем
+        text = ''.join(mapping.get(c, c) for c in text)
+        # Заменяем всё, что не буква/цифра, на подчёркивание
+        text = re.sub(r'[^a-zA-Z0-9]', '_', text)
+        # Убираем множественные подчёркивания
+        text = re.sub(r'_+', '_', text).strip('_')
+        return text
+
+    safe_name = make_safe_filename(safe_group_number)
+    filename = f"group_{safe_name}.zip"
+
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
     return response
-
 
 @staff_member_required
 def dismissal_reference_view(request, group_id):
@@ -1627,3 +1728,143 @@ def dismissal_reference_view(request, group_id):
         'zk20_pages': zk20_pages,
     }
     return render(request, 'docs/references/dismissal_reference.html', context)
+
+
+@staff_member_required
+def view_iup(request, iup_id):
+    """Просмотр существующего ИУП"""
+    from execution.models import IndividualStudyPlan
+
+    iup = get_object_or_404(IndividualStudyPlan, id=iup_id)
+    group = iup.group
+    student = iup.student
+
+    # Получаем enrollment студента в этой группе
+    enrollment = Enrollment.objects.filter(
+        student=student,
+        group=group
+    ).first()
+
+    if not enrollment:
+        messages.error(request,
+                       f'Не найдено зачисление для студента {student.full_name} в группе {group.assigned_number}')
+        return redirect('docs:documents_dashboard', group_id=group.id)
+
+    # Формируем new_dates из данных ИУП
+    new_dates = {
+        'start_date': iup.start_date,
+        'end_date': iup.end_date,
+        'start_face_to_face': iup.start_face_to_face,
+        'schedule_data': iup.schedule_data or [],
+    }
+
+    # Создаем сервис с валидным enrollment
+    service = IUPService(enrollment, new_dates)
+
+    # Получаем виртуальное расписание
+    virtual_schedule = service._get_virtual_schedule_from_json()
+
+    context = {
+        'iup': iup,
+        'group': group,
+        'student': student,
+        'schedule_items': virtual_schedule,
+        'logo_base64': get_logo_base64(),
+        'iup_mode': True,
+        'iup_student': student,
+        'iup_start_date': iup.start_date,
+        'iup_end_date': iup.end_date,
+    }
+
+    return render(request, 'docs/schedules/schedule.html', context)
+
+
+@staff_member_required
+def edit_iup_view(request, iup_id):
+    """Редактирование существующего ИУП"""
+    from execution.models import IndividualStudyPlan
+    import os, re
+    from django.conf import settings
+
+    iup = get_object_or_404(IndividualStudyPlan, id=iup_id)
+    enrollment = get_object_or_404(Enrollment, student=iup.student, group=iup.group)
+    student = enrollment.student
+    group = enrollment.group
+
+    if request.method == 'POST':
+        start_date = request.POST.get('start_date')
+        end_date = request.POST.get('end_date')
+        start_face_to_face = request.POST.get('start_face_to_face')
+        reason = request.POST.get('reason', '')
+        reason_details = request.POST.get('reason_details', '')
+        schedule_data_json = request.POST.get('schedule_data', '[]')
+
+        if not start_date or not end_date:
+            messages.error(request, 'Укажите даты начала и окончания ИУП')
+            return redirect('docs:edit_iup', iup_id=iup.id)
+
+        if reason_details:
+            reason = f"{reason} | {reason_details}"
+
+        try:
+            schedule_data = json.loads(schedule_data_json)
+        except json.JSONDecodeError:
+            messages.error(request, 'Ошибка в данных расписания')
+            return redirect('docs:edit_iup', iup_id=iup.id)
+
+        new_dates = {
+            'start_date': date.fromisoformat(start_date),
+            'end_date': date.fromisoformat(end_date),
+            'start_face_to_face': date.fromisoformat(start_face_to_face) if start_face_to_face else None,
+            'schedule_data': schedule_data,
+        }
+
+        staff_user = getattr(request.user, 'staff', None)
+
+        try:
+            # 1. Обновляем запись в БД
+            iup.start_date = new_dates['start_date']
+            iup.end_date = new_dates['end_date']
+            iup.start_face_to_face = new_dates.get('start_face_to_face')
+            iup.schedule_data = schedule_data
+            iup.reason = reason
+            iup.created_by = staff_user
+            iup.save()
+
+            # 2. Удаляем старые PDF файлы
+            year = str(group.start_date.year) if group.start_date else 'unknown'
+            module_code = re.sub(r'[^\w\-]', '_', group.module.code) if group.module else 'unknown'
+            safe_group_number = re.sub(r'[^\w\.\-]', '_', group.assigned_number)
+
+            iup_folder = os.path.join(
+                settings.MEDIA_ROOT, 'documents', year, 'groups', module_code, safe_group_number, 'iup'
+            )
+
+            if os.path.exists(iup_folder):
+                for file in os.listdir(iup_folder):
+                    if file.startswith(f'ИУП_{student.surname}_{student.name}_'):
+                        try:
+                            os.remove(os.path.join(iup_folder, file))
+                        except Exception as e:
+                            print(f"Не удалось удалить старый файл {file}: {e}")
+
+            # 3. Генерируем новые PDF
+            service = IUPService(enrollment, new_dates)
+            service.create_iup(reason=reason, created_by=staff_user)
+
+            messages.success(request, f'✅ ИУП для {student.surname} {student.name} успешно обновлён.')
+
+        except Exception as e:
+            messages.error(request, f'Ошибка обновления ИУП: {str(e)}')
+
+        return redirect('docs:documents_dashboard', group_id=group.id)
+
+    # GET запрос: передаем существующие данные в форму
+    context = {
+        'enrollment': enrollment,
+        'student': student,
+        'group': group,
+        'existing_iup': iup,
+        'existing_schedule_json': json.dumps(iup.schedule_data, ensure_ascii=False, default=str),  # Для JS
+    }
+    return render(request, 'docs/iup/create_iup.html', context)  # Используем тот же шаблон

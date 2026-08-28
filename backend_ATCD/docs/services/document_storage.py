@@ -9,6 +9,7 @@ from weasyprint import HTML
 
 from docs.utils import get_logo_base64
 from execution.models import Enrollment, Certificate, ScheduleItem
+from people.models import Staff
 from references.models import License
 from training.models import Section
 
@@ -25,10 +26,12 @@ class DocumentStorageService:
         self.group = group
         self.year = group.start_date.year if group.start_date else date.today().year
 
-        # Формируем уникальный путь: год / код_модуля / номер_группы
-        # Это гарантирует, что группы с одинаковыми номерами, но из разных программ, не пересекутся
         module_code = group.module.code if group.module else 'unknown_module'
         safe_module_code = re.sub(r'[^\w\-]', '_', module_code)
+
+        # ВАЖНО: Заменяем слэши и запрещенные символы в номере группы для пути к папке
+        # 001.2026-СЗ/23-234 -> 001.2026-СЗ_23-234
+        safe_group_number = re.sub(r'[^\w\.\-]', '_', group.assigned_number)
 
         self.base_path = os.path.join(
             settings.MEDIA_ROOT,
@@ -36,7 +39,7 @@ class DocumentStorageService:
             str(self.year),
             'groups',
             safe_module_code,
-            group.assigned_number
+            safe_group_number
         )
 
     def get_or_create_folder(self, *subfolders):
@@ -46,7 +49,7 @@ class DocumentStorageService:
         return folder_path
 
     def save_both(self, template_name, context, subfolder, filename):
-        """Генерирует и сохраняет PDF (и HTML, если нужно)"""
+        """Генерирует и сохраняет PDF (и HTML, если нужно) с жесткой валидацией"""
         folder = self.get_or_create_folder(*subfolder) if subfolder else self.base_path
         pdf_filename = filename.replace('.html', '.pdf')
         file_path = os.path.join(folder, pdf_filename)
@@ -54,12 +57,14 @@ class DocumentStorageService:
         # Рендерим шаблон
         html_content = render_to_string(template_name, context)
 
-        # Проверяем, что HTML не пустой
-        if not html_content or len(html_content.strip()) < 100:
-            raise ValueError(
-                f"Шаблон '{template_name}' вернул пустой HTML. "
-                f"Возможно, в контексте нет данных (например, нет завершенных студентов)."
-            )
+        # 1. ПРОВЕРКА HTML: должен быть не только длинным, но и содержать данные группы
+        clean_html = html_content.strip()
+        if len(clean_html) < 500:
+            raise ValueError(f"Шаблон '{template_name}' вернул слишком короткий HTML (пустой?).")
+
+        # Если в HTML нет номера группы или кода модуля — значит, данные не подтянулись
+        if self.group.assigned_number not in html_content and self.group.module.code not in html_content:
+            raise ValueError(f"Шаблон '{template_name}' не отрисовал данные группы (пустой контент).")
 
         base_url = f'file://{settings.BASE_DIR}/'
 
@@ -69,15 +74,14 @@ class DocumentStorageService:
             presentational_hints=True
         )
 
-        # Проверяем размер PDF
+        # 2. ПРОВЕРКА РАЗМЕРА PDF: пустой PDF (просто белая страница) весит ~1-2 КБ
         if os.path.exists(file_path):
             file_size = os.path.getsize(file_path)
-            if file_size < 100:  # Менее 100 байт — подозрительно
+            if file_size < 2500:  # Реальный документ с текстом и таблицами весит минимум 5-10 КБ
                 os.remove(file_path)
                 raise ValueError(f"Сгенерирован пустой PDF ({file_size} байт): {file_path}")
 
         return file_path
-
     # === Основные документы ===
 
     def save_enrollment_order(self):
@@ -88,7 +92,8 @@ class DocumentStorageService:
             'enrollments': enrollments,
             'logo_base64': get_logo_base64(),
         }
-        raw_filename = f"{self.group.assigned_number}-{self.group.application}-З.html"
+
+        raw_filename = f"{self.group.assigned_number}-З.html"
         filename = sanitize_filename(raw_filename)
         return self.save_both('docs/orders/enrollment.html', context, ['orders'], filename)
 
@@ -103,7 +108,8 @@ class DocumentStorageService:
             'schedule_items': schedule_items,
             'logo_base64': get_logo_base64(),
         }
-        filename = f"{self.group.assigned_number}_schedule_v.1.html"
+        raw_filename = f"{self.group.assigned_number}_schedule_v.1.html"
+        filename = sanitize_filename(raw_filename)  # ← ДОБАВЛЕНО
         return self.save_both('docs/schedules/schedule.html', context, ['schedules'], filename)
 
     def save_journal(self):
@@ -133,46 +139,80 @@ class DocumentStorageService:
 
     def save_land_training_task(self):
         """Сохраняет задание на тренировку АСП Суша"""
-        enrollments = Enrollment.objects.filter(group=self.group).select_related('student',
-                                                                                 'student__profession').order_by(
-            'number_in_group')
-        asp_item = ScheduleItem.objects.filter(group=self.group, session_type='asp-l').select_related(
-            'instructor').first()
-        instructor = asp_item.instructor.full_name if asp_item and asp_item.instructor else None
+        asp_land_items = ScheduleItem.objects.filter(
+            group=self.group,
+            session_type__iexact='asp-l'
+        ).select_related('section', 'subsection', 'section__stage', 'instructor', 'classroom')
+
+        if not asp_land_items.exists():
+            return None
+
+        # Тип ВС из модуля
         aircraft_type = self.group.module.aircraft_type if self.group.module else None
 
+        # Ищем инструктора АСП (тот, кто ведет практическую подготовку / аттестует)
+        # Берем первого попавшегося инструктора из расписания АСП.
+        # Если в расписании никто не назначен, останется пустой строкой.
+        instructor_name = ""
+        for item in asp_land_items:
+            if item.instructor:
+                instructor_name = item.instructor.full_name
+                break
+
         context = {
-            'group': self.group, 'enrollments': enrollments, 'instructor_name': instructor,
-            'aircraft_type': aircraft_type, 'logo_base64': get_logo_base64(),
+            'group': self.group,
+            'module': self.group.module,
+            'schedule_items': asp_land_items,
+            'sections': Section.objects.filter(stage__module=self.group.module).select_related('stage').order_by(
+                'stage__order', 'order'),
+            'enrollments': Enrollment.objects.filter(group=self.group).select_related('student'),
+            'aircraft_type': aircraft_type,
+            'instructor_name': instructor_name,  # <-- Только инструктор АСП из расписания!
+            'logo_base64': get_logo_base64(),
         }
 
-        # ← ДИНАМИЧЕСКИЙ ШАБЛОН
+        raw_filename = f"{self.group.assigned_number}_Задание_АСП_Суша.html"
+        filename = sanitize_filename(raw_filename)
         template_name = self._get_training_task_template('land')
 
-        raw_filename = f"Задание_АСП_Суша_{self.group.assigned_number}.html"
-        filename = sanitize_filename(raw_filename)
         return self.save_both(template_name, context, ['training_tasks'], filename)
 
     def save_water_training_task(self):
         """Сохраняет задание на тренировку АСП Вода"""
-        enrollments = Enrollment.objects.filter(group=self.group).select_related('student',
-                                                                                 'student__profession').order_by(
-            'number_in_group')
-        asp_item = ScheduleItem.objects.filter(group=self.group, session_type='asp-w').select_related(
-            'instructor').first()
-        instructor = asp_item.instructor.full_name if asp_item and asp_item.instructor else None
+        asp_water_items = ScheduleItem.objects.filter(
+            group=self.group,
+            session_type__iexact='asp-w'
+        ).select_related('section', 'subsection', 'section__stage', 'instructor', 'classroom')
+
+        if not asp_water_items.exists():
+            return None
+
+        # Тип ВС из модуля
         aircraft_type = self.group.module.aircraft_type if self.group.module else None
 
+        # Ищем инструктора АСП из расписания
+        instructor_name = ""
+        for item in asp_water_items:
+            if item.instructor:
+                instructor_name = item.instructor.full_name
+                break
+
         context = {
-            'group': self.group, 'enrollments': enrollments, 'instructor_name': instructor,
-            'aircraft_type': aircraft_type, 'logo_base64': get_logo_base64(),
+            'group': self.group,
+            'module': self.group.module,
+            'schedule_items': asp_water_items,
+            'sections': Section.objects.filter(stage__module=self.group.module).select_related('stage').order_by(
+                'stage__order', 'order'),
+            'enrollments': Enrollment.objects.filter(group=self.group).select_related('student'),
+            'aircraft_type': aircraft_type,
+            'instructor_name': instructor_name,  # <-- Только инструктор АСП из расписания!
+            'logo_base64': get_logo_base64(),
         }
 
-        # ← ДИНАМИЧЕСКИЙ ШАБЛОН
+        raw_filename = f"{self.group.assigned_number}_Задание_АСП_Вода.html"
+        filename = sanitize_filename(raw_filename)
         template_name = self._get_training_task_template('water')
 
-        raw_filename = f"Задание_АСП_Вода_{self.group.assigned_number}.html"
-        filename = sanitize_filename(raw_filename)
         return self.save_both(template_name, context, ['training_tasks'], filename)
 
     def save_dismissal_ok(self):
@@ -226,6 +266,21 @@ class DocumentStorageService:
         if not enrollments.exists():
             raise ValueError(f"В группе {self.group.assigned_number} нет отчисленных студентов.")
 
+        # === КОРРЕКТИРОВКА ДАТ ОТЧИСЛЕНИЯ ===
+        for enrollment in enrollments:
+            # Если order_out_date не заполнено, берём дату из последней оценки
+            if not enrollment.order_out_date:
+                from execution.models import Assessment
+                last_assessment = Assessment.objects.filter(
+                    enrollment=enrollment,
+                    assessment_date__isnull=False
+                ).order_by('-assessment_date').first()
+
+                if last_assessment and last_assessment.assessment_date:
+                    enrollment.order_out_date = last_assessment.assessment_date
+                    enrollment.save(update_fields=['order_out_date'])
+        # ==========================================
+
         # Группируем отчисленных по номеру приказа
         orders_dict = defaultdict(list)
         for enrollment in enrollments:
@@ -251,7 +306,6 @@ class DocumentStorageService:
         raw_filename = f"Приказ_ОТ_{self.group.assigned_number}.html"
         filename = sanitize_filename(raw_filename)
         return self.save_both('docs/orders/dismissal_ot.html', context, ['orders'], filename)
-
     # === Сертификаты (Удостоверения) ===
 
     def save_certificate(self):
@@ -303,6 +357,20 @@ class DocumentStorageService:
         batch_data = []
         for enrollment in enrollments:
             assessments = {a.section_id: a for a in enrollment.assessments.select_related('section').all()}
+
+            # === ПРОВЕРКА НАЛИЧИЯ ИУП ===
+            from execution.models import IndividualStudyPlan
+            iup = IndividualStudyPlan.objects.filter(
+                student=enrollment.student,
+                group=self.group,
+                status='active'
+            ).order_by('-created_at').first()
+
+            iup_start_face_to_face = None
+            iup_end_date = None
+            if iup:
+                iup_start_face_to_face = iup.start_face_to_face
+                iup_end_date = iup.end_date
 
             # =====================================================================
             # ГРУППИРОВКА РАЗДЕЛОВ ПО ЭТАПАМ
@@ -414,6 +482,10 @@ class DocumentStorageService:
                 'final_exam_hours': final_exam_hours,
                 'final_grade': final_grade,
                 'logo_base64': get_logo_base64(),
+                # === ДОБАВЛЕНО: даты из ИУП (если есть) ===
+                'iup_start_face_to_face': iup_start_face_to_face,
+                'iup_end_date': iup_end_date,
+                'has_iup': iup is not None,
             })
 
         # Используем шаблон, указанный в модели Module

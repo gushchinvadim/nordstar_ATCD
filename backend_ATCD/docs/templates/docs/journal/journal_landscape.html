@@ -419,7 +419,7 @@
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
-            <td style="width: 60%;">{{ group.assigned_number }} - {{ group.application|default:"—" }}</td>
+            <td style="width: 60%;">{{ group.assigned_number }}</td>
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
@@ -494,7 +494,7 @@
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
-            <td style="width: 60%;">{{ group.assigned_number }} - {{ group.application|default:"—" }}</td>
+            <td style="width: 60%;">{{ group.assigned_number }}</td>
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
@@ -566,7 +566,7 @@
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
-            <td style="width: 60%;">{{ group.assigned_number }} - {{ group.application|default:"—" }}</td>
+            <td style="width: 60%;">{{ group.assigned_number }}</td>
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
@@ -651,7 +651,7 @@
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
-            <td style="width: 60%;">{{ group.assigned_number }} - {{ group.application|default:"—" }}</td>
+            <td style="width: 60%;">{{ group.assigned_number }}</td>
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
@@ -722,7 +722,7 @@
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
-            <td style="width: 60%;">{{ group.assigned_number }} - {{ group.application|default:"—" }}</td>
+            <td style="width: 60%;">{{ group.assigned_number }}</td>
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
@@ -806,7 +806,7 @@
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
-            <td style="width: 60%;">{{ group.assigned_number }} - {{ group.application|default:"—" }}</td>
+            <td style="width: 60%;">{{ group.assigned_number }}</td>
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
@@ -852,7 +852,7 @@
                             <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
                             <td style="text-align: center;">{{ certificate.get_certificate_type_display }}</td>
                             <td>{{ certificate.number|default:"Б/Н" }}</td>
-                            <td style="text-align: center;">{{ certificate.issue_date|date:"d.m.Y"|default:"—" }}</td>
+                            <td style="text-align: center;">{{ enrollment.completed_at|date:"d.m.Y"|default:"—" }}</td>
                             <td class="text-left" style="text-align: left;">
                                 {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                             </td>
@@ -912,7 +912,7 @@
                             <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
                             <td style="text-align: center;">Задание на тренировку</td>
                             <td>Б/Н</td>
-                            <td style="text-align: center;">{{ certificate.issue_date|date:"d.m.Y"|default:"—" }}</td>
+                            <td style="text-align: center;">{{ enrollment.completed_at|date:"d.m.Y"|default:"—" }}</td>
                             <td class="text-left" style="text-align: left;">
                                 {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                             </td>
@@ -950,7 +950,7 @@
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
-            <td style="width: 60%;">{{ group.assigned_number }} - {{ group.application|default:"—" }}</td>
+            <td style="width: 60%;">{{ group.assigned_number }}</td>
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>

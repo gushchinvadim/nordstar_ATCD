@@ -162,53 +162,45 @@
                                 <span style="color: #95a5a6;">{{ iup_doc.status }}</span>
                             {% endif %}
                         </td>
-                        <td style="white-space: nowrap;">
-                            {% if iup_doc.schedule_exists and iup_doc.thematic_exists %}
-                                <a href="/docs/download/{{ iup_doc.schedule_path }}" class="btn btn-view" target="_blank" title="Открыть расписание">
-                                    📅 Расписание
-                                </a>
-                                <a href="/docs/download/{{ iup_doc.schedule_path }}" class="btn btn-download" target="_blank" title="Скачать расписание">
-                                    ⬇
-                                </a>
-                                <a href="/docs/download/{{ iup_doc.thematic_path }}" class="btn btn-view" target="_blank" title="Открыть тематический план" style="margin-left: 5px;">
-                                    📚 Тем. план
-                                </a>
-                                <a href="/docs/download/{{ iup_doc.thematic_path }}" class="btn btn-download" target="_blank" title="Скачать тем. план">
-                                    ⬇
-                                </a>
-                            {% else %}
-                                <span class="status-missing" style="font-size: 9pt;">Файлы не найдены</span>
-                                <br>
-                                <form method="post" action="{% url 'docs:regenerate_iup' iup_doc.id %}" style="display: inline; margin-top: 5px;">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-save" style="font-size: 9pt; padding: 4px 8px;">
-                                        🔄 Сгенерировать заново
-                                    </button>
-                                </form>
-                            {% endif %}
-                        </td>
+<td style="white-space: nowrap;">
+    {% if iup_doc.schedule_exists and iup_doc.thematic_exists %}
+        <a href="{% url 'docs:view_iup' iup_doc.id %}" class="btn btn-view" title="Просмотр">👁</a>
+        <a href="{% url 'docs:edit_iup' iup_doc.id %}" class="btn btn-save" title="Редактировать">✏️</a>
+        <a href="/docs/download/{{ iup_doc.schedule_path }}" class="btn btn-download" title="Скачать расписание">📅</a>
+        <a href="/docs/download/{{ iup_doc.thematic_path }}" class="btn btn-download" title="Скачать тем. план">📚</a>
+    {% else %}
+        <span class="status-missing" style="font-size: 9pt;">Файлы не найдены</span>
+        <br>
+        <form method="post" action="{% url 'docs:regenerate_iup' iup_doc.id %}" style="display: inline; margin-top: 5px;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-save" style="font-size: 9pt; padding: 4px 8px;">
+                🔄 Сгенерировать заново
+            </button>
+        </form>
+    {% endif %}
+</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         {% else %}
             <!-- Блок-подсказка, если ИУП ещё нет -->
-            <div style="background: #fff3cd; padding: 15px; border-radius: 4px; margin-bottom: 20px; border-left: 4px solid #f39c12;">
-                <p style="margin: 0 0 10px 0; color: #856404; font-size: 10pt; line-height: 1.4;">
-                    Если студент отсутствовал на занятиях, вы можете назначить ему индивидуальный график.
-                    Система сгенерирует отдельные файлы расписания и тематического плана с новыми датами,
-                    инструкторами и аудиториями, не затрагивая основную группу.
-                </p>
-                <p style="margin: 0; color: #856404; font-size: 10pt;">
-                    <strong>Созданных ИУП пока нет.</strong>
-                    Кнопка создания ИУП находится в
-                    <a href="{% url 'docs:group_grades' group.id %}" style="color: #856404; font-weight: bold; text-decoration: underline;">Журнале оценок</a>
-                    рядом с каждым студентом.
-                </p>
-                <a href="{% url 'docs:group_grades' group.id %}" class="btn" style="background: #f39c12; color: white; margin-top: 10px;">
-                    👥 Перейти к журналу оценок
-                </a>
-            </div>
+<!--            <div style="background: #fff3cd; padding: 15px; border-radius: 4px; margin-bottom: 20px; border-left: 4px solid #f39c12;">-->
+<!--                <p style="margin: 0 0 10px 0; color: #856404; font-size: 10pt; line-height: 1.4;">-->
+<!--                    Если студент отсутствовал на занятиях, вы можете назначить ему индивидуальный график.-->
+<!--                    Система сгенерирует отдельные файлы расписания и тематического плана с новыми датами,-->
+<!--                    инструкторами и аудиториями, не затрагивая основную группу.-->
+<!--                </p>-->
+<!--                <p style="margin: 0; color: #856404; font-size: 10pt;">-->
+<!--                    <strong>Созданных ИУП пока нет.</strong>-->
+<!--                    Кнопка создания ИУП находится в-->
+<!--                    <a href="{% url 'docs:group_grades' group.id %}" style="color: #856404; font-weight: bold; text-decoration: underline;">Журнале оценок</a>-->
+<!--                    рядом с каждым студентом.-->
+<!--                </p>-->
+<!--                <a href="{% url 'docs:group_grades' group.id %}" class="btn" style="background: #f39c12; color: white; margin-top: 10px;">-->
+<!--                    👥 Перейти к журналу оценок-->
+<!--                </a>-->
+<!--            </div>-->
         {% endif %}
 
         <!-- ================= СЕКЦИЯ ОТЧЁТОВ РАУЦ ================= -->
@@ -359,12 +351,12 @@
             docsList = '⚠️ Документы ещё не сохранены.';
         }
 
-        const subject = encodeURIComponent(`Документы группы {{ group.assigned_number }} ({{ group.application }})`);
+        const subject = encodeURIComponent(`Документы группы {{ group.assigned_number }}`);
 
         const body = encodeURIComponent(
 `Здравствуйте!
 
-Направляю информацию по документам группы {{ group.assigned_number }} ({{ group.application }}):
+Направляю информацию по документам группы {{ group.assigned_number }}:
 Модуль: {{ group.module.code }} — {{ group.module.title }}
 Период обучения: {{ group.start_date|date:"d.m.Y" }} — {{ group.end_date|date:"d.m.Y" }}
 

@@ -6,7 +6,6 @@
     <meta charset="UTF-8">
     <title>РАСПИСАНИЕ - {{ group.assigned_number }}</title>
 <style>
-    /* Базовые стили для экрана */
     body {
         font-family: 'Times New Roman', serif;
         font-size: 10pt;
@@ -36,34 +35,26 @@
     }
 
     .header-title { text-align: center; }
-/* Шапка расписания — фиксированная ширина */
-.header-title td {
-    padding: 2px 4px;
-    font-size: 9pt;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
 
-.header-title td:first-child {
-    width: 15%;
-}
+    .header-title td {
+        padding: 2px 4px;
+        font-size: 9pt;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
 
-.header-title td:nth-child(2) {
-    width: 70%;
-}
+    .header-title td:first-child { width: 15%; }
+    .header-title td:nth-child(2) { width: 70%; }
+    .header-title td:last-child { width: 15%; }
 
-.header-title td:last-child {
-    width: 15%;
-}
-
-.logo-img {
-    max-height: 25px;
-    max-width: 100%;
-    width: auto;
-    display: block;
-    margin: 0 auto;
-}
+    .logo-img {
+        max-height: 25px;
+        max-width: 100%;
+        width: auto;
+        display: block;
+        margin: 0 auto;
+    }
 
     .curator-director {
         display: flex;
@@ -76,7 +67,6 @@
         margin-bottom: 10px;
     }
 
-    /* Жестко задаем 10pt для параграфов в шапке */
     .header-schedule p {
         margin: 3px 0;
         font-size: 10pt;
@@ -104,7 +94,6 @@
     }
     .print-btn:hover { background-color: #0056b3; }
 
-    /* КРИТИЧНО: Стили специально для печати/сохранения в PDF */
     @page {
         size: A4 landscape;
         margin: 10mm;
@@ -115,25 +104,21 @@
             margin: 0 !important;
             padding: 0 !important;
             width: 100% !important;
-            font-size: 8pt !important; /* Принудительно 10pt */
+            font-size: 8pt !important;
         }
 
-        /* Принудительно 10pt для всех элементов внутри */
         body, table, td, th, p, span, div, h1, h2, h3 {
             font-size: 8pt !important;
             line-height: 1.2 !important;
         }
 
         .no-print { display: none !important; }
-
-        /* Убираем фоновые цвета при печати, если нужно (опционально) */
-        /* .training_tasks-table th, .stage-title { background-color: transparent !important; } */
     }
 </style>
 </head>
 <body>
 
-<!-- ВЕРХНЯЯ ТАБЛИЦА (ШАПКА) С ГРАНИЦАМИ -->
+<!-- ВЕРХНЯЯ ТАБЛИЦА (ШАПКА) -->
 <table>
     <tr class="header-title">
         <td style="width: 15%;">
@@ -151,7 +136,7 @@
     </tr>
 </table>
 
-<!-- В начале body, после колонтитула, добавьте: -->
+<!-- БЛОК ИУП -->
 {% if iup_mode %}
 <div style="background: #fff3cd; border: 1px solid #f39c12; padding: 8px; margin-bottom: 10px; font-size: 9pt;">
     <b>ИНДИВИДУАЛЬНЫЙ УЧЕБНЫЙ ПЛАН</b><br>
@@ -167,7 +152,7 @@
     <p style="margin: 5px 0;"><strong>Начало занятий:</strong> {{ group.start_date|date:"d.m.Y" }}</p>
 
     <div class="curator-director">
-        <p style="margin: 0;">Куратор:  {{ group.mentor.full_name|default:"____________________________" }}, e-mail: {{ group.mentor.email|default:"__________________________" }}</p>
+        <p style="margin: 0;">Куратор: {{ group.mentor.full_name|default:"____________________________" }}, e-mail: {{ group.mentor.email|default:"__________________________" }}</p>
         <p style="margin: 0;">Утверждаю: ___________________________ {{ group.director.full_name|default:"" }}</p>
     </div>
 </div>
@@ -188,92 +173,161 @@
     </thead>
 
     <tbody>
-        {# Группируем вручную по этапам, сохраняя порядок #}
-        {% regroup schedule_items by section.stage as stage_list %}
-
-        {% for stage in stage_list %}
-        <!-- Заголовок этапа -->
-        <tr class="stage-title">
-            <th colspan="17">{{ stage.grouper.title }}</th>
-        </tr>
-
-        {# Перебираем занятия внутри этапа (уже отсортированы) #}
-        {% for item in stage.list %}
-        <tr>
-            <!-- № П/П -->
-            <td colspan="1" style="text-align: center;">
-                {% if item.subsection and item.subsection.order %}
-                    {{ item.subsection.order }}
-                {% else %}
-                    {{ item.section.order }}
+        {% if iup_mode %}
+            {# === РЕЖИМ ИУП: используем is_first_of_stage === #}
+            {% for item in schedule_items %}
+                {% if item.is_first_of_stage %}
+                <tr class="stage-title">
+                    <th colspan="17">{{ item.section.stage.title }}</th>
+                </tr>
                 {% endif %}
-            </td>
 
-            <!-- Дата начала -->
-            <td colspan="2" style="text-align: center;">{{ item.date|date:"d.m.Y" }}</td>
+                <tr>
+                    <td colspan="1" style="text-align: center;">
+                        {% if item.section.order %}
+                            {{ item.section.order }}
+                        {% else %}
+                            {{ forloop.counter }}
+                        {% endif %}
+                    </td>
 
-            <!-- Продолжительность подготовки (план) -->
-            <td colspan="2" style="text-align: center;">
-                {% if item.subsection and item.subsection.duration_hours > 0 %}
-                    {{ item.subsection.duration_hours }} ак.ч.
-                {% else %}
-                    {{ item.section.duration_hours }} ак.ч.
-                {% endif %}
-            </td>
+                    <td colspan="2" style="text-align: center;">
+                        {% if item.date %}
+                            {{ item.date|date:"d.m.Y" }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
 
-            <!-- Расписание часов (УЛУЧШЕННАЯ ЛОГИКА) -->
-            <td colspan="2" style="text-align: center;">
-                {# Если это СДО (проверяем и session_type, и detail секции на всякий случай) #}
-                {% if item.session_type|lower == 'sdo' or item.section.detail|lower == 'sdo' %}
-                    09:00
-                {% elif item.start_time and item.end_time %}
-                    {{ item.start_time|time:"H:i" }} – {{ item.end_time|time:"H:i" }}
-                {% else %}
-                    Свободный график
-                {% endif %}
-            </td>
+                    <td colspan="2" style="text-align: center;">
+                        {{ item.section.duration_hours }} ак.ч.
+                    </td>
 
-            <!-- Содержание этапов подготовки (Название раздела) -->
-            <td colspan="3">{{ item.section.title }}</td>
+                    <td colspan="2" style="text-align: center;">
+                        {% if item.session_type|lower == 'sdo' %}
+                            09:00
+                        {% elif item.start_time and item.end_time %}
+                            {{ item.start_time|time:"H:i" }} – {{ item.end_time|time:"H:i" }}
+                        {% else %}
+                            Свободный график
+                        {% endif %}
+                    </td>
 
-            <!-- Темы подготовки (Конкретная сессия) -->
-            <td colspan="3" style="vertical-align: middle;">
-                {% if item.subsection %}
-                    {{ item.subsection.title }}
-                {% else %}
-                    <span style="color: #666; font-style: italic;">(Без детализации)</span>
-                {% endif %}
-            </td>
+                    <td colspan="3">{{ item.section.title }}</td>
 
-            <!-- Преподаватель/Инструктор -->
-            <td colspan="2">{{ item.instructor.full_name|default:"Не назначен" }}</td>
+                    <td colspan="3">
+                        {% if item.subsection %}
+                            {{ item.subsection.title }}
+                        {% else %}
+                            <span style="color: #666; font-style: italic;">(Без детализации)</span>
+                        {% endif %}
+                    </td>
 
-            <!-- Место проведения (УЛУЧШЕННАЯ ЛОГИКА) -->
-            <td colspan="2">
-                {% if item.session_type|lower == 'sdo' or item.section.detail|lower == 'sdo' %}
-                    nordstar.ispringlearn.ru (СДО)
-                {% elif item.classroom %}
-                    {% if item.classroom.organization %}
-                        <strong>{{ item.classroom.organization.company_name }}</strong><br>
+                    <td colspan="2">
+                        {% if item.instructor %}
+                            {{ item.instructor.full_name }}
+                        {% else %}
+                            Не назначен
+                        {% endif %}
+                    </td>
+
+                    <td colspan="2">
+                        {% if item.session_type|lower == 'sdo' %}
+                            nordstar.ispringlearn.ru (СДО)
+                        {% elif item.classroom %}
+                            {% if item.classroom.organization %}
+                                <strong>{{ item.classroom.organization.company_name }}</strong><br>
+                            {% endif %}
+                            {{ item.classroom.full_address }}
+                            {% if item.classroom.title %}
+                                {{ item.classroom.title }}
+                            {% endif %}
+                            {% if item.classroom.audience %}
+                                (ауд. {{ item.classroom.audience }})
+                            {% endif %}
+                        {% else %}
+                            Не указано
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        {% else %}
+            {# === ОБЫЧНОЕ РАСПИСАНИЕ: используем regroup === #}
+            {% regroup schedule_items by section.stage as stage_list %}
+
+            {% for stage in stage_list %}
+            <tr class="stage-title">
+                <th colspan="17">{{ stage.grouper.title }}</th>
+            </tr>
+
+            {% for item in stage.list %}
+            <tr>
+                <td colspan="1" style="text-align: center;">
+                    {% if item.subsection and item.subsection.order %}
+                        {{ item.subsection.order }}
+                    {% else %}
+                        {{ item.section.order }}
                     {% endif %}
-                    {{ item.classroom.full_address }}
-                    {% if item.classroom.title %}
-                        {{ item.classroom.title }}
+                </td>
+
+                <td colspan="2" style="text-align: center;">{{ item.date|date:"d.m.Y" }}</td>
+
+                <td colspan="2" style="text-align: center;">
+                    {% if item.subsection and item.subsection.duration_hours > 0 %}
+                        {{ item.subsection.duration_hours }} ак.ч.
+                    {% else %}
+                        {{ item.section.duration_hours }} ак.ч.
                     {% endif %}
-                    {% if item.classroom.audience %}
-                        (ауд. {{ item.classroom.audience }})
+                </td>
+
+                <td colspan="2" style="text-align: center;">
+                    {% if item.session_type|lower == 'sdo' or item.section.detail|lower == 'sdo' %}
+                        09:00
+                    {% elif item.start_time and item.end_time %}
+                        {{ item.start_time|time:"H:i" }} – {{ item.end_time|time:"H:i" }}
+                    {% else %}
+                        Свободный график
                     {% endif %}
-                {% else %}
-                    Не указано
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-        {% endfor %}
+                </td>
+
+                <td colspan="3">{{ item.section.title }}</td>
+
+                <td colspan="3" style="vertical-align: middle;">
+                    {% if item.subsection %}
+                        {{ item.subsection.title }}
+                    {% else %}
+                        <span style="color: #666; font-style: italic;">(Без детализации)</span>
+                    {% endif %}
+                </td>
+
+                <td colspan="2">{{ item.instructor.full_name|default:"Не назначен" }}</td>
+
+                <td colspan="2">
+                    {% if item.session_type|lower == 'sdo' or item.section.detail|lower == 'sdo' %}
+                        nordstar.ispringlearn.ru (СДО)
+                    {% elif item.classroom %}
+                        {% if item.classroom.organization %}
+                            <strong>{{ item.classroom.organization.company_name }}</strong><br>
+                        {% endif %}
+                        {{ item.classroom.full_address }}
+                        {% if item.classroom.title %}
+                            {{ item.classroom.title }}
+                        {% endif %}
+                        {% if item.classroom.audience %}
+                            (ауд. {{ item.classroom.audience }})
+                        {% endif %}
+                    {% else %}
+                        Не указано
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% endfor %}
+        {% endif %}
     </tbody>
-
 </table>
-<!--Кнопки-->
+
+<!-- Кнопки -->
 <div class="no-print">
     <button class="print-btn" onclick="window.print()">🖨 Распечатать</button>
 
@@ -284,9 +338,10 @@
 
     <button class="print-btn" onclick="sendScheduleToEmail()"
             style="background: #2196F3; margin-left: 12px;">
-        📧 Отправить на почту
+         Отправить на почту
     </button>
 </div>
+
 <script>
 function sendScheduleToEmail() {
     const defaultEmail = "{{ group.curator.email|default:'' }}";
@@ -328,10 +383,10 @@ function saveToGroupFolder(docType) {
             if (data.success) {
                 alert('✅ Документ сохранён:\nPDF: ' + data.pdf_path);
             } else {
-                alert('❌ Ошибка: ' + data.error);
+                alert(' Ошибка: ' + data.error);
             }
         })
-        .catch(error => alert('❌ Ошибка сети: ' + error));
+        .catch(error => alert(' Ошибка сети: ' + error));
     }
 }
 

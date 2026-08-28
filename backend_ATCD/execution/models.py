@@ -24,10 +24,29 @@ class Group(models.Model):
         ('cancelled', 'Отменена'),
     ]
 
-    assigned_number = models.CharField(max_length=30, verbose_name="Номер группы", help_text="123.2026")
-    application = models.CharField(max_length=30, verbose_name="Номер заявки", help_text="СЗ/3-123")
+
+    serial_number = models.CharField(
+        max_length=30,
+        blank=True,
+        verbose_name="Номер по реестру (серия документа для ФРДО)",
+        help_text="Заполняется вручную, используется в отчётах ФРДО. Формат: 001.2026"
+    )
+
+    application = models.CharField(
+        max_length=30,
+        blank=True,
+        verbose_name="Заявка - номер документа (для ФРДО)",
+        help_text="Заполняется вручную, используется в отчётах ФРДО. Формат: СЗ/ХХ-123"
+    )
+    assigned_number = models.CharField(
+        max_length=70,
+        verbose_name="Номер группы",
+        help_text="Номер по реестру + Заявка. Формат: 001.2026-СЗ/ХХ-234",
+        unique=True
+    )
+
     module = models.ForeignKey(Module, on_delete=models.CASCADE, verbose_name="Модуль")
-    order_in_number = models.CharField(max_length=50, blank=True, verbose_name="Номер приказа о зачислении")
+    order_in_number = models.CharField(max_length=50, blank=True, verbose_name="Номер приказа о зачислении", help_text="Номер группы + З. Формат: 001.2026-СЗ/ХХ-234-З" )
     order_in_date = models.DateField(null=True, blank=True, verbose_name="Дата приказа о зачислении")
     location = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True,
                                  verbose_name="Место проведения")
@@ -36,11 +55,13 @@ class Group(models.Model):
     end_date = models.DateField(null=True, blank=True, verbose_name="Плановая дата окончания")
 
     mentor = models.ForeignKey(Staff, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Наставник группы",
-                                related_name='mentor_groups')
-    curator = models.ForeignKey(Staff, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Специалист 1 категории",
+                               related_name='mentor_groups')
+    curator = models.ForeignKey(Staff, on_delete=models.SET_NULL, null=True, blank=True,
+                                verbose_name="Специалист 1 категории",
                                 related_name='curated_groups')
-    director = models.ForeignKey(Staff, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Подписывающий руководитель",
-                                related_name='signing_executive')
+    director = models.ForeignKey(Staff, on_delete=models.SET_NULL, null=True, blank=True,
+                                 verbose_name="Подписывающий руководитель",
+                                 related_name='signing_executive')
     is_sdo = models.BooleanField(default=False, verbose_name="Только СДО (без очных занятий)")
     start_time_default = models.TimeField(
         "Время начала очных занятий",
@@ -60,6 +81,11 @@ class Group(models.Model):
     def __str__(self):
         return f"{self.assigned_number} ({self.module.code})"
 
+    def get_generated_order_in_number(self):
+        """Генерирует номер приказа о зачислении на основе номера группы"""
+        # Было: f"№ {self.assigned_number}-{self.application}-З от ..."
+        # Стало:
+        return f"№ {self.assigned_number}-З от {self.order_in_date.strftime('%d.%m.%Y') if self.order_in_date else '___'}"
 
 class Enrollment(models.Model):
     STATUS_CHOICES = [
@@ -165,32 +191,25 @@ class Enrollment(models.Model):
 
         return True
 
-    def generate_order_out_number(self, order_type='completed', is_individual=False):
+    def generate_order_out_number(self, status_type, is_individual=False):
         """
-        Генерирует номер приказа об отчислении/завершении.
-
-        Args:
-            order_type: 'completed' или 'dismissed'
-            is_individual: True если индивидуальный приказ, False если групповой
-
-        Returns:
-            Номер приказа
+        Генерирует номер приказа об окончании/отчислении.
+        Формат: {номер_группы}-{ОК|ОТ}[-{номер_студента}]
+        Пример: 001.2026-СЗ/23-234-ОК-5
         """
         group = self.group
-        base_number = f"{group.assigned_number}-{group.application}"
+        base_number = group.assigned_number  # Уже содержит полный номер
 
-        if order_type == 'completed':
+        if status_type == 'completed':
             suffix = 'ОК'
-        elif order_type == 'dismissed':
+        elif status_type == 'dismissed':
             suffix = 'ОТ'
         else:
-            suffix = order_type
+            suffix = '??'
 
         if is_individual:
-            # Индивидуальный приказ - добавляем номер студента
             return f"{base_number}-{suffix}-{self.number_in_group}"
         else:
-            # Групповой приказ - один номер для всех
             return f"{base_number}-{suffix}"
 
     def calculate_total_hours(self):
@@ -504,21 +523,18 @@ class Certificate(models.Model):
     def generate_number(enrollment):
         """
         Генерирует номер сертификата по формуле:
-        group.assigned_number - group.application - enrollment.number_in_group
+        group.assigned_number - enrollment.number_in_group
 
-        Пример: 001.2026-СЗ/3-001-1
+        Пример: 001.2026-СЗ/23-234-1
         """
         group = enrollment.group
 
-        assigned_number = group.assigned_number  # "001.2026"
-        application = group.application or ""  # "СЗ/3-001"
+        # assigned_number уже содержит полный номер: "001.2026-СЗ/23-234"
+        assigned_number = group.assigned_number
         number_in_group = enrollment.number_in_group  # 1 (без форматирования!)
 
         # Собираем базовый номер
-        if application:
-            base_number = f"{assigned_number}-{application}-{number_in_group}"
-        else:
-            base_number = f"{assigned_number}-{number_in_group}"
+        base_number = f"{assigned_number}-{number_in_group}"
 
         # Проверяем уникальность и добавляем суффикс при необходимости
         counter = 1

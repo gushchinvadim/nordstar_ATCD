@@ -11,21 +11,21 @@
         margin: 0;
     }
 
-    /* === ПРАВИЛЬНЫЕ СЧЕТЧИКИ WEASYPRINT === */
-body {
-    counter-reset: current-page 0;
-}
-.a4-page {
-    counter-increment: current-page;
-    page-break-after: always;
-}
-.exam-start, .registry-start {
-    counter-reset: current-page 0;
-}
-.page-num::after {
-    content: counter(current-page);
-}
-/* ====================================== */
+            /* === ПРАВИЛЬНЫЕ СЧЕТЧИКИ WEASYPRINT === */
+        body {
+            counter-reset: current-page 0;
+        }
+        .a4-page {
+            counter-increment: current-page;
+            page-break-after: always;
+        }
+        .exam-start, .registry-start {
+            counter-reset: current-page 0;
+        }
+        .page-num::after {
+            content: counter(current-page);
+        }
+        /* ====================================== */
 
     body {
         background-color: #e0e0e0;
@@ -41,7 +41,7 @@ body {
         background: white;
         width: 210mm;
         height: 297mm;
-        padding: 10mm 10mm 20mm 10mm;
+        padding: 7mm 7mm 7mm 17mm;
         box-sizing: border-box;
         box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
         margin: 0 auto 20px auto;
@@ -71,8 +71,9 @@ body {
         width: calc(100% - 20mm);
         border-collapse: collapse;
         position: absolute;
-        bottom: 10mm;
-        left: 10mm;
+        bottom: 7mm;
+        left: 14mm;
+        right: 7mm;
     }
 
     .footer-colontitle td {
@@ -427,7 +428,7 @@ body {
         .a4-page {
             box-shadow: none;
             margin: 0 !important;
-            padding: 10mm 10mm 20mm 10mm;
+            padding: 7mm 7mm 7mm 17mm;
             width: 210mm;
             height: 297mm;
             position: relative;
@@ -521,7 +522,7 @@ body {
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
-            <td style="width: 60%;">{{ group.assigned_number }} - {{ group.application|default:"—" }}</td>
+            <td style="width: 60%;">{{ group.assigned_number }}</td>
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
@@ -596,7 +597,7 @@ body {
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
-            <td style="width: 60%;">{{ group.assigned_number }} - {{ group.application|default:"—" }}</td>
+            <td style="width: 60%;">{{ group.assigned_number }}</td>
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
@@ -668,7 +669,7 @@ body {
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
-            <td style="width: 60%;">{{ group.assigned_number }} - {{ group.application|default:"—" }}</td>
+            <td style="width: 60%;">{{ group.assigned_number }}</td>
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
@@ -714,7 +715,7 @@ body {
                     <tr>
                         <td class="number">{{ row.number }}</td>
                         <td class="text-left" style="word-break: break-word;">
-                            <div style="max-height: 35px; overflow: hidden;">
+                            <div style="max-height: 50px; overflow: hidden;">
                                 {{ row.title }}
                                 {% if row.subtitle %}<br><small style="font-size: 6.5pt;">{{ row.subtitle }}</small>{% endif %}
                             </div>
@@ -753,7 +754,7 @@ body {
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
-            <td style="width: 60%;">{{ group.assigned_number }} - {{ group.application|default:"—" }}</td>
+            <td style="width: 60%;">{{ group.assigned_number }}</td>
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
@@ -824,7 +825,7 @@ body {
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
-            <td style="width: 60%;">{{ group.assigned_number }} - {{ group.application|default:"—" }}</td>
+            <td style="width: 60%;">{{ group.assigned_number }}</td>
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
@@ -908,7 +909,7 @@ body {
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
-            <td style="width: 60%;">{{ group.assigned_number }} - {{ group.application|default:"—" }}</td>
+            <td style="width: 60%;">{{ group.assigned_number }}</td>
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>
@@ -954,7 +955,7 @@ body {
                             <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
                             <td style="text-align: center;">{{ certificate.get_certificate_type_display }}</td>
                             <td>{{ certificate.number|default:"Б/Н" }}</td>
-                            <td style="text-align: center;">{{ certificate.issue_date|date:"d.m.Y"|default:"—" }}</td>
+                            <td style="text-align: center;">{{ enrollment.completed_at|date:"d.m.Y"|default:"—" }}</td>
                             <td class="text-left" style="text-align: left;">
                                 {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                             </td>
@@ -1013,7 +1014,7 @@ body {
                             <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
                             <td style="text-align: center;">Задание на тренировку</td>
                             <td>Б/Н</td>
-                            <td style="text-align: center;">{{ certificate.issue_date|date:"d.m.Y"|default:"—" }}</td>
+                            <td style="text-align: center;">{{ enrollment.completed_at|date:"d.m.Y"|default:"—" }}</td>
                             <td class="text-left" style="text-align: left;">
                                 {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
                             </td>
@@ -1052,7 +1053,7 @@ body {
     <table class="footer-colontitle">
         <tr>
             <td style="width: 15%;"><b>№ группы</b></td>
-            <td style="width: 60%;">{{ group.assigned_number }} - {{ group.application|default:"—" }}</td>
+            <td style="width: 60%;">{{ group.assigned_number }}</td>
             <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
         </tr>
     </table>

@@ -162,6 +162,11 @@
                 min-height: auto;
                 padding: 3mm 10mm 3mm 10mm;
             }
+            .header-colontitle { margin-bottom: 2mm; }
+            .footer-colontitle { bottom: 3mm; }
+            .page-content { padding-bottom: 10mm; }
+            .no-print { display: none !important; }
+            table { page-break-inside: avoid; }
         }
     </style>
 </head>
@@ -249,13 +254,13 @@
         </tbody>
     </table>
 
-    <table class="footer-colontitle">
-        <tr>
-            <td style="width: 15%;"><b>№ группы</b></td>
-            <td style="width: 60%;">{{ group.assigned_number }} - {{ group.application|default:"—" }}</td>
-            <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
-        </tr>
-    </table>
+<!--    <table class="footer-colontitle">-->
+<!--        <tr>-->
+<!--            <td style="width: 15%;"><b>№ группы</b></td>-->
+<!--            <td style="width: 60%;">{{ group.assigned_number }}</td>-->
+<!--            <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>-->
+<!--        </tr>-->
+<!--    </table>-->
 </div>
 {% endfor %}
 

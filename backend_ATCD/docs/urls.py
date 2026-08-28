@@ -32,6 +32,8 @@ urlpatterns = [
     path('iup/<int:iup_id>/regenerate/', views.regenerate_iup, name='regenerate_iup'),
     path('group/<int:group_id>/download-folder/', views.download_group_folder, name='download_group_folder'),
     path('group/<int:group_id>/dismissal-reference/', views.dismissal_reference_view, name='dismissal_reference'),
+    path('iup/<int:iup_id>/view/', views.view_iup, name='view_iup'),
+    path('iup/<int:iup_id>/edit/', views.edit_iup_view, name='edit_iup'),
 ]
 
 # Раздача медиа-файлов в режиме DEBUG

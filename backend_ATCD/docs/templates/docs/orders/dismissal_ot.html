@@ -28,7 +28,7 @@
             background: white;
             width: 210mm;
             min-height: 297mm;
-            padding: 10mm 10mm 10mm 20mm;
+            padding: 7mm 7mm 7mm 17mm;
             box-sizing: border-box;
             box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
             margin: 0 auto;
@@ -132,7 +132,7 @@
                 margin: 0;
                 width: 100%;
                 min-height: auto;
-                padding: 12mm 5mm 15mm 20mm;
+                padding: 7mm 7mm 7mm 17mm;
             }
             .print-btn, .no-print {
                 display: none !important;
@@ -301,13 +301,13 @@ function sendToEmail() {
     const dashboardUrl = "{{ request.scheme }}://{{ request.get_host }}{% url 'docs:documents_dashboard' group.id %}";
 
     // Тема письма
-    const subject = encodeURIComponent(`Документы группы {{ group.assigned_number }} ({{ group.application }})`);
+    const subject = encodeURIComponent(`Документы группы {{ group.assigned_number }}`);
 
     // Тело письма
     const body = encodeURIComponent(
 `Здравствуйте!
 
-Направляю документы по группе {{ group.assigned_number }} ({{ group.application }}):
+Направляю документы по группе {{ group.assigned_number }}:
 Модуль: {{ group.module.code }} — {{ group.module.title }}
 Период обучения: {{ group.start_date|date:"d.m.Y" }} — {{ group.end_date|date:"d.m.Y" }}
 

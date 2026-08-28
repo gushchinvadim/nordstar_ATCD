@@ -63,8 +63,11 @@ class FRDOExportService:
         year = str(group.start_date.year) if group.start_date else 'unknown_year'
         module_code = re.sub(r'[^\w\-]', '_', group.module.code) if group.module else 'unknown_module'
 
+        # Заменяем слэш и другие запрещённые символы в номере группы
+        safe_group_number = re.sub(r'[^\w\.\-]', '_', group.assigned_number)
+
         self.folder_path = os.path.join(
-            settings.MEDIA_ROOT, 'documents', str(year), 'groups', module_code, group.assigned_number, 'reports'
+            settings.MEDIA_ROOT, 'documents', str(year), 'groups', module_code, safe_group_number, 'reports'
         )
         os.makedirs(self.folder_path, exist_ok=True)
 
@@ -107,7 +110,9 @@ class FRDOExportService:
             return None
 
         # Серия и номер
-        doc_series = g.assigned_number or ''
+        # serial_number — это серия документа для ФРДО (по старому: assigned_number)
+        # Если не заполнено, используем assigned_number как fallback
+        doc_series = g.serial_number or g.assigned_number or ''
         doc_num = f"{g.application}-{enrollment.number_in_group}" if g.application else str(enrollment.number_in_group)
         doc_number = f"{doc_series}-{doc_num}" if doc_series else doc_num
 
@@ -147,7 +152,7 @@ class FRDOExportService:
             errors.append(f"Программа: не заполнена форма обучения")
 
         if not s.dob: errors.append(f"Студент {s.surname}: не заполнена дата рождения")
-        if not doc_series: errors.append(f"Группа: не заполнен assigned_number")
+        if not g.serial_number: errors.append(f"Группа: не заполнена серия документа (serial_number)")
 
         return {
             's': s, 'g': g, 'module': module, 'course': course, 'cert': cert,
@@ -279,7 +284,8 @@ class FRDOExportService:
             max_length = max(len(str(ws.cell(row=r, column=col_idx).value or '')) for r in range(1, len(rows) + 2))
             ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = max_length + 2
 
-        filename = f"ФРДО_{self.group.assigned_number}.xlsx"
+        safe_group_number = re.sub(r'[^\w\.\-]', '_', self.group.assigned_number)
+        filename = f"ФРДО_{safe_group_number}.xlsx"
         filepath = os.path.join(self.folder_path, filename)
         wb.save(filepath)
 
@@ -300,9 +306,11 @@ class FRDOExportService:
         )
         report.groups.add(self.group)
 
+        safe_group_number = re.sub(r'[^\w\.\-]', '_', self.group.assigned_number)
+
         if excel_path and os.path.exists(excel_path):
             with open(excel_path, 'rb') as f:
-                report.excel_file.save(f"ФРДО_{self.group.assigned_number}.xlsx", f, save=False)
+                report.excel_file.save(f"ФРДО_{safe_group_number}.xlsx", f, save=False)
         report.save()
 
         for row in rows:

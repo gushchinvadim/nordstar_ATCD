@@ -3,7 +3,8 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Создание ИУП — {{ student.surname }} {{ student.name }}</title>
+    <!-- ИЗМЕНЕНО: Динамический заголовок -->
+    <title>{% if existing_iup %}Редактирование{% else %}Создание{% endif %} ИУП — {{ student.surname }} {{ student.name }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -180,7 +181,8 @@
 </head>
 <body>
     <div class="container">
-        <h1>📋 Назначение индивидуального учебного плана (ИУП)</h1>
+        <!-- ИЗМЕНЕНО: Динамический заголовок -->
+        <h1>📋 {% if existing_iup %}Редактирование{% else %}Назначение{% endif %} индивидуального учебного плана (ИУП)</h1>
 
         <div class="info-block">
             <p><strong>Студент:</strong> {{ student.surname }} {{ student.name }} {{ student.patronymic|default:"" }}</p>
@@ -188,7 +190,8 @@
             <p><strong>Плановый период группы:</strong> {{ group.start_date|date:"d.m.Y" }} — {{ group.end_date|date:"d.m.Y" }}</p>
         </div>
 
-        <form method="post" action="{% url 'docs:create_iup' enrollment.id %}" id="iupForm">
+        <!-- ИЗМЕНЕНО: Динамический action формы -->
+        <form method="post" action="{% if existing_iup %}{% url 'docs:edit_iup' existing_iup.id %}{% else %}{% url 'docs:create_iup' enrollment.id %}{% endif %}" id="iupForm">
             {% csrf_token %}
 
             <!-- ШАГ 1: Основные параметры -->
@@ -197,20 +200,21 @@
             <div class="form-row">
                 <div class="form-group">
                     <label for="start_date">Дата начала обучения по ИУП *</label>
+                    <!-- ИЗМЕНЕНО: Предзаполнение дат из existing_iup или группы -->
                     <input type="date" id="start_date" name="start_date" required
-                           value="{{ group.start_date|date:'Y-m-d' }}">
+                           value="{% if existing_iup %}{{ existing_iup.start_date|date:'Y-m-d' }}{% else %}{{ group.start_date|date:'Y-m-d' }}{% endif %}">
                 </div>
                 <div class="form-group">
                     <label for="end_date">Дата окончания обучения по ИУП *</label>
                     <input type="date" id="end_date" name="end_date" required
-                           value="{{ group.end_date|date:'Y-m-d' }}">
+                           value="{% if existing_iup %}{{ existing_iup.end_date|date:'Y-m-d' }}{% else %}{{ group.end_date|date:'Y-m-d' }}{% endif %}">
                 </div>
             </div>
 
             <div class="form-group">
                 <label for="start_face_to_face">Дата начала очных занятий по ИУП</label>
                 <input type="date" id="start_face_to_face" name="start_face_to_face"
-                       value="{{ group.start_face_to_face|date:'Y-m-d' }}">
+                       value="{% if existing_iup %}{{ existing_iup.start_face_to_face|date:'Y-m-d' }}{% else %}{{ group.start_face_to_face|date:'Y-m-d' }}{% endif %}">
                 <div class="help-text">Если отличается от даты начала обучения (например, сначала СДО)</div>
             </div>
 
@@ -226,18 +230,21 @@
             </div>
 
             <div class="form-group">
-                <label for="reason_details">Дополнительные детали (необязательно)</label>
+                <label for="reason_details">Дополнительные детали / Полная причина</label>
+                <!-- ИЗМЕНЕНО: Предзаполнение причины (так как в БД она хранится одной строкой) -->
                 <textarea id="reason_details" name="reason_details"
-                          placeholder="Например: ФИО заменяющего инструктора, период болезни и т.д."></textarea>
+                          placeholder="Например: ФИО заменяющего инструктора, период болезни и т.д.">{% if existing_iup %}{{ existing_iup.reason }}{% endif %}</textarea>
                 <div class="help-text">Эта информация будет сохранена вместе с ИУП для справки</div>
             </div>
 
-            <button type="button" class="btn btn-preview" onclick="loadSchedulePreview()">
+            <!-- ИЗМЕНЕНО: Скрываем кнопку "Сформировать" при редактировании, так как данные уже есть -->
+            <button type="button" class="btn btn-preview {% if existing_iup %}hidden{% endif %}" onclick="loadSchedulePreview()">
                 🔄 Сформировать расписание для редактирования
             </button>
 
-            <!-- ШАГ 2: Таблица занятий (появляется после нажатия кнопки) -->
-            <div id="scheduleSection" class="hidden">
+            <!-- ШАГ 2: Таблица занятий -->
+            <!-- ИЗМЕНЕНО: Убрали class="hidden", чтобы при редактировании таблица была видна сразу (управляется JS) -->
+            <div id="scheduleSection" class="{% if existing_iup %}{% else %}hidden{% endif %}">
                 <h2>2. Редактирование расписания ИУП</h2>
                 <p style="color: #666; font-size: 10pt; margin-bottom: 10px;">
                     Отредактируйте даты, время, инструкторов и аудитории для каждого занятия.
@@ -259,7 +266,11 @@
                         </tr>
                     </thead>
                         <tbody id="scheduleBody">
-                            <!-- Заполняется через AJAX -->
+                            {% if existing_iup %}
+                                <tr><td colspan="8" class="loading">Загрузка справочников для редактирования...</td></tr>
+                            {% else %}
+                                <!-- Заполняется через AJAX при создании нового -->
+                            {% endif %}
                         </tbody>
                     </table>
                 </div>
@@ -269,8 +280,9 @@
             </div>
 
             <div class="actions">
-                <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
-                    💾 Создать ИУП и сгенерировать документы
+                <!-- ИЗМЕНЕНО: Динамический текст кнопки и disabled только для нового -->
+                <button type="submit" class="btn btn-primary" id="submitBtn" {% if not existing_iup %}disabled{% endif %}>
+                    {% if existing_iup %}💾 Сохранить изменения ИУП{% else %}💾 Создать ИУП и сгенерировать документы{% endif %}
                 </button>
                 <a href="{% url 'docs:group_grades' group.id %}" class="btn btn-secondary">Отмена</a>
             </div>
@@ -280,8 +292,42 @@
     <script>
     // Глобальные данные для select
     let instructorsData = [];
-    let classroomsData = []; // <-- ИСПРАВЛЕНО: было locationsData
-    let scheduleData = [];
+    let classroomsData = [];
+
+    // ИЗМЕНЕНО: Берем данные из контекста Django, если это режим редактирования
+    let scheduleData = {{ existing_schedule_json|default:"[]"|safe }};
+    let isEditMode = {% if existing_iup %}true{% else %}false{% endif %};
+
+    // ИЗМЕНЕНО: При загрузке страницы в режиме редактирования сразу подготавливаем таблицу
+    document.addEventListener('DOMContentLoaded', function() {
+        if (isEditMode && scheduleData.length > 0) {
+            // Нам нужно только получить списки инструкторов и аудиторий для выпадающих списков
+            // Сами даты и назначения уже есть в scheduleData
+            const startDate = document.getElementById('start_date').value || "{{ group.start_date|date:'Y-m-d' }}";
+            const url = "{% url 'docs:iup_preview_schedule' enrollment.id %}" + `?start_date=${startDate}`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('Ошибка загрузки справочников: ' + data.error);
+                        return;
+                    }
+                    instructorsData = data.instructors;
+                    classroomsData = data.classrooms;
+
+                    // Рендерим таблицу на основе наших сохраненных данных (scheduleData)
+                    renderScheduleTable();
+
+                    // Обновляем интерфейс
+                    document.getElementById('submitBtn').disabled = false;
+                    document.getElementById('submitBtn').innerText = '💾 Сохранить изменения ИУП';
+                })
+                .catch(error => {
+                    alert('Ошибка сети при загрузке справочников: ' + error);
+                });
+        }
+    });
 
     function loadSchedulePreview() {
         const startDate = document.getElementById('start_date').value;
@@ -297,7 +343,7 @@
                     (startFaceToFace ? `&start_face_to_face=${startFaceToFace}` : '');
 
         const tbody = document.getElementById('scheduleBody');
-        tbody.innerHTML = '<tr><td colspan="7" class="loading">Загрузка расписания...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">Загрузка расписания...</td></tr>';
 
         fetch(url)
             .then(response => response.json())
@@ -308,13 +354,14 @@
                 }
 
                 instructorsData = data.instructors;
-                classroomsData = data.classrooms; // <-- ИСПРАВЛЕНО: было data.locations
-                scheduleData = data.schedule;
+                classroomsData = data.classrooms;
+                scheduleData = data.schedule; // Перезаписываем для нового ИУП
 
                 renderScheduleTable();
 
                 document.getElementById('scheduleSection').classList.remove('hidden');
                 document.getElementById('submitBtn').disabled = false;
+                document.getElementById('submitBtn').innerText = '💾 Создать ИУП и сгенерировать документы';
             })
             .catch(error => {
                 alert('Ошибка загрузки: ' + error);
@@ -334,59 +381,59 @@
                 currentStage = item.stage_title;
                 const stageRow = document.createElement('tr');
                 stageRow.className = 'stage-header';
-                stageRow.innerHTML = `<td colspan="7">${currentStage}</td>`;
+                stageRow.innerHTML = `<td colspan="8">${currentStage}</td>`;
                 tbody.appendChild(stageRow);
             }
 
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${counter++}</td>
-            <td style="text-align: center; font-size: 8pt;">
-                ${item.is_sdo ? '<span style="background: #e3f2fd; padding: 2px 6px; border-radius: 3px;">СДО</span>' : 'Очно'}
-            </td>
-            <td>${item.section_title}</td>
-            <td>
-                <input type="date"
-                       data-index="${index}"
-                       data-field="new_date"
-                       value="${item.new_date || ''}"
-                       style="${item.is_sdo ? 'background: #e3f2fd;' : ''}"
-                       title="${item.is_sdo ? 'СДО: дата начала обучения по ИУП' : 'Очное занятие'}">
-            </td>
-            <td>
-                <input type="time"
-                       data-index="${index}"
-                       data-field="start_time"
-                       value="${item.start_time || ''}">
-            </td>
-            <td>
-                <input type="time"
-                       data-index="${index}"
-                       data-field="end_time"
-                       value="${item.end_time || ''}">
-            </td>
-            <td>
-                <select data-index="${index}" data-field="instructor_id">
-                    <option value="">— не выбран —</option>
-                    ${instructorsData.map(inst =>
-                        `<option value="${inst.id}" ${inst.id === item.instructor_id ? 'selected' : ''}>
-                            ${inst.name}
-                        </option>`
-                    ).join('')}
-                </select>
-            </td>
-            <td>
-                <select data-index="${index}" data-field="classroom_id">
-                    <option value="">— не выбрана —</option>
-                    ${classroomsData.map(cls =>
-                        `<option value="${cls.id}" ${cls.id === item.classroom_id ? 'selected' : ''}>
-                            ${cls.name}
-                        </option>`
-                    ).join('')}
-                </select>
-            </td>
-        `;
-        tbody.appendChild(row);
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${counter++}</td>
+                <td style="text-align: center; font-size: 8pt;">
+                    ${item.is_sdo ? '<span style="background: #e3f2fd; padding: 2px 6px; border-radius: 3px;">СДО</span>' : 'Очно'}
+                </td>
+                <td>${item.section_title}</td>
+                <td>
+                    <input type="date"
+                           data-index="${index}"
+                           data-field="new_date"
+                           value="${item.new_date || ''}"
+                           style="${item.is_sdo ? 'background: #e3f2fd;' : ''}"
+                           title="${item.is_sdo ? 'СДО: дата начала обучения по ИУП' : 'Очное занятие'}">
+                </td>
+                <td>
+                    <input type="time"
+                           data-index="${index}"
+                           data-field="start_time"
+                           value="${item.start_time || ''}">
+                </td>
+                <td>
+                    <input type="time"
+                           data-index="${index}"
+                           data-field="end_time"
+                           value="${item.end_time || ''}">
+                </td>
+                <td>
+                    <select data-index="${index}" data-field="instructor_id">
+                        <option value="">— не выбран —</option>
+                        ${instructorsData.map(inst =>
+                            `<option value="${inst.id}" ${inst.id == item.instructor_id ? 'selected' : ''}>
+                                ${inst.name}
+                            </option>`
+                        ).join('')}
+                    </select>
+                </td>
+                <td>
+                    <select data-index="${index}" data-field="classroom_id">
+                        <option value="">— не выбрана —</option>
+                        ${classroomsData.map(cls =>
+                            `<option value="${cls.id}" ${cls.id == item.classroom_id ? 'selected' : ''}>
+                                ${cls.name}
+                            </option>`
+                        ).join('')}
+                    </select>
+                </td>
+            `;
+            tbody.appendChild(row);
         });
 
         // Добавляем обработчики изменений

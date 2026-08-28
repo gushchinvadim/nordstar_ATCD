@@ -36,9 +36,12 @@ class RAUCExportService:
         year = str(group.start_date.year) if group.start_date else 'unknown_year'
         module_code = re.sub(r'[^\w\-]', '_', group.module.code) if group.module else 'unknown_module'
 
+        # Заменяем слэш и другие запрещённые символы в номере группы
+        safe_group_number = re.sub(r'[^\w\.\-]', '_', group.assigned_number)
+
         self.folder_path = os.path.join(
             settings.MEDIA_ROOT,
-            'documents', str(year), 'groups', module_code, group.assigned_number, 'reports'
+            'documents', str(year), 'groups', module_code, safe_group_number, 'reports'
         )
         os.makedirs(self.folder_path, exist_ok=True)
 
@@ -77,11 +80,6 @@ class RAUCExportService:
             errors.append(f"Студент {s.surname} {s.name}: нет сертификата")
             return None, errors
 
-        # === DEND: дата окончания обучения ===
-        dend = enrollment.completed_at
-        if not dend:
-            errors.append(f"Студент {s.surname}: не заполнена completed_at")
-            dend = g.end_date
 
         # === DDOC: дата выдачи документа (дата приказа) ===
         ddoc = enrollment.order_out_date
@@ -112,6 +110,29 @@ class RAUCExportService:
         if not module or not module.mod_id: errors.append(f"Модуль: не заполнен mod_id")
         if not loc or not loc.addr: errors.append(f"Локация: не заполнен addr")
 
+        # === ПРОВЕРКА НАЛИЧИЯ ИУП ===
+        from execution.models import IndividualStudyPlan
+        iup = IndividualStudyPlan.objects.filter(
+            student=s,
+            group=g,
+            status='active'
+        ).order_by('-created_at').first()
+
+        # Если есть ИУП — берём даты оттуда, иначе из группы
+        if iup and iup.start_face_to_face:
+            dbegin = iup.start_face_to_face
+        else:
+            dbegin = g.start_face_to_face
+
+        # === ДАТА ОКОНЧАНИЯ С УЧЁТОМ ИУП ===
+        dend = enrollment.completed_at
+        if not dend and iup and iup.end_date:
+            dend = iup.end_date
+        if not dend:
+            errors.append(f"Студент {s.surname}: не заполнена completed_at")
+            dend = g.end_date
+        # ==========================================
+
         row = {
             'SURNAME': s.surname,
             'NAME': s.name,
@@ -120,9 +141,9 @@ class RAUCExportService:
             'PROG_ID': course.prog_id if course else '',
             'MOD_ID': module.mod_id if module else '',
             'DBEGINEXT': g.start_date.strftime('%d.%m.%Y') if g.start_date else '',
-            'DBEGIN': g.start_face_to_face.strftime('%d.%m.%Y') if g.start_face_to_face else '',
+            'DBEGIN': dbegin.strftime('%d.%m.%Y') if dbegin else '',
             'DEND': dend.strftime('%d.%m.%Y') if dend else '',
-            'NGROUP': f"{g.assigned_number} - {g.application}" if g.application else g.assigned_number,
+            'NGROUP': g.assigned_number,  # Теперь assigned_number уже содержит полный номер
             'ADDR_ID': loc.addr if loc else '',
             'DCAT_ID': dcat_id,
             'NDOC': cert.number,
@@ -168,7 +189,8 @@ class RAUCExportService:
             max_length = max(len(str(ws.cell(row=r, column=col_idx).value or '')) for r in range(1, len(rows) + 2))
             ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = max_length + 2
 
-        filename = f"РАУЦ_{self.group.assigned_number}.xlsx"
+        safe_group_number = re.sub(r'[^\w\.\-]', '_', self.group.assigned_number)
+        filename = f"РАУЦ_{safe_group_number}.xlsx"
         filepath = os.path.join(self.folder_path, filename)
         wb.save(filepath)
 
@@ -193,7 +215,8 @@ class RAUCExportService:
         xml_string = tostring(root, encoding='unicode')
         pretty_xml = minidom.parseString(xml_string).toprettyxml(indent='  ', encoding='UTF-8')
 
-        filename = f"РАУЦ_{self.group.assigned_number}.xml"
+        safe_group_number = re.sub(r'[^\w\.\-]', '_', self.group.assigned_number)
+        filename = f"РАУЦ_{safe_group_number}.xml"
         filepath = os.path.join(self.folder_path, filename)
 
         with open(filepath, 'wb') as f:
@@ -217,14 +240,16 @@ class RAUCExportService:
         )
         report.groups.add(self.group)
 
+        safe_group_number = re.sub(r'[^\w\.\-]', '_', self.group.assigned_number)
+
         if excel_path and os.path.exists(excel_path):
             with open(excel_path, 'rb') as f:
-                report.excel_file.save(f"РАУЦ_{self.group.assigned_number}.xlsx", f, save=False)
+                report.excel_file.save(f"РАУЦ_{safe_group_number}.xlsx", f, save=False)
 
         if xml_path and os.path.exists(xml_path):
             with open(xml_path, 'rb') as f:
                 xml_content = f.read()
-                report.xml_file.save(f"РАУЦ_{self.group.assigned_number}.xml", f, save=False)
+                report.xml_file.save(f"РАУЦ_{safe_group_number}.xml", f, save=False)
                 report.xml_file_hash = hashlib.sha256(xml_content).hexdigest()
 
         report.save()

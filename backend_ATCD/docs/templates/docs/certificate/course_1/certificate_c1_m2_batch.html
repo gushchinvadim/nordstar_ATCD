@@ -219,12 +219,24 @@
                         <span class="field-value">{{ data.student.dob|date:"d.m.Y" }}</span>
                     </div>
                 </div>
-                <div class="period-text">
-                    В период с <u>{{ data.group.start_date|date:"d.m.Y" }}</u> проходил(а) самостоятельную подготовку с использованием ЭО,
-                    с <u>{{ data.group.start_face_to_face|date:"d.m.Y" }}</u> по <u>{{ data.enrollment.completed_at|date:"d.m.Y" }}</u>
-                    обучался(ась) в АУЦ АО «АК «НордСтар»
-                    по Программе подготовки специалистов согласно перечню специалистов авиационного персонала гражданской авиации «Периодическая наземная подготовка членов лётных экипажей»,
-                </div>
+<div class="period-text">
+    В период с <u>{{ data.group.start_date|date:"d.m.Y" }}</u> проходил(а) самостоятельную подготовку с использованием ЭО,
+    с <u>
+        {% if data.has_iup and data.iup_start_face_to_face %}
+            {{ data.iup_start_face_to_face|date:"d.m.Y" }}
+        {% else %}
+            {{ data.group.start_face_to_face|date:"d.m.Y" }}
+        {% endif %}
+    </u> по <u>
+        {% if data.has_iup and data.iup_end_date %}
+            {{ data.iup_end_date|date:"d.m.Y" }}
+        {% else %}
+            {{ data.enrollment.completed_at|date:"d.m.Y" }}
+        {% endif %}
+    </u>
+    обучался(ась) в АУЦ АО «АК «НордСтар»
+    по Программе подготовки специалистов согласно перечню специалистов авиационного персонала гражданской авиации «Периодическая наземная подготовка членов кабинных экипажей»,
+</div>
                 <div class="approval-block">
                     <div class="approval-lines">
                         <span class="approval-organ-line">утверждённой {{ data.approval_organ|default:"Руководителем Красноярского МТУ Росавиации" }}</span>

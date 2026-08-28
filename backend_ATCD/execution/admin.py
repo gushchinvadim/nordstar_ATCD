@@ -126,52 +126,53 @@ def generate_schedule_action(modeladmin, request, queryset):
             messages.error(request, f"❌ {group.assigned_number}: {str(e)}")
 
 
-@admin.action(description='📦 Архивировать группу и удалить медиа-файлы')
 def archive_groups(modeladmin, request, queryset):
-    """
-    Архивирует группу: удаляет папку с медиа и меняет статус на 'archived'.
-    Данные в БД сохраняются полностью — документы можно сгенерировать заново.
-    """
+    """Архивирует выбранные группы и удаляет их медиа-файлы"""
+    import shutil
+    import re
+    from django.conf import settings
+
     archived_count = 0
-    skipped = []
-    errors = []
+    deleted_folders = []
 
     for group in queryset:
-        # Защита: архивируем только завершённые группы
-        if group.status != 'completed':
-            skipped.append(
-                f"{group.assigned_number} (статус: {group.get_status_display()})"
-            )
-            continue
+        # Меняем статус на архивный
+        group.status = 'archived'
+        group.save()
+        archived_count += 1
 
-        folder_path = find_group_folder(group)
+        # Формируем путь к папке группы
+        if group.start_date:
+            year = str(group.start_date.year)
+        else:
+            continue  # Пропускаем группы без даты начала
 
-        try:
-            if folder_path and os.path.exists(folder_path):
-                shutil.rmtree(folder_path)
+        module_code = re.sub(r'[^\w\-]', '_', group.module.code) if group.module else 'unknown_module'
+        safe_group_number = re.sub(r'[^\w\.\-]', '_', group.assigned_number)
 
-            # Меняем статус на архивный (даже если папки не было)
-            group.status = 'archived'
-            group.save(update_fields=['status'])
-            archived_count += 1
-
-        except Exception as e:
-            errors.append(f"{group.assigned_number}: {str(e)}")
-
-    if archived_count > 0:
-        messages.success(
-            request,
-            f'✅ Архивировано групп: {archived_count}. '
-            f'Медиа-файлы удалены, данные в БД сохранены.'
+        group_folder = os.path.join(
+            settings.MEDIA_ROOT,
+            'documents', year, 'groups', module_code, safe_group_number
         )
-    if skipped:
-        messages.warning(
-            request,
-            f'️ Пропущено (не completed): {"; ".join(skipped)}'
-        )
-    if errors:
-        messages.error(request, f'❌ Ошибки: {"; ".join(errors)}')
 
+        # Удаляем папку, если она существует
+        if os.path.exists(group_folder):
+            try:
+                shutil.rmtree(group_folder)
+                deleted_folders.append(group.assigned_number)
+            except Exception as e:
+                modeladmin.message_user(request, f"Ошибка удаления папки {group.assigned_number}: {str(e)}",
+                                        level='error')
+
+    # Формируем сообщение
+    message = f"✅ Архивировано групп: {archived_count}"
+    if deleted_folders:
+        message += f". Удалено папок: {len(deleted_folders)}"
+
+    modeladmin.message_user(request, message)
+
+
+archive_groups.short_description = "Архивировать выбранные группы и удалить медиа"
 
 @admin.action(description='♻️ Восстановить группу из архива')
 def restore_groups(modeladmin, request, queryset):
@@ -208,7 +209,10 @@ def restore_groups(modeladmin, request, queryset):
 @admin.register(Group)
 class GroupAdmin(admin.ModelAdmin):
     list_display = [
-        'assigned_number', 'application', 'order_in_number', 'order_in_date',
+        'assigned_number',
+        'serial_number',
+        'application',
+        'order_in_number', 'order_in_date',
         'module', 'location', 'start_date', 'mentor', 'curator', 'director',
         'status',
         'schedule_button',
@@ -222,18 +226,19 @@ class GroupAdmin(admin.ModelAdmin):
         'documents_dashboard_button',
     ]
     list_filter = ['status', 'location', 'is_sdo']
-    search_fields = ['assigned_number', 'application']
+    search_fields = ['assigned_number', 'application', 'serial_number',]
     inlines = [EnrollmentInline, ScheduleItemInline]
     actions = [
         generate_schedule_action,
-        archive_groups,          # ← было cleanup_selected_groups_media
-        restore_groups,          # ← новое действие
+        archive_groups,
+        restore_groups,
         'generate_rauc_action',
         'generate_frdo_action',
     ]
 
     fieldsets = (
-        ('Основная информация', {'fields': ('assigned_number', 'application', 'order_in_number', 'order_in_date', 'module', 'status')}),
+        # ← Убрали 'application' из кортежа полей
+        ('Основная информация', {'fields': ('serial_number', 'application', 'assigned_number', 'order_in_number', 'order_in_date', 'module', 'status')}),
         ('Место и время', {'fields': ('location', 'start_date', 'start_face_to_face', 'end_date', 'is_sdo', 'start_time_default')}),
         ('Преподавательский состав', {'fields': ('mentor', 'curator', 'director')}),
     )
@@ -247,18 +252,13 @@ class GroupAdmin(admin.ModelAdmin):
     # СКРЫТИЕ АРХИВНЫХ ГРУПП ИЗ ОСНОВНОГО СПИСКА
     # =================================================================
     def get_queryset(self, request):
-        """
-        По умолчанию скрываем архивные группы.
-        Чтобы их увидеть — используйте фильтр "Статус → Архив" в правой панели.
-        """
         qs = super().get_queryset(request)
-        # Если в URL уже есть фильтр по статусу — не трогаем queryset
         if 'status__exact' in request.GET:
             return qs
         return qs.exclude(status='archived')
 
     # =================================================================
-    # КНОПКИ В СПИСКЕ (без изменений)
+    # КНОПКИ В СПИСКЕ
     # =================================================================
     def documents_dashboard_button(self, obj):
         url = reverse('docs:documents_dashboard', args=[obj.id])
@@ -343,7 +343,7 @@ class GroupAdmin(admin.ModelAdmin):
     dismissal_ot_button.short_description = 'Приказ ОТ'
 
     # =================================================================
-    # СТАТИСТИКА МЕДИА (без изменений)
+    # СТАТИСТИКА МЕДИА
     # =================================================================
     def get_urls(self):
         urls = super().get_urls()
