@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-local-dev-key-change-me-in-production')
 DEBUG = config('DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0').split(',')
-
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
 # 2. ПРИЛОЖЕНИЯ (Добавлены недостающие библиотеки)
 INSTALLED_APPS = [
     'django.contrib.admin',
