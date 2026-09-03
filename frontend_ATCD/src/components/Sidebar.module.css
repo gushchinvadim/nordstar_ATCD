@@ -1,9 +1,11 @@
+/* src/components/Sidebar.module.css */
 .sidebar {
     width: 260px;
     background: #2c3e50;
-    min-height: calc(100vh - 60px);
+    min-height: calc(100vh - 60px); /* Вычет высоты хедера, если он есть */
     padding: 20px 0;
     flex-shrink: 0;
+    transition: width 0.3s ease; /* Плавное изменение ширины при повороте экрана */
 }
 
 .nav {
@@ -19,8 +21,9 @@
     padding: 15px 20px;
     color: #ecf0f1;
     text-decoration: none;
-    transition: background 0.2s;
+    transition: background 0.2s, padding 0.3s ease;
     border-left: 4px solid transparent;
+    white-space: nowrap; /* Запрещаем перенос текста при анимации сужения */
 }
 
 .navItem:hover {
@@ -34,9 +37,47 @@
 
 .icon {
     font-size: 1.2rem;
+    min-width: 24px; /* Фиксируем минимальную ширину, чтобы иконка не сплющивалась */
+    text-align: center;
 }
 
 .label {
     font-size: 0.95rem;
     font-weight: 500;
+    transition: opacity 0.2s ease;
+}
+
+/* =========================================
+   МОБИЛЬНАЯ АДАПТАЦИЯ (экраны < 768px)
+   ========================================= */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 70px; /* Узкий сайдбар только под иконки */
+        padding: 10px 0;
+    }
+
+    .navItem {
+        padding: 15px 0;
+        justify-content: center; /* Центрируем содержимое по горизонтали */
+        gap: 0;
+        border-left: none; /* Убираем левую границу, она съедает место */
+        border-bottom: 3px solid transparent; /* Индикатор активности снизу */
+    }
+
+    .navItem.active {
+        background: transparent; /* Убираем фон, делаем акцент на иконке */
+        border-bottom-color: #3498db; /* Синяя полоска под активной иконкой */
+    }
+    
+    .navItem.active .icon {
+        color: #3498db; /* Подсвечиваем саму иконку синим */
+    }
+
+    .label {
+        display: none; /* ПОЛНОСТЬЮ СКРЫВАЕМ ТЕКСТ */
+    }
+
+    .icon {
+        font-size: 1.5rem; /* Иконки чуть крупнее для удобного тапа пальцем */
+    }
 }
