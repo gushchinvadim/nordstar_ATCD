@@ -1,46 +1,24 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Виртуальное окружение
-.venv/
-venv/
-ENV/
+node_modules
+dist
+dist-ssr
+*.local
 
-# Django
-db.sqlite3
-db.sqlite3-journal
-
-# Media и статика (НЕ коммитим!)
-media/
-staticfiles/
-logs/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
 .DS_Store
-
-# Переменные окружения (секреты!)
-.env
-.env.local
-.env.production
-
-# Coverage
-htmlcov/
-.coverage
-.coverage.*
-coverage.xml
-
-# Миграции (опционально - можно коммитить)
- */migrations/0*.py
-
-# OS
-Thumbs.db
-.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

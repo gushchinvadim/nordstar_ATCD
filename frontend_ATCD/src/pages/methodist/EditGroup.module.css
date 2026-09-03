@@ -1,0 +1,24 @@
+/* Скопируйте все стили из CreateGroup.module.css */
+
+/* Добавьте эти стили для сообщений об успехе */
+.success {
+    background: #e8f5e9;
+    color: #2e7d32;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border-left: 4px solid #2e7d32;
+}
+
+.loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: #7f8c8d;
+    font-size: 1.1rem;
+}
+
+.container h1 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+    font-size: 1.5rem;
+}

@@ -1,0 +1,72 @@
+.card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    border-left: 4px solid #3498db;
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.cardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+.groupNumber {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.statusBadge {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+}
+
+.status_in_progress { background: #e3f2fd; color: #1976d2; }
+.status_completed { background: #e8f5e9; color: #2e7d32; }
+.status_archived { background: #f5f5f5; color: #757575; }
+
+.moduleInfo {
+    font-size: 0.9rem;
+    color: #555;
+    margin-bottom: 15px;
+    line-height: 1.4;
+}
+
+.metaInfo {
+    display: flex;
+    gap: 15px;
+    font-size: 0.85rem;
+    color: #777;
+    margin-bottom: 15px;
+}
+
+.btnOpen {
+    display: block;
+    text-align: center;
+    background: #2c3e50;
+    color: white;
+    text-decoration: none;
+    padding: 10px;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.btnOpen:hover {
+    background: #1a252f;
+}

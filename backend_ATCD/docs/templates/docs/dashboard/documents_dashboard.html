@@ -296,7 +296,21 @@
         </table>
         <!-- ======================================================= -->
 
-        <a href="{% url 'admin:execution_group_change' group.id %}" class="btn btn-back">← Вернуться в админку</a>
+<div style="margin-top: 30px; text-align: center;">
+    {% if request.user.is_superuser %}
+
+        <a href="{% url 'admin:execution_group_changelist' %}" class="btn btn-back">
+            ⚙️ Вернуться к списку групп в админке
+        </a>
+    {% else %}
+
+        <a href="{{ frontend_url }}/" class="btn btn-back">
+            ← Вернуться в панель управления
+        </a>
+    {% endif %}
+    <p>Пользователь: {{ request.user.username }} | is_staff: {{ request.user.is_staff }} | is_superuser: {{ request.user.is_superuser }}</p>
+</div>
+
     </div>
 
     <script>

@@ -154,6 +154,8 @@ def group_grades_view(request, group_id):
     context = {
         'group': group, 'students_data': students_data, 'students': students,
         'sections': sections, 'instructors': instructors_from_schedule, 'today': date.today(),
+        'frontend_url': getattr(settings, 'FRONTEND_URL', 'http://localhost:5173'),
+
     }
     return render(request, 'docs/grades/group_grades.html', context)
 
@@ -1234,9 +1236,12 @@ def group_documents_dashboard(request, group_id):
         'rauc_xml_saved': rauc_xml_saved,
         'rauc_excel_path': rauc_excel_path,
         'rauc_xml_path': rauc_xml_path,
-        'frdo_excel_saved': frdo_excel_saved,  # ← ДОБАВЛЕНО
-        'frdo_excel_path': frdo_excel_path,    # ← ДОБАВЛЕНО
+        'frdo_excel_saved': frdo_excel_saved,
+        'frdo_excel_path': frdo_excel_path,
+        'frontend_url': getattr(settings, 'FRONTEND_URL', 'http://localhost:5173'),
+
     }
+    return render(request, 'docs/dashboard/documents_dashboard.html', context)
 
     # === ПОЛУЧЕНИЕ СПИСКА ИУП ДЛЯ ГРУППЫ ===
     iup_documents = []
@@ -1868,3 +1873,4 @@ def edit_iup_view(request, iup_id):
         'existing_schedule_json': json.dumps(iup.schedule_data, ensure_ascii=False, default=str),  # Для JS
     }
     return render(request, 'docs/iup/create_iup.html', context)  # Используем тот же шаблон
+

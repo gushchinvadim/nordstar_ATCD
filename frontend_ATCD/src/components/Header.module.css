@@ -1,0 +1,25 @@
+/* Header.module.css */
+.header {
+    background: #2c3e50;
+    color: white;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.logo {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.logoutBtn {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.logoutBtn:hover { background: #c0392b; }

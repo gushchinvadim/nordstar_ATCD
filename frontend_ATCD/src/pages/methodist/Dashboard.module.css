@@ -1,0 +1,62 @@
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.header {
+    margin-bottom: 30px;
+}
+
+.header h1 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+    font-size: 36px;
+}
+
+.sectionTitle {
+    color: #34495e;
+    margin: 30px 0 15px 0;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #eee;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+.loading, .empty {
+    text-align: center;
+    padding: 40px;
+    color: #777;
+    font-size: 1.1rem;
+    background: white;
+    border-radius: 8px;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 40px;
+}
+
+.pageBtn {
+    padding: 8px 16px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.pageBtn.active {
+    background: #3498db;
+    color: white;
+    border-color: #3498db;
+}
+
+.pageBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

@@ -1,3 +1,4 @@
+# core/management/commands/generate_schedule.py
 from django.core.management.base import BaseCommand
 from core.services.schedule_generator import generate_schedule_for_group
 

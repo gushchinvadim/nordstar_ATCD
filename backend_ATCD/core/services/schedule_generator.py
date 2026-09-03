@@ -1,3 +1,4 @@
+# core/services/schedule_generator.py
 import math
 from datetime import timedelta, time
 from execution.models import Group, ScheduleItem
