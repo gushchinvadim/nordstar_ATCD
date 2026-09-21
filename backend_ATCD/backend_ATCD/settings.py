@@ -150,10 +150,11 @@ else:
     CORS_ALLOWED_ORIGINS = [
         origin.strip() for origin in config('CORS_ALLOWED_ORIGINS', default='').split(',') if origin.strip()
     ]
+    # ИСПРАВЛЕНО: читаем из .env или используем дефолтный новый домен
     CSRF_TRUSTED_ORIGINS = [
-        'https://atcd.gvedynamics.ru', # Заменишь на свой реальный домен позже
-        'https://www.atcd.gvedynamics.ru',
+        origin.strip() for origin in config('CSRF_TRUSTED_ORIGINS', default='https://nordstar.atcdocs.ru,https://www.nordstar.atcdocs.ru').split(',') if origin.strip()
     ]
+    
     SECURE_SSL_REDIRECT = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SESSION_COOKIE_SECURE = True
