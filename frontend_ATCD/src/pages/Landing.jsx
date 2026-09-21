@@ -330,14 +330,29 @@ const Landing = () => {
                         </div>
 
                         <div className={styles.modalFooter}>
-                            <a 
-                                href="http://127.0.0.1:8000/docs/help/pdf/" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className={styles.downloadPdfBtn}
-                            >
-                                 Скачать полную инструкцию (PDF)
-                            </a>
+                            {(() => {
+                                // 1. Определяем базовый URL API
+                                // Если задан в .env — берем его. 
+                                // Иначе: если это локальная разработка (DEV) — используем 127.0.0.1:8000
+                                // Иначе (продакшен) — используем текущий домен сайта (window.location.origin)
+                                const apiBaseUrl = import.meta.env.VITE_API_URL || 
+                                                (import.meta.env.DEV ? 'http://127.0.0.1:8000' : window.location.origin);
+                                
+                                // 2. Формируем полный URL
+                                const pdfUrl = `${apiBaseUrl}/docs/help/pdf/`;
+
+                                return (
+                                    <a 
+                                        href={pdfUrl} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className={styles.downloadPdfBtn}
+                                    >
+                                        📄 Скачать полную инструкцию (PDF)
+                                    </a>
+                                );
+                            })()}
+                            
                             <button className={styles.closeBtnFooter} onClick={() => setShowHelp(false)}>
                                 Закрыть
                             </button>
