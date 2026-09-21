@@ -1,3 +1,4 @@
+// src/api/groups.js
 import api from './config';
 
 export const fetchGroups = (filters = {}) => {
@@ -12,27 +13,29 @@ export const fetchGroups = (filters = {}) => {
     if (filters.page) params.append('page', filters.page);
     if (filters.pageSize) params.append('page_size', filters.pageSize);
     
-    return api.get(`/docs/api/groups/?${params.toString()}`);
+    // ИЗМЕНЕНО: убрали /docs
+    return api.get(`/api/docs/groups/?${params.toString()}`);
 };
 
 export const fetchDirections = () => {
-    return api.get('/docs/api/directions/');
+    // ИЗМЕНЕНО: убрали /docs
+    return api.get('/api/docs/directions/');
 };
 
+// Справочники (ИЗМЕНЕНО: убрали /docs)
+export const fetchModules = () => api.get('/api/docs/modules/');
+export const fetchStaff = () => api.get('/api/docs/staff/');
+export const fetchStudents = () => api.get('/api/docs/students/');
+export const fetchLocations = () => api.get('/api/docs/locations/');
 
-// Справочники
-export const fetchModules = () => api.get('/docs/api/modules/');
-export const fetchStaff = () => api.get('/docs/api/staff/');
-export const fetchStudents = () => api.get('/docs/api/students/');
-export const fetchLocations = () => api.get('/docs/api/locations/');
+// Создание группы (ИЗМЕНЕНО: убрали /docs)
+export const createGroup = (data) => api.post('/api/docs/groups/create/', data);
 
-// Создание группы
-export const createGroup = (data) => api.post('/docs/api/groups/create/', data);
+// Получение данных группы для редактирования (ИЗМЕНЕНО: убрали /docs)
+export const fetchGroupDetail = (groupId) => api.get(`/api/docs/group/${groupId}/edit/`);
 
-// Получение данных группы для редактирования
-export const fetchGroupDetail = (groupId) => api.get(`/docs/api/group/${groupId}/edit/`);
+// Обновление группы (ИЗМЕНЕНО: убрали /docs)
+export const updateGroup = (groupId, data) => api.patch(`/api/docs/group/${groupId}/update/`, data);
 
-// Обновление группы
-export const updateGroup = (groupId, data) => api.patch(`/docs/api/group/${groupId}/update/`, data);
-// Генерация расписания
-export const generateSchedule = (groupId) => api.post(`/docs/api/group/${groupId}/generate-schedule/`);
+// Генерация расписания (ИЗМЕНЕНО: убрали /docs)
+export const generateSchedule = (groupId) => api.post(`/api/docs/group/${groupId}/generate-schedule/`);

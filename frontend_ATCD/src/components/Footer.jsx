@@ -10,7 +10,7 @@ const Footer = () => {
         <header className={styles.footer}>
             <div className={styles.logo}>АУЦ НордСтар | ATCD</div>
             <div>
-                <span style={{ marginRight: 15 }}>©️© GVE, 2026</span>
+                <span style={{ marginRight: 15 }}>© GVE, 2026</span>
 
             </div>
         </header>

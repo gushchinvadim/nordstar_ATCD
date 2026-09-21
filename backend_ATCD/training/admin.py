@@ -1,7 +1,9 @@
 # training/admin.py
 from django.contrib import admin
+from django.utils.html import format_html
+
 from .models import (
-    Course, Module, Stage, Section, Subsection
+    Course, Module, Stage, Section, Subsection, Subject, InstructorQualification
 )
 
 # ==========================================
@@ -83,3 +85,67 @@ class SubsectionAdmin(admin.ModelAdmin):
         'section',
     ]
     search_fields = ['title', 'detail']
+
+
+
+@admin.register(Subject)
+class SubjectAdmin(admin.ModelAdmin):
+    list_display = ('code', 'name', 'is_active')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'code')
+    ordering = ('name',)
+
+
+@admin.register(InstructorQualification)
+class InstructorQualificationAdmin(admin.ModelAdmin):
+    # ВАЖНО: указываем путь к нашему шаблону change_list
+    change_list_template = 'admin/training/instructorqualification/change_list.html'
+
+    list_display = (
+        'staff',
+        'subject',
+        'device_type',
+        'certificate_number',
+        'issue_date',
+        'validity_months',
+        'expiration_date_display',
+        'months_left_display',
+        'status_badge',
+        'is_active'
+    )
+    list_filter = ('is_active', 'subject', 'device_type')
+    search_fields = ('staff__full_name', 'subject__name', 'certificate_number')
+    ordering = ('staff__full_name', 'subject__name')
+
+    @admin.display(description="Действителен до")
+    def expiration_date_display(self, obj):
+        return obj.expiration_date.strftime('%d.%m.%Y')
+
+    @admin.display(description="Осталось")
+    def months_left_display(self, obj):
+        months = obj.months_left
+        if months < 0:
+            return f"Просрочено на {-months} мес."
+        return f"{months} мес."
+
+    @admin.display(description="Статус")
+    def status_badge(self, obj):
+        colors = {
+            'valid': 'green',
+            'warning': 'orange',
+            'critical': 'red',
+            'inactive': 'gray'
+        }
+        color = colors.get(obj.status, 'gray')
+        labels = {
+            'valid': '✅ Действует',
+            'warning': '⚠️ Истекает скоро',
+            'critical': '🔴 Требует внимания',
+            'inactive': '⏸️ Неактивен'
+        }
+        label = labels.get(obj.status, '—')
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>',
+            color,
+            label
+        )

@@ -47,6 +47,12 @@ class Location(models.Model):
     full_name = models.CharField("Географическое название", max_length=50, help_text="Домодедово", null=True, blank=True)
     addr = models.CharField("Код РАУЦ (Место проведения)", max_length=10, null=True, blank=True, help_text="Например: 174")
     dept = models.CharField("Код РАУЦ (Филиал)", max_length=10, null=True, blank=True, help_text="Например: 37")
+    timezone = models.CharField(
+        "Часовой пояс",
+        max_length=50,
+        default='Europe/Moscow',
+        help_text="Например: Asia/Krasnoyarsk, Europe/Ulyanovsk"
+    )
 
     class Meta:
         verbose_name = "Местоположение"

@@ -1,4 +1,6 @@
+<!--docs/templates/docs/journal/journal.html-->
 <!DOCTYPE html>
+{% load journal_tags %}
 {% load static %}
 <html lang="ru">
 <head>
@@ -168,22 +170,32 @@
         font-size: 9pt;
     }
 
-    .sign-cell {
-        height: 35px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        padding: 2px 4px;
-    }
+.sign-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 9pt;
+}
 
-    .sign-date {
-        font-size: 7pt;
-        color: #cccccc;
-        border-bottom: 1px dotted #cccccc;
-        padding-bottom: 2px;
-        margin-bottom: 2px;
-        min-height: 12px;
-    }
+.sign-date {
+    font-size: 8pt;
+    color: #333;
+}
+
+.sign-date-small {
+    font-size: 7pt;
+    color: #666;
+    margin-top: 2px;
+}
+
+.sign-signature {
+    font-style: italic;
+    color: #0066cc;
+    font-weight: 500;
+    border-bottom: 1px dotted #ccc;
+    padding-bottom: 2px;
+    min-height: 18px;
+}
 
     .sign-signature {
         font-size: 7pt;
@@ -543,46 +555,95 @@
     <div class="page-content">
         <div class="page-title">СПИСОК СЛУШАТЕЛЕЙ</div>
 
-        <table class="students-table">
-            <thead>
-                <tr>
-                    <th style="width: 5%;">№<br>п/п</th>
-                    <th style="width: 55%;">Фамилия, Имя, Отчество<br>(полностью)</th>
-                    <th style="width: 20%;">ИНСТРУКТАЖИ И СОГЛАСИЯ<br><span class="sub-header">(одна подпись за все инструктажи)</span></th>
-                    <th style="width: 20%;">Инструктаж проведен</th>
-                </tr>
-                <tr>
-                    <th></th>
-                    <th></th>
-                    <th style="font-size: 8pt; font-weight: normal;">Инструктаж по ОТ, ТБ, ППБ,<br>согласие на обработку ПД,<br>ознакомление с порядком</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for enrollment in students %}
-                <tr>
-                    <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
-                    <td class="name-cell">
-                        {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
-                    </td>
-                    <td>
-                        <div class="sign-cell">
-                            <div class="sign-date">Дата</div>
-                            <div class="sign-signature">Подпись</div>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="sign-cell">
-                            <div class="sign-date">Фамилия И.О.</div>
-                            <div class="sign-signature">Подпись</div>
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="4" style="text-align: center; padding: 10px;">Слушатели не найдены</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<!--        <table class="students-table">-->
+<!--            <thead>-->
+<!--                <tr>-->
+<!--                    <th style="width: 5%;">№<br>п/п</th>-->
+<!--                    <th style="width: 55%;">Фамилия, Имя, Отчество<br>(полностью)</th>-->
+<!--                    <th style="width: 20%;">ИНСТРУКТАЖИ И СОГЛАСИЯ<br><span class="sub-header">(одна подпись за все инструктажи)</span></th>-->
+<!--                    <th style="width: 20%;">Инструктаж проведен</th>-->
+<!--                </tr>-->
+<!--                <tr>-->
+<!--                    <th></th>-->
+<!--                    <th></th>-->
+<!--                    <th style="font-size: 8pt; font-weight: normal;">Инструктаж по ОТ, ТБ, ППБ,<br>согласие на обработку ПД,<br>ознакомление с порядком</th>-->
+<!--                    <th></th>-->
+<!--                </tr>-->
+<!--            </thead>-->
+<!--            <tbody>-->
+<!--                {% for enrollment in students %}-->
+<!--                <tr>-->
+<!--                    <td style="text-align: center;">{{ enrollment.number_in_group }}</td>-->
+<!--                    <td class="name-cell">-->
+<!--                        {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}-->
+<!--                    </td>-->
+<!--                    <td>-->
+<!--                        <div class="sign-cell">-->
+<!--                            <div class="sign-date">Дата</div>-->
+<!--                            <div class="sign-signature">Подпись</div>-->
+<!--                        </div>-->
+<!--                    </td>-->
+<!--                    <td>-->
+<!--                        <div class="sign-cell">-->
+<!--                            <div class="sign-date">Фамилия И.О.</div>-->
+<!--                            <div class="sign-signature">Подпись</div>-->
+<!--                        </div>-->
+<!--                    </td>-->
+<!--                </tr>-->
+<!--                {% empty %}-->
+<!--                <tr><td colspan="4" style="text-align: center; padding: 10px;">Слушатели не найдены</td></tr>-->
+<!--                {% endfor %}-->
+<!--            </tbody>-->
+<!--        </table>-->
+
+
+
+<table class="students-table">
+    <thead>
+        <tr>
+            <th style="width: 5%;">№<br>п/п</th>
+            <th style="width: 55%;">Фамилия, Имя, Отчество<br>(полностью)</th>
+            <th style="width: 20%;">ИНСТРУКТАЖИ И СОГЛАСИЯ<br><span class="sub-header">(одна подпись за все инструктажи)</span></th>
+            <th style="width: 20%;">Инструктаж проведен</th>
+        </tr>
+        <tr>
+            <th></th>
+            <th></th>
+            <th style="font-size: 8pt; font-weight: normal;">Инструктаж по ОТ, ТБ, ППБ,<br>согласие на обработку ПД,<br>ознакомление с порядком</th>
+            <th></th>
+        </tr>
+    </thead>
+<tbody>
+    {% for item in students %}
+    <tr>
+        <td style="text-align: center;">{{ item.enrollment.number_in_group }}</td>
+        <td class="name-cell">
+            {{ item.enrollment.student.surname }} {{ item.enrollment.student.name }} {{ item.enrollment.student.patronymic|default:"" }}
+        </td>
+        <td>
+            {% if item.student_ack_signature %}
+                <div class="signature-block">
+                    <div style="font-size: 8pt;font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; padding-top: 3px; word-break: break-word;">{{ item.student_ack_signature }}</div>
+                </div>
+            {% else %}
+                <div class="signature-empty">—</div>
+            {% endif %}
+        </td>
+        <td>
+            {% if item.instructor_ack_signature %}
+                <div class="signature-block">
+                    <div style="font-size: 8pt;font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; padding-top: 3px; word-break: break-word;">{{ item.instructor_ack_signature }}</div>
+                </div>
+            {% else %}
+                <div class="signature-empty">—</div>
+            {% endif %}
+        </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4" style="text-align: center; padding: 10px;">Слушатели не найдены</td></tr>
+    {% endfor %}
+</tbody>
+</table>
 
         <div class="legal-text">
             <p style="margin: 2mm 0;">
@@ -644,25 +705,36 @@
                     {% endfor %}
                 </tr>
             </thead>
-            <tbody>
-                {% for enrollment in students %}
-                <tr>
-                    <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
-                    <td class="name-cell">
-                        {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
-                    </td>
-                    {% for stage_data in attendance_page %}
-                        {% for date_info in stage_data.dates %}
-                        <td class="attendance-cell">
-                            <div class="sign-cell"><div class="sign-signature"></div></div>
-                        </td>
-                        {% endfor %}
-                    {% endfor %}
-                </tr>
-                {% empty %}
-                <tr><td colspan="100" style="text-align: center; padding: 10px;">Слушатели не найдены</td></tr>
-                {% endfor %}
-            </tbody>
+<tbody>
+    {% for item in students %}
+    <tr>
+        <td style="text-align: center;">{{ item.enrollment.number_in_group }}</td>
+        <td class="name-cell">
+            {{ item.enrollment.student.surname }} {{ item.enrollment.student.name }} {{ item.enrollment.student.patronymic|default:"" }}
+        </td>
+        {% for stage_data in attendance_page %}
+            {% for date_info in stage_data.dates %}
+            <td class="attendance-cell">
+                {# Получаем подпись по ID занятия #}
+                {% with sig=item.attendance_signatures|dict_get:date_info.schedule_item_id %}
+                    {% if sig %}
+                        <div class="signature-block">
+                            <div style="font-size: 8pt;font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; padding-top: 3px; word-break: break-word;">{{ sig }}</div>
+                        </div>
+                    {% else %}
+                        <div class="sign-cell">
+                            <div class="sign-signature"></div>
+                        </div>
+                    {% endif %}
+                {% endwith %}
+            </td>
+            {% endfor %}
+        {% endfor %}
+    </tr>
+    {% empty %}
+    <tr><td colspan="100" style="text-align: center; padding: 10px;">Слушатели не найдены</td></tr>
+    {% endfor %}
+</tbody>
         </table>
     </div>
 
@@ -727,7 +799,13 @@
                         </td>
                         <td class="responsible">
                             <div style="font-size: 7.5pt;">{{ row.instructor|default:"—" }}</div>
-                            <div style="color: #999; font-size: 7px; padding-top: 5px;">Подпись</div>
+                            {% if row.instructor_signature %}
+                                <div style="font-size: 6.5pt; font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; padding-top: 3px; word-break: break-word;">
+                                    {{ row.instructor_signature }}
+                                </div>
+                            {% else %}
+                                <div style="color: #999; font-size: 7px; padding-top: 5px;">Подпись</div>
+                            {% endif %}
                         </td>
                     </tr>
 
@@ -800,25 +878,55 @@
                     <th style="width: 20%;">С оценкой ознакомлен и согласен</th>
                 </tr>
             </thead>
-            <tbody>
-                {% for enrollment in students %}
-                <tr>
-                    <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
-                    <td class="name-cell" style="text-align: left;">
-                        {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
-                    </td>
-                    <td></td>
-                    <td></td>
-                    <td>
-                        {{ group.curator.full_name|default:"—" }}
-                        <div style="color: #999; font-size: 8px; padding-top: 8px;">Подпись</div>
-                    </td>
-                    <td></td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="6" style="text-align: center; padding: 10px;">Слушатели не найдены</td></tr>
-                {% endfor %}
-            </tbody>
+<tbody>
+    {% for item in students %}
+    <tr>
+        <td style="text-align: center;">{{ item.enrollment.number_in_group }}</td>
+        <td class="name-cell" style="text-align: left;">
+            {{ item.enrollment.student.surname }} {{ item.enrollment.student.name }} {{ item.enrollment.student.patronymic|default:"" }}
+        </td>
+        <td style="text-align: center; font-weight: bold;">
+            {% if item.intermediate_score is not None %}
+                {% if item.intermediate_grade_type == 'binary' %}
+                    {% if item.intermediate_score == 1 %}Зачтено{% else %}Не зачтено{% endif %}
+                {% else %}
+                    {{ item.intermediate_score }}
+                {% endif %}
+            {% else %}
+                —
+            {% endif %}
+        </td>
+        <td style="text-align: center;">
+            {% if item.intermediate_date %}
+                {{ item.intermediate_date|date:"d.m.Y" }}
+            {% else %}
+                —
+            {% endif %}
+        </td>
+        <td>
+            <div style="font-size: 7.5pt;">{{ group.curator.full_name|default:"—" }}</div>
+            {% if item.curator_signature %}
+                <div style="font-size: 6.5pt; font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; padding-top: 3px; word-break: break-word;">
+                    {{ item.curator_signature }}
+                </div>
+            {% else %}
+                <div style="color: #999; font-size: 7px; padding-top: 5px;">Подпись</div>
+            {% endif %}
+        </td>
+        <td>
+            {% if item.student_grade_ack_signature %}
+                <div style="font-size: 7pt; font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; word-break: break-word;">
+                    {{ item.student_grade_ack_signature }}
+                </div>
+            {% else %}
+                <div style="color: #999; font-size: 7px;">Подпись</div>
+            {% endif %}
+        </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="6" style="text-align: center; padding: 10px;">Слушатели не найдены</td></tr>
+    {% endfor %}
+</tbody>
         </table>
     </div>
 
@@ -874,35 +982,67 @@
                     <th style="width: 20%;">С оценкой ознакомлен и согласен</th>
                 </tr>
             </thead>
-            <tbody>
-                {% for enrollment in students %}
-                <tr>
-                    <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
-                    <td class="text-left" style="text-align: left;">
-                        {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
-                    </td>
-                    <td style="text-align: center;"></td>
-                    <td style="text-align: center;"></td>
-                    <td>
-                        {% if exam_instructor %}
-                            {{ exam_instructor.full_name }}
-                        {% elif group.curator %}
-                            {{ group.curator.full_name }}
-                        {% else %}
-                            —
-                        {% endif %}
-                        <div style="color: #999; font-size: 9px; padding-top: 10px;">Подпись</div>
-                    </td>
-                    <td></td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="6" style="text-align: center; padding: 10px;">
-                        Слушатели не найдены
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
+<tbody>
+    {% for item in students %}
+    <tr>
+        <td style="text-align: center;">{{ item.enrollment.number_in_group }}</td>
+        <td class="text-left" style="text-align: left;">
+            {{ item.enrollment.student.surname }} {{ item.enrollment.student.name }} {{ item.enrollment.student.patronymic|default:"" }}
+        </td>
+        <td style="text-align: center; font-weight: bold;">
+            {% if item.final_score is not None %}
+                {% if item.final_grade_type == 'binary' %}
+                    {% if item.final_score == 1 %}Зачтено{% else %}Не зачтено{% endif %}
+                {% else %}
+                    {{ item.final_score }}
+                {% endif %}
+            {% else %}
+                —
+            {% endif %}
+        </td>
+        <td style="text-align: center;">
+            {% if item.final_date %}
+                {{ item.final_date|date:"d.m.Y" }}
+            {% else %}
+                —
+            {% endif %}
+        </td>
+        <td>
+            <div style="font-size: 7.5pt;">
+                {% if exam_instructor %}
+                    {{ exam_instructor.full_name }}
+                {% elif group.curator %}
+                    {{ group.curator.full_name }}
+                {% else %}
+                    —
+                {% endif %}
+            </div>
+            {% if item.final_instructor_signature %}
+                <div style="font-size: 6.5pt; font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; padding-top: 3px; word-break: break-word;">
+                    {{ item.final_instructor_signature }}
+                </div>
+            {% else %}
+                <div style="color: #999; font-size: 7px; padding-top: 5px;">Подпись</div>
+            {% endif %}
+        </td>
+        <td>
+            {% if item.final_student_ack_signature %}
+                <div style="font-size: 7pt; font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; word-break: break-word;">
+                    {{ item.final_student_ack_signature }}
+                </div>
+            {% else %}
+                <div style="color: #999; font-size: 7px;">Подпись</div>
+            {% endif %}
+        </td>
+    </tr>
+    {% empty %}
+    <tr>
+        <td colspan="6" style="text-align: center; padding: 10px;">
+            Слушатели не найдены
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
         </table>
     </div>
     <p class="footer-note">Перед использованием проверьте актуальность документа на Корпоративном портале (https://gate.nordstar.ru) в разделе: Центр документов / Шаблоны</p>
@@ -947,46 +1087,62 @@
                     <th style="width: 10%;">Подпись</th>
                 </tr>
             </thead>
-            <tbody>
-                {% for enrollment in students %}
-                    {% if enrollment.certificates.all %}
-                        {% for certificate in enrollment.certificates.all %}
-                        <tr>
-                            <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
-                            <td style="text-align: center;">{{ certificate.get_certificate_type_display }}</td>
-                            <td>{{ certificate.number|default:"Б/Н" }}</td>
-                            <td style="text-align: center;">{{ enrollment.completed_at|date:"d.m.Y"|default:"—" }}</td>
-                            <td class="text-left" style="text-align: left;">
-                                {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
-                            </td>
-                            <td></td>
-                            <td class="text-left" style="text-align: left;">
-                                {% if group.curator %}{{ group.curator.full_name }}{% else %}—{% endif %}
-                            </td>
-                            <td></td>
-                        </tr>
-                        {% endfor %}
+<tbody>
+    {% for item in students %}
+        {% if item.enrollment.certificates.all %}
+            {% for certificate in item.enrollment.certificates.all %}
+            <tr>
+                <td style="text-align: center;">{{ item.enrollment.number_in_group }}</td>
+                <td style="text-align: center;">{{ certificate.get_certificate_type_display }}</td>
+                <td>{{ certificate.number|default:"Б/Н" }}</td>
+                <td style="text-align: center;">{{ item.enrollment.completed_at|date:"d.m.Y"|default:"—" }}</td>
+                <td class="text-left" style="text-align: left;">
+                    {{ item.enrollment.student.surname }} {{ item.enrollment.student.name }} {{ item.enrollment.student.patronymic|default:"" }}
+                </td>
+                <td>
+                    {% with cert_sig=item.certificate_signatures|dict_get:certificate.id %}
+                        {% if cert_sig %}
+                            <div style="font-size: 6.5pt; font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; word-break: break-word;">
+                                {{ cert_sig }}
+                            </div>
+                        {% else %}
+                            <div style="color: #999; font-size: 7px;">Подпись</div>
+                        {% endif %}
+                    {% endwith %}
+                </td>
+                <td class="text-left" style="text-align: left;">
+                    {% if group.curator %}{{ group.curator.full_name }}{% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if item.curator_cert_signature %}
+                        <div style="font-size: 6.5pt; font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; word-break: break-word;">
+                            {{ item.curator_cert_signature }}
+                        </div>
                     {% else %}
-                        <tr>
-                            <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
-                            <td style="text-align: center;">—</td>
-                            <td>—</td>
-                            <td style="text-align: center;">—</td>
-                            <td class="text-left" style="text-align: left;">
-                                {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
-                            </td>
-                            <td></td>
-                            <td class="text-left" style="text-align: left;">—</td>
-                            <td></td>
-                        </tr>
+                        <div style="color: #999; font-size: 7px;">Подпись</div>
                     {% endif %}
-                {% endfor %}
-            </tbody>
+                </td>
+            </tr>
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td style="text-align: center;">{{ item.enrollment.number_in_group }}</td>
+                <td style="text-align: center;">—</td>
+                <td>—</td>
+                <td style="text-align: center;">—</td>
+                <td class="text-left" style="text-align: left;">
+                    {{ item.enrollment.student.surname }} {{ item.enrollment.student.name }} {{ item.enrollment.student.patronymic|default:"" }}
+                </td>
+                <td></td>
+                <td class="text-left" style="text-align: left;">—</td>
+                <td></td>
+            </tr>
+        {% endif %}
+    {% endfor %}
+</tbody>
         </table>
 
-    <!-- ... предыдущая таблица с сертификатами ... -->
-            </tbody>
-        </table>
+
 
         <!-- ==================== ДИНАМИЧЕСКИЙ БЛОК: ЗАДАНИЯ НА ТРЕНИРОВКУ ==================== -->
         {% if has_asp_training %}
@@ -1005,45 +1161,57 @@
                     <th style="width: 10%;">Подпись</th>
                 </tr>
             </thead>
-            <tbody>
-                {% for enrollment in students %}
-                    <!-- Логика вывода строк (оставлена как у вас, привязанная к сертификатам) -->
-                    {% if enrollment.certificates.all %}
-                        {% for certificate in enrollment.certificates.all %}
-                        <tr>
-                            <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
-                            <td style="text-align: center;">Задание на тренировку</td>
-                            <td>Б/Н</td>
-                            <td style="text-align: center;">{{ enrollment.completed_at|date:"d.m.Y"|default:"—" }}</td>
-                            <td class="text-left" style="text-align: left;">
-                                {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
-                            </td>
-                            <td></td>
-                            <td class="text-left" style="text-align: left;">
-<!--                                {% if group.curator %}{{ group.curator.full_name }}{% else %}—{% endif %}-->
-                        {% if exam_instructor %}{{ exam_instructor.full_name }} {% elif group.curator %} {{ group.curator.full_name }} {% else %}
-                            —
-                        {% endif %}
-                            </td>
-                            <td></td>
-                        </tr>
-                        {% endfor %}
+<tbody>
+    {% for item in students %}
+        {% if item.enrollment.certificates.all %}
+            {% for certificate in item.enrollment.certificates.all %}
+            <tr>
+                <td style="text-align: center;">{{ item.enrollment.number_in_group }}</td>
+                <td style="text-align: center;">Задание на тренировку</td>
+                <td>Б/Н</td>
+                <td style="text-align: center;">{{ item.enrollment.completed_at|date:"d.m.Y"|default:"—" }}</td>
+                <td class="text-left" style="text-align: left;">
+                    {{ item.enrollment.student.surname }} {{ item.enrollment.student.name }} {{ item.enrollment.student.patronymic|default:"" }}
+                </td>
+                <td>
+                    {% if item.znt_signature %}
+                        <div style="font-size: 6.5pt; font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; word-break: break-word;">
+                            {{ item.znt_signature }}
+                        </div>
                     {% else %}
-                        <tr>
-                            <td style="text-align: center;">{{ enrollment.number_in_group }}</td>
-                            <td style="text-align: center;">—</td>
-                            <td>—</td>
-                            <td style="text-align: center;">—</td>
-                            <td class="text-left" style="text-align: left;">
-                                {{ enrollment.student.surname }} {{ enrollment.student.name }} {{ enrollment.student.patronymic|default:"" }}
-                            </td>
-                            <td></td>
-                            <td class="text-left" style="text-align: left;">—</td>
-                            <td></td>
-                        </tr>
+                        <div style="color: #999; font-size: 7px;">Подпись</div>
                     {% endif %}
-                {% endfor %}
-            </tbody>
+                </td>
+                <td class="text-left" style="text-align: left;">
+                    {% if group.curator %}{{ group.curator.full_name }}{% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if item.curator_cert_signature %}
+                        <div style="font-size: 6.5pt; font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; word-break: break-word;">
+                            {{ item.curator_cert_signature }}
+                        </div>
+                    {% else %}
+                        <div style="color: #999; font-size: 7px;">Подпись</div>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td style="text-align: center;">{{ item.enrollment.number_in_group }}</td>
+                <td style="text-align: center;">—</td>
+                <td>—</td>
+                <td style="text-align: center;">—</td>
+                <td class="text-left" style="text-align: left;">
+                    {{ item.enrollment.student.surname }} {{ item.enrollment.student.name }} {{ item.enrollment.student.patronymic|default:"" }}
+                </td>
+                <td></td>
+                <td class="text-left" style="text-align: left;">—</td>
+                <td></td>
+            </tr>
+        {% endif %}
+    {% endfor %}
+</tbody>
         </table>
         {% endif %}
         <!-- ================================================================================ -->

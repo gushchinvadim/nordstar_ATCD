@@ -118,7 +118,7 @@ const CreateGroup = () => {
             const res = await createGroup(data);
             if (res.data.success) {
                 alert(`✅ Группа ${res.data.assigned_number} успешно создана!`);
-                navigate('/'); // Возврат на дашборд
+                navigate('/methodist'); // Возврат на дашборд
             } else {
                 setError(res.data.error || 'Ошибка создания группы');
             }
@@ -409,7 +409,7 @@ const CreateGroup = () => {
                     <button type="submit" className={styles.submitBtn} disabled={loading}>
                         {loading ? 'Создание...' : 'Создать группу'}
                     </button>
-                    <button type="button" onClick={() => navigate('/')} className={styles.cancelBtn}>
+                    <button type="button" onClick={() => navigate('/methodist')} className={styles.cancelBtn}>
                         Отмена
                     </button>
                 </div>

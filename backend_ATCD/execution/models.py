@@ -1,4 +1,4 @@
-
+# execution/models.py
 from django.db import models
 from django.utils import timezone
 from datetime import time, date
@@ -255,6 +255,7 @@ class Enrollment(models.Model):
         self.save(update_fields=['final_score'])
         return final
 
+
 class ScheduleItem(models.Model):
     STATUS_CHOICES = [
         ('planned', 'Запланировано'),
@@ -266,8 +267,6 @@ class ScheduleItem(models.Model):
     group = models.ForeignKey(Group, on_delete=models.CASCADE, verbose_name="Группа", related_name='schedule')
     section = models.ForeignKey('training.Section', on_delete=models.CASCADE, verbose_name="Дисциплина",
                                 related_name='schedule_items')
-
-    # НОВОЕ ПОЛЕ: Связь с конкретной сессией/темой (может быть пустым, если детализации нет)
     subsection = models.ForeignKey('training.Subsection', on_delete=models.SET_NULL, null=True, blank=True,
                                    verbose_name="Тема/Сессия", related_name='schedule_items')
 
@@ -285,16 +284,188 @@ class ScheduleItem(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='planned', verbose_name="Статус")
     notes = models.TextField("Детализация времени / Примечание", null=True, blank=True)
 
+    # === НОВОЕ ПОЛЕ: Быстрый флаг для фильтрации закрытых занятий ===
+    is_completed = models.BooleanField(
+        "Занятие завершено и закрыто",
+        default=False,
+        help_text="Ставится True при финальном подтверждении инструктором."
+    )
+
     class Meta:
         verbose_name = "Занятие расписания"
         verbose_name_plural = "Расписание"
-        ordering = ['date', 'start_time', 'section__order', 'subsection__order']  # Сортируем по дате, времени и порядку сессии
+        ordering = ['date', 'start_time', 'section__order', 'subsection__order']
 
     def __str__(self):
         time_str = f"{self.start_time}-{self.end_time}" if self.start_time else "СДО"
         sub_title = f" ({self.subsection.title})" if self.subsection else ""
         return f"{self.date} {time_str} | {self.section.title[:30]}{sub_title}"
 
+    @property
+    def completion_signature(self):
+        """Возвращает строку подписи для UI, если занятие завершено"""
+        if not self.is_completed:
+            return None
+        log = self.compliance_logs.filter(action_type='lesson_completed').order_by('-timestamp').first()
+        return log.signature_string if log else "Завершено (детали в логе)"
+
+
+class ComplianceLog(models.Model):
+    ACTION_CHOICES = [
+        # Инструктор
+        ('instructor_familiarized', 'Инструктор ознакомлен с планом занятия'),
+        ('instructor_schedule_ack', 'Инструктор ознакомлен с учебным расписанием'), # <-- НОВОЕ
+        ('instructor_briefing_done', 'Инструктор провел инструктаж для студента'), # <-- НОВОЕ
+        ('lesson_completed', 'Инструктор подтвердил проведение занятия'),
+        ('grades_submitted', 'Инструктор сохранил/выставил оценки'),
+        ('methodist_corrected', 'Методист внес исправления в журнал'),
+
+        # Студент
+        ('student_schedule_ack', 'Ознакомление с учебным расписанием'),
+        ('student_safety_ack', 'Инструктаж по ОТ, ТБ, ППБ + согласие на обработку ПД + ознакомление с порядком'),
+        ('student_attendance_confirmed', 'Подтверждение присутствия на занятии'),
+        ('student_grade_ack', 'Ознакомление с оценкой'),
+        ('certificate_received', 'Получение документа (Удостоверение/Свидетельство/ЗНТ)'),
+
+        # Директор
+        ('director_schedule_approved', 'Директор утвердил расписание'),
+    ]
+
+    schedule_item = models.ForeignKey(
+        'ScheduleItem',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='compliance_logs',
+        verbose_name="Занятие (для посещаемости)"
+    )
+
+    group = models.ForeignKey(
+        'Group',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='compliance_logs',
+        verbose_name="Группа"
+    )
+
+    enrollment = models.ForeignKey(
+        'Enrollment',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='compliance_logs',
+        verbose_name="Зачисление в группу"
+    )
+
+    student = models.ForeignKey(
+        'people.Student',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Студент"
+    )
+
+    staff = models.ForeignKey(
+        'people.Staff',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Сотрудник"
+    )
+
+    # === НОВЫЕ ПОЛЯ ДЛЯ СВЯЗИ С ОЦЕНКАМИ И ДОКУМЕНТАМИ ===
+    assessment = models.ForeignKey(
+        'Assessment',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='compliance_logs',
+        verbose_name="Оценка (для ознакомления)"
+    )
+
+    certificate = models.ForeignKey(
+        'Certificate',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='compliance_logs',
+        verbose_name="Документ (для получения)"
+    )
+
+    action_type = models.CharField("Тип действия", max_length=30, choices=ACTION_CHOICES)
+    timestamp = models.DateTimeField("Время фиксации (сервер)", auto_now_add=True)
+    ip_address = models.GenericIPAddressField("IP-адрес", null=True, blank=True, help_text="Для аудита безопасности")
+    notes = models.TextField("Служебная отметка", blank=True)
+
+    class Meta:
+        verbose_name = "Запись в журнале подтверждений"
+        verbose_name_plural = "Журнал подтверждений и аудита"
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        if self.staff:
+            actor = self.staff.full_name
+        elif self.student:
+            parts = [
+                getattr(self.student, 'surname', ''),
+                getattr(self.student, 'name', ''),
+                getattr(self.student, 'patronymic', '')
+            ]
+            actor = ' '.join(part for part in parts if part).strip() or "Студент"
+        else:
+            actor = "Неизвестно"
+
+        # Используем локальное время для отображения
+        local_time = self._get_local_timestamp()
+        return f"[{self.get_action_type_display()}] {actor} — {local_time.strftime('%d.%m.%Y %H:%M')}"
+
+    def _get_local_timestamp(self):
+        """Получает локальное время с учетом часового пояса локации группы"""
+        from django.utils import timezone as django_tz
+
+        # Пытаемся получить часовой пояс локации
+        local_tz = None
+        try:
+            if self.enrollment and self.enrollment.group and self.enrollment.group.location:
+                tz_name = self.enrollment.group.location.timezone
+                if tz_name:
+                    import pytz
+                    local_tz = pytz.timezone(tz_name)
+        except Exception:
+            pass
+
+        # Если не удалось получить локальный часовой пояс — используем часовой пояс по умолчанию
+        if not local_tz:
+            local_tz = django_tz.get_default_timezone()
+
+        # Конвертируем UTC в локальное время
+        if django_tz.is_aware(self.timestamp):
+            return self.timestamp.astimezone(local_tz)
+        else:
+            # Если timestamp naive (без часового пояса), делаем его aware в UTC, затем конвертируем
+            utc_time = django_tz.make_aware(self.timestamp, django_tz.utc)
+            return utc_time.astimezone(local_tz)
+
+    @property
+    def signature_string(self):
+        if self.staff:
+            actor_name = self.staff.full_name
+        elif self.student:
+            parts = [
+                getattr(self.student, 'surname', ''),
+                getattr(self.student, 'name', ''),
+                getattr(self.student, 'patronymic', '')
+            ]
+            actor_name = ' '.join(part for part in parts if part).strip() or "Студент"
+        else:
+            actor_name = "Неизвестно"
+
+        # Используем локальное время вместо UTC
+        local_time = self._get_local_timestamp()
+        time_str = local_time.strftime('%d.%m.%Y %H:%M')
+
+        return f"{actor_name} (системная) {time_str}"
 
 class Assessment(models.Model):
     """Оценка по разделу программы обучения"""

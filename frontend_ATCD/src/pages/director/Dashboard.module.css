@@ -1,0 +1,182 @@
+/* src/pages/director/Dashboard.module.css */
+.container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.mainTitle {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    color: #2c3e50;
+    text-align: center;
+}
+
+.subtitle {
+    font-size: 1.2rem;
+    margin-bottom: 30px;
+    color: #7f8c8d;
+    text-align: center;
+}
+
+.loading, .emptyState {
+    text-align: center;
+    padding: 40px;
+    font-size: 1.2rem;
+    color: #7f8c8d;
+}
+
+.error {
+    text-align: center;
+    padding: 40px;
+    font-size: 1.2rem;
+    color: #e74c3c;
+    background: #ffebee;
+    border-radius: 8px;
+}
+
+.groupCard {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.groupHeader {
+    padding: 20px;
+    background: #34495e;
+    color: white;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.groupHeader:hover {
+    background: #2c3e50;
+}
+
+.groupInfo {
+    margin-bottom: 10px;
+}
+
+.groupInfo h3 {
+    margin: 0 0 5px 0;
+    font-size: 1.3rem;
+}
+
+.groupCode {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.groupMeta {
+    margin-bottom: 10px;
+}
+
+.groupMeta p {
+    margin: 5px 0;
+    font-size: 0.95rem;
+}
+
+.groupNumber, .status, .dates {
+    opacity: 0.9;
+}
+
+.expandButton {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.expandButton:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.scheduleBlock {
+    padding: 20px;
+}
+
+.approved {
+    background: #d5f4e6;
+    color: #27ae60;
+    padding: 15px;
+    border-radius: 8px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.approveButton {
+    background: #27ae60;
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 20px;
+    width: 100%;
+    transition: background 0.3s;
+}
+
+.approveButton:hover {
+    background: #229954;
+}
+
+.scheduleList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.scheduleItem {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #3498db;
+}
+
+.scheduleInfo {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.date {
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.time {
+    color: #7f8c8d;
+}
+
+.section {
+    font-weight: 500;
+    color: #34495e;
+}
+
+.subsection {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+}
+
+.scheduleMeta {
+    display: flex;
+    gap: 20px;
+    font-size: 0.9rem;
+    color: #7f8c8d;
+}
+
+.instructor, .location {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}

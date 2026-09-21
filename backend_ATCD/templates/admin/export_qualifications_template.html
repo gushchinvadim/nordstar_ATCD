@@ -1,0 +1,20 @@
+<!-- templates/admin/export_qualifications_template.html -->
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div id="content-main">
+    <h2>Экспорт шаблона допусков инструкторов</h2>
+
+    <p>Нажмите кнопку ниже, чтобы скачать Excel-файл с текущими допусками инструкторов.
+    Вы можете отредактировать его и загрузить обратно через "Импорт допусков из Excel".</p>
+
+    <div class="submit-row">
+        <!-- ДОБАВЛЕН ПРЕФИКС training: -->
+        <a href="{% url 'training:download_qualifications_template' %}" class="button default">
+            📥 Скачать шаблон с текущими данными
+        </a>
+        <a href="{% url 'admin:training_instructorqualification_changelist' %}" class="button">Отмена</a>
+    </div>
+</div>
+{% endblock %}

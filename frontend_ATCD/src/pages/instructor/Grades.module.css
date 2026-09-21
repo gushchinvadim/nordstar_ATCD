@@ -1,0 +1,128 @@
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.backButton {
+    background: #95a5a6;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 20px;
+}
+
+.backButton:hover {
+    background: #7f8c8d;
+}
+
+.title {
+    font-size: 1.8rem;
+    margin-bottom: 30px;
+    color: #2c3e50;
+}
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    font-size: 1.2rem;
+    color: #7f8c8d;
+}
+
+.tableWrapper {
+    overflow-x: auto;
+    margin-bottom: 20px;
+}
+
+.gradesTable {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.gradesTable th,
+.gradesTable td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: left;
+}
+
+.gradesTable th {
+    background: #3498db;
+    color: white;
+    font-weight: bold;
+}
+
+.gradesTable tr:nth-child(even) {
+    background: #f9f9f9;
+}
+
+.editableCell {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.scoreInput {
+    width: 60px;
+    padding: 8px;
+    border: 2px solid #3498db;
+    border-radius: 4px;
+    font-size: 1rem;
+    text-align: center;
+}
+
+.notesInput {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.saveButton {
+    background: #27ae60;
+    color: white;
+    border: none;
+    padding: 15px 40px;
+    border-radius: 6px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    position: sticky;
+    bottom: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.saveButton:hover:not(:disabled) {
+    background: #229954;
+}
+
+.saveButton:disabled {
+    background: #95a5a6;
+    cursor: not-allowed;
+}
+
+/* Мобильная адаптация */
+@media (max-width: 768px) {
+    .gradesTable th,
+    .gradesTable td {
+        padding: 8px;
+        font-size: 0.9rem;
+    }
+    
+    .scoreInput {
+        width: 50px;
+        padding: 6px;
+    }
+    
+    .saveButton {
+        width: 100%;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        border-radius: 0;
+    }
+}

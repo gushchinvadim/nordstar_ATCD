@@ -1,0 +1,246 @@
+<!--docs/templates/docs/instructing/instructing.html-->
+<!DOCTYPE html>
+{% load static %}
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>ИНСТРУКТАЖИ</title>
+<style>
+@page {
+    size: 210mm 297mm;
+    margin: 10mm;
+}
+
+body {
+    background-color: #e0e0e0;
+    margin: 0;
+    padding: 20px;
+    font-family: "Times New Roman", Times, serif;
+    font-size: 11pt;
+    line-height: 1.3;
+    color: #000;
+}
+
+.a4-page {
+    background: white;
+    width: 210mm;
+    height: 295mm;
+    padding: 10mm 8mm 5mm 20mm;
+    box-sizing: border-box;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+    margin: 0 auto 20px auto;
+    position: relative;
+    page-break-after: always;
+    overflow: hidden;
+}
+
+.a4-page:last-of-type {
+    page-break-after: auto;
+}
+
+.header-colontitle {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 5mm;
+}
+
+.header-colontitle td,
+.footer-colontitle td {
+    border: 1px solid black;
+    padding: 4px 8px;
+    vertical-align: middle;
+}
+
+.logo-img {
+    max-height: 25px;
+    width: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+.page-footer {
+    text-align: left;
+}
+
+.page-content {
+    padding-bottom: 5mm;
+}
+
+.page-header {
+    text-align: center;
+    font-size: 10pt;
+}
+
+.stage-header-row {
+    background-color: #d3d3d3;
+    font-weight: bold;
+    text-align: left;
+    padding: 6px;
+    border: 1px solid black;
+    font-size: 11pt;
+    margin-bottom: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+.stage-header-task {
+    font-weight: bold;
+    text-align: left;
+    padding: 6px;
+    border: 1px solid black;
+    font-size: 11pt;
+    margin-bottom: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+.training-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11pt;
+}
+
+.training-table th,
+.training-table td {
+    border: 1px solid black;
+    padding: 4px;
+    vertical-align: middle;
+}
+
+.training-table th {
+    background-color: #f0f0f0;
+    font-weight: bold;
+    text-align: center;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+.training-table td.number {
+    text-align: center;
+}
+
+.text-left {
+    font-style: italic;
+    padding-left: 10px;
+}
+
+.no-print {
+    text-align: center;
+    margin: 20px;
+}
+
+.print-btn {
+    display: inline-block;
+    margin: 15px 0;
+    padding: 8px 16px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12pt;
+    text-decoration: none;
+}
+
+.print-btn:hover {
+    background: #45a049;
+}
+
+@media print {
+    @page {
+        size: 210mm 297mm;
+        margin: 2mm;
+    }
+
+    body {
+        background: none;
+        padding: 0;
+        margin: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .a4-page {
+        box-shadow: none;
+        margin: 0 !important;
+        padding: 5mm 5mm 5mm 20mm;
+        width: 210mm;
+        height: 293mm;
+        position: relative;
+        page-break-after: always;
+        overflow: hidden;
+    }
+
+    .a4-page:last-of-type {
+        page-break-after: auto;
+    }
+
+    .header-colontitle {
+        margin-bottom: 3mm;
+    }
+
+    .footer-colontitle {
+        bottom: 2mm;
+    }
+
+    .page-content {
+        padding-bottom: 5mm;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    table {
+        page-break-inside: avoid;
+    }
+}
+</style>
+</head>
+<body>
+
+<div class="a4-page">
+
+    <table class="header-colontitle">
+        <tr>
+         <td style="width: 15%;">
+            {% if logo_base64 %}
+            <img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">
+            {% endif %}
+        </td>
+            <td style="width: 50%; text-align: center; font-weight: 400; font-size: 11pt;">ИНСТРУКТАЖИ</td>
+            <td style="width: 30%; text-align: right; font-size: 9pt;">ТБ ПД МП<br></td>
+        </tr>
+    </table>
+
+    <div class="page-content">ЗДЕСЬ БУДЕТ ИНСТРУКТАЖ</div>
+
+
+
+
+<!-- Кнопки -->
+<div class="no-print">
+    <button class="print-btn" onclick="window.print()">🖨 Распечатать инструктаж</button>
+
+</div>
+</div>
+<script>
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+</body>
+</html>

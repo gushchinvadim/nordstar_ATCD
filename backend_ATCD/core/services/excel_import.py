@@ -2,8 +2,8 @@
 import pandas as pd
 from datetime import datetime
 from references.models import AircraftType, Citizenship, Location, Organization, Position, StudentProfession
+from training.models import Course, Module, Stage, Section, Subsection, Subject, InstructorQualification
 from people.models import Staff, Student
-from training.models import Course, Module, Stage, Section, Subsection
 from core.services.aircraft_utils import get_or_create_aircraft_type
 
 # ==========================================
@@ -33,6 +33,12 @@ VALID_DETAILS = ['sdo', 'sim', 'base-1', 'base-2', 'base-3', 'base-4',
                  'base-5', 'base-6', 'base-7', 'base-8', 'base-9',
                  'asp-l', 'asp-w', 'none']
 
+REQUIRED_QUALIFICATIONS_COLUMNS = [
+    'full_name', 'subject_code', 'subject_name', 'issue_date', 'validity_months'
+]
+
+# Допустимые значения для device_type
+VALID_DEVICE_TYPES = [choice[0] for choice in InstructorQualification.DEVICE_CHOICES]
 
 def parse_date(date_value):
     if pd.isna(date_value):
@@ -470,4 +476,166 @@ def import_students(file_path):
     return {
         'students_created': created_students, 'students_updated': updated_students,
         'professions': created_professions, 'citizenships': created_citizenships,
+    }
+
+
+# ==========================================
+# 4. ИМПОРТ ДОПУСКОВ ИНСТРУКТОРОВ
+# ==========================================
+def import_instructor_qualifications(file_path):
+    """
+    Импорт допусков инструкторов из Excel.
+
+    Ожидаемые колонки:
+    - full_name: ФИО инструктора (как в Staff)
+    - subject_code: Код предмета (из справочника Subject)
+    - subject_name: Название предмета (для удобства работы в админке)
+    - device_type: Тип обучения (CLASS, FFS, FTD, CBT, ON_JOB, VR, ASP_W, ASP_L) - опционально, по умолчанию CLASS
+    - certificate_number: Номер сертификата - опционально
+    - issue_date: Дата выдачи допуска
+    - validity_months: Срок действия в месяцах
+    - waiver_notes: Примечание/временное разрешение - опционально
+    """
+    df = pd.read_excel(file_path)
+
+    # ВАЛИДАЦИЯ ЗАГОЛОВКОВ
+    missing_cols = [col for col in REQUIRED_QUALIFICATIONS_COLUMNS if col not in df.columns]
+    if missing_cols:
+        raise ValueError(
+            f"Неверный формат файла допусков! Отсутствуют обязательные колонки: {', '.join(missing_cols)}")
+
+    created_qualifications = 0
+    updated_qualifications = 0
+    created_subjects = 0
+    updated_subjects = 0
+    warnings = []
+
+    for index, row in df.iterrows():
+        # Пропускаем пустые строки
+        if pd.isna(row.get('full_name')):
+            continue
+
+        full_name = str(row['full_name']).strip()
+        subject_code = str(row.get('subject_code', '')).strip().upper() if pd.notna(row.get('subject_code')) else ''
+        subject_name = str(row.get('subject_name', '')).strip() if pd.notna(row.get('subject_name')) else ''
+
+        if not full_name or not subject_code:
+            warnings.append(f"Строка {index + 2}: Пропущено (нет ФИО или кода предмета)")
+            continue
+
+        # === Ищем инструктора по ФИО ===
+        try:
+            staff = Staff.objects.get(full_name=full_name, is_active=True)
+        except Staff.DoesNotExist:
+            warnings.append(f"Строка {index + 2}: Инструктор '{full_name}' не найден в базе или неактивен")
+            continue
+        except Staff.MultipleObjectsReturned:
+            warnings.append(f"Строка {index + 2}: Найдено несколько инструкторов с ФИО '{full_name}'")
+            continue
+
+        # === Ищем или создаем предмет по коду ===
+        subject = None
+        if subject_code:
+            subject, subj_created = Subject.objects.get_or_create(
+                code=subject_code,
+                defaults={
+                    'name': subject_name if subject_name else subject_code,
+                    'is_active': True
+                }
+            )
+
+            if subj_created:
+                created_subjects += 1
+                if not subject_name:
+                    warnings.append(
+                        f"Строка {index + 2}: Создан новый предмет '{subject_code}' без названия (уточните в админке)")
+            else:
+                # Если предмет уже существует, но название изменилось — обновляем
+                if subject_name and subject.name != subject_name:
+                    subject.name = subject_name
+                    subject.save()
+                    updated_subjects += 1
+
+        if not subject:
+            warnings.append(f"Строка {index + 2}: Не указан код предмета")
+            continue
+
+        # === Определяем device_type ===
+        device_type_raw = str(row.get('device_type', 'CLASS')).strip().upper() if pd.notna(
+            row.get('device_type')) else 'CLASS'
+        if device_type_raw not in VALID_DEVICE_TYPES:
+            warnings.append(f"Строка {index + 2}: Неизвестный device_type '{device_type_raw}', используется CLASS")
+            device_type_raw = 'CLASS'
+
+        # === Парсим дату выдачи ===
+        issue_date = parse_date(row.get('issue_date'))
+        if not issue_date:
+            warnings.append(f"Строка {index + 2}: Неверная дата выдачи для '{full_name}'")
+            continue
+
+        # === Срок действия ===
+        validity_months = safe_int(row.get('validity_months'), default=24)
+        if validity_months <= 0:
+            validity_months = 24
+
+        # === Номер сертификата и примечания ===
+        certificate_number = str(row.get('certificate_number', '')).strip() if pd.notna(
+            row.get('certificate_number')) else ''
+        waiver_notes = str(row.get('waiver_notes', '')).strip() if pd.notna(row.get('waiver_notes')) else ''
+
+        # === Ищем существующий допуск (staff + subject + device_type) ===
+        # Сначала ищем активный
+        existing_qual = InstructorQualification.objects.filter(
+            staff=staff,
+            subject=subject,
+            device_type=device_type_raw,
+            is_active=True
+        ).first()
+
+        if existing_qual:
+            # Обновляем существующий активный допуск
+            existing_qual.certificate_number = certificate_number
+            existing_qual.issue_date = issue_date
+            existing_qual.validity_months = validity_months
+            existing_qual.waiver_notes = waiver_notes
+            existing_qual.save()
+            updated_qualifications += 1
+        else:
+            # Проверяем, есть ли неактивный допуск с такими же параметрами
+            inactive_qual = InstructorQualification.objects.filter(
+                staff=staff,
+                subject=subject,
+                device_type=device_type_raw,
+                is_active=False
+            ).first()
+
+            if inactive_qual:
+                # Активируем старый допуск и обновляем данные
+                inactive_qual.is_active = True
+                inactive_qual.certificate_number = certificate_number
+                inactive_qual.issue_date = issue_date
+                inactive_qual.validity_months = validity_months
+                inactive_qual.waiver_notes = waiver_notes
+                inactive_qual.save()
+                updated_qualifications += 1
+            else:
+                # Создаем новый допуск
+                InstructorQualification.objects.create(
+                    staff=staff,
+                    subject=subject,
+                    device_type=device_type_raw,
+                    certificate_number=certificate_number,
+                    issue_date=issue_date,
+                    validity_months=validity_months,
+                    is_active=True,
+                    waiver_notes=waiver_notes
+                )
+                created_qualifications += 1
+
+    return {
+        'qualifications_created': created_qualifications,
+        'qualifications_updated': updated_qualifications,
+        'subjects_created': created_subjects,
+        'subjects_updated': updated_subjects,
+        'warnings': warnings,
     }

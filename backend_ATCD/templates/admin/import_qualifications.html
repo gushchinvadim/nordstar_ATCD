@@ -1,0 +1,30 @@
+<!-- templates/admin/import_qualifications.html -->
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div id="content-main">
+    <h2>Импорт допусков инструкторов из Excel</h2>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <fieldset class="module aligned">
+            <div class="form-row">
+                <label for="excel_file">Excel файл с допусками инструкторов:</label>
+                <input type="file" name="excel_file" id="excel_file" accept=".xlsx, .xls" required style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+                <p class="help">
+                    Файл должен содержать колонки:<br>
+                    <strong>full_name</strong>, <strong>subject_code</strong>, <strong>subject_name</strong>, <strong>device_type</strong>, <strong>certificate_number</strong>, <strong>issue_date</strong>, <strong>validity_months</strong>, <strong>waiver_notes</strong>
+                </p>
+            </div>
+        </fieldset>
+
+        <div class="submit-row">
+            <input type="submit" value="Импортировать" class="default" />
+            <!-- ИСПРАВЛЕНА КНОПКА ОТМЕНЫ -->
+            <a href="{% url 'admin:training_instructorqualification_changelist' %}" class="button">Отмена</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

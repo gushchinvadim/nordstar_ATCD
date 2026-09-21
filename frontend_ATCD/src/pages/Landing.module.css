@@ -1,0 +1,841 @@
+/* src/pages/Landing.module.css */
+.landing {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #2c3e50;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.loading, .error {
+    text-align: center;
+    padding: 60px 20px;
+    font-size: 1.2rem;
+    color: #7f8c8d;
+}
+
+.error {
+    color: #e74c3c;
+}
+
+/* HERO */
+.hero {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: white;
+    padding: 100px 20px;
+    text-align: center;
+}
+
+.heroContent {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.heroTitle {
+    font-size: 2rem;
+    margin-bottom: 20px;
+    font-weight: 700;
+}
+
+.heroSubtitle {
+    font-size: 1.3rem;
+    margin-bottom: 40px;
+    opacity: 0.9;
+}
+
+.heroButtons {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btnPrimary {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 14px 32px;
+    border-radius: 6px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btnPrimary:hover {
+    background: #c0392b;
+}
+
+.btnSecondary {
+    background: transparent;
+    color: white;
+    border: 2px solid white;
+    padding: 12px 30px;
+    border-radius: 6px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s;
+}
+
+.btnSecondary:hover {
+    background: white;
+    color: #2c3e50;
+}
+
+/* СЕКЦИИ */
+.sectionTitle {
+    font-size: 2rem;
+    text-align: center;
+    margin-bottom: 40px;
+    color: #2c3e50;
+}
+
+section {
+    padding: 70px 0;
+}
+
+section:nth-child(even) {
+    background: #f8f9fa;
+}
+
+/* СТАТИСТИКА */
+.statsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 25px;
+}
+
+.statCard {
+    background: white;
+    padding: 30px 20px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transition: transform 0.3s;
+}
+
+.statCard:hover {
+    transform: translateY(-5px);
+}
+
+.statIcon {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+}
+
+.statValue {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #3498db;
+    margin-bottom: 5px;
+}
+
+.statLabel {
+    color: #7f8c8d;
+    font-size: 0.95rem;
+}
+
+/* О КОМПАНИИ */
+.aboutGrid {
+    display: grid;
+    gap: 25px;
+}
+
+.aboutCard {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.aboutCard h3 {
+    color: #3498db;
+    margin-bottom: 15px;
+}
+
+.aboutCard p {
+    line-height: 1.7;
+    color: #555;
+}
+
+/* КУРСЫ */
+.coursesLayout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    align-items: start;
+}
+
+.chartContainer {
+    height: 400px;
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.coursesList {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.courseItem {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.courseRank {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #3498db;
+    min-width: 40px;
+}
+
+.courseInfo {
+    flex: 1;
+}
+
+.courseInfo h4 {
+    margin: 0 0 5px 0;
+    font-size: 1rem;
+    color: #2c3e50;
+}
+
+.courseCode {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #7f8c8d;
+}
+
+.courseCount {
+    text-align: right;
+}
+
+.countNumber {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #27ae60;
+}
+
+.countLabel {
+    font-size: 0.8rem;
+    color: #7f8c8d;
+}
+
+/* РЕКОМЕНДУЕМЫЕ */
+.featuredGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+}
+
+.featuredCard {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    position: relative;
+    border-top: 4px solid #f39c12;
+}
+
+.featuredBadge {
+    position: absolute;
+    top: -12px;
+    right: 20px;
+    background: #f39c12;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.featuredCard h3 {
+    margin: 10px 0;
+    color: #2c3e50;
+}
+
+.featuredCode {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+}
+
+.featuredDesc {
+    color: #555;
+    line-height: 1.6;
+}
+
+/* МЕСЯЧНАЯ СТАТИСТИКА */
+.monthlyChartWrapper {
+    max-width: 500px;
+    margin: 0 auto;
+    height: 400px;
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+/* НОВОСТИ */
+.newsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+}
+
+.newsCard {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.newsImage {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+
+.newsContent {
+    padding: 20px;
+}
+
+.newsContent h3 {
+    margin: 0 0 10px 0;
+    color: #2c3e50;
+}
+
+.newsContent p {
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+.newsDate {
+    color: #7f8c8d;
+    font-size: 0.85rem;
+}
+
+/* ПАРТНЕРЫ */
+.partnersGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 30px;
+    align-items: center;
+}
+
+.partnerCard {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.partnerCard img {
+    max-width: 100%;
+    max-height: 60px;
+    object-fit: contain;
+    margin-bottom: 10px;
+}
+
+.partnerCard p {
+    margin: 0;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+/* CTA */
+.ctaSection {
+    background: linear-gradient(135deg, #3498db 0%, #2c3e50 100%);
+    color: white;
+    text-align: center;
+}
+
+.ctaSection h2 {
+    font-size: 2rem;
+    margin-bottom: 15px;
+}
+
+.ctaSection p {
+    font-size: 1.1rem;
+    margin-bottom: 30px;
+    opacity: 0.9;
+}
+
+/* ============================================
+   КНОПКА "БЫСТРЫЙ СТАРТ" В HERO-СЕКЦИИ
+   ============================================ */
+.btnHelp {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 10;
+    pointer-events: auto;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.btnHelp:hover {
+    background: white;
+    color: #1a365d;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.btnHelp:active {
+    transform: translateY(0);
+}
+
+/* ============================================
+   МОДАЛЬНОЕ ОКНО - ОВЕРЛЕЙ (ЗАТЕМНЕНИЕ ФОНА)
+   ============================================ */
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    padding: 20px;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* ============================================
+   МОДАЛЬНОЕ ОКНО - КОНТЕНТ
+   ============================================ */
+.modalContent {
+    background: white;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 900px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease-out;
+    overflow: hidden;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* ============================================
+   ШАПКА МОДАЛЬНОГО ОКНА
+   ============================================ */
+.modalHeader {
+    padding: 24px 32px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.modalHeader h2 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.closeBtn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    font-size: 2rem;
+    color: white;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 12px;
+    border-radius: 8px;
+    transition: all 0.2s;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.closeBtn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+/* ============================================
+   ТЕЛО МОДАЛЬНОГО ОКНА (СКРОЛЛ)
+   ============================================ */
+.modalBody {
+    padding: 32px;
+    overflow-y: auto;
+    flex: 1;
+    background: #f8fafc;
+}
+
+.modalBody::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modalBody::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.modalBody::-webkit-scrollbar-thumb {
+    background: #667eea;
+    border-radius: 4px;
+}
+
+.modalBody::-webkit-scrollbar-thumb:hover {
+    background: #764ba2;
+}
+
+/* ============================================
+   АККОРДЕОН
+   ============================================ */
+.accordion {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.accordionItem {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.accordionItem:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.accordionItem[open] {
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    border-color: #667eea;
+}
+
+.accordionHeader {
+    padding: 20px 24px;
+    background: white;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: #1a365d;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.accordionHeader::-webkit-details-marker {
+    display: none;
+}
+
+.accordionHeader::after {
+    content: '▼';
+    font-size: 0.9rem;
+    color: #667eea;
+    transition: transform 0.3s ease;
+}
+
+.accordionItem[open] .accordionHeader {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.accordionItem[open] .accordionHeader::after {
+    transform: rotate(180deg);
+    color: white;
+}
+
+.accordionHeader:hover {
+    background: #f8fafc;
+}
+
+.accordionItem[open] .accordionHeader:hover {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.accordionContent {
+    padding: 24px;
+    color: #475569;
+    line-height: 1.7;
+    border-top: 1px solid #e2e8f0;
+    background: white;
+    animation: fadeInContent 0.3s ease-out;
+}
+
+@keyframes fadeInContent {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.accordionContent p {
+    margin-bottom: 16px;
+    font-size: 1rem;
+}
+
+.accordionContent p:last-child {
+    margin-bottom: 0;
+}
+
+.accordionContent ul,
+.accordionContent ol {
+    margin-left: 24px;
+    margin-bottom: 16px;
+    padding-left: 0;
+}
+
+.accordionContent li {
+    margin-bottom: 8px;
+    line-height: 1.6;
+}
+
+.accordionContent li:last-child {
+    margin-bottom: 0;
+}
+
+.accordionContent strong,
+.accordionContent b {
+    color: #1a365d;
+    font-weight: 600;
+}
+
+.accordionContent .warning {
+    background: #fef2f2;
+    border-left: 4px solid #ef4444;
+    padding: 16px 20px;
+    border-radius: 8px;
+    color: #991b1b;
+    font-weight: 500;
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.accordionContent .warning::before {
+    content: '⚠️';
+    font-size: 1.2rem;
+}
+
+/* ============================================
+   ПОДВАЛ МОДАЛЬНОГО ОКНА
+   ============================================ */
+.modalFooter {
+    padding: 20px 32px;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.downloadPdfBtn {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    transition: all 0.2s;
+    border: 2px solid #2563eb;
+}
+
+.downloadPdfBtn:hover {
+    background: #2563eb;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+}
+
+.closeBtnFooter {
+    background: #e2e8f0;
+    color: #475569;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.2s;
+}
+
+.closeBtnFooter:hover {
+    background: #cbd5e1;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+   АДАПТИВНОСТЬ ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ
+   ============================================ */
+@media (max-width: 768px) {
+    .modalOverlay {
+        padding: 10px;
+        align-items: flex-end;
+    }
+
+    .modalContent {
+        max-height: 90vh;
+        border-radius: 16px 16px 0 0;
+        animation: slideUpMobile 0.3s ease-out;
+    }
+
+    @keyframes slideUpMobile {
+        from {
+            transform: translateY(100%);
+        }
+        to {
+            transform: translateY(0);
+        }
+    }
+
+    .modalHeader {
+        padding: 20px 24px;
+    }
+
+    .modalHeader h2 {
+        font-size: 1.4rem;
+    }
+
+    .modalBody {
+        padding: 20px;
+    }
+
+    .accordionHeader {
+        padding: 16px 20px;
+        font-size: 1rem;
+    }
+
+    .accordionContent {
+        padding: 20px;
+        font-size: 0.95rem;
+    }
+
+    .modalFooter {
+        padding: 16px 24px;
+        flex-direction: column;
+    }
+
+    .downloadPdfBtn,
+    .closeBtnFooter {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .btnHelp {
+        padding: 10px 20px;
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .modalHeader h2 {
+        font-size: 1.2rem;
+    }
+
+    .accordionHeader {
+        font-size: 0.95rem;
+        padding: 14px 16px;
+    }
+
+    .accordionContent {
+        padding: 16px;
+        font-size: 0.9rem;
+    }
+}
+
+/* ============================================
+   ПЕЧАТЬ (СКРЫТЬ МОДАЛКУ)
+   ============================================ */
+@media print {
+    .modalOverlay {
+        display: none;
+    }
+}
+
+/* АДАПТИВНОСТЬ */
+@media (max-width: 768px) {
+    .heroTitle {
+        font-size: 2rem;
+    }
+    
+    .heroSubtitle {
+        font-size: 1.1rem;
+    }
+    
+    .coursesLayout {
+        grid-template-columns: 1fr;
+    }
+    
+    .sectionTitle {
+        font-size: 1.6rem;
+    }
+    
+    section {
+        padding: 50px 0;
+    }
+}

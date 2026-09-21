@@ -11,7 +11,7 @@ const Sidebar = () => {
     };
 
     const menuItems = [
-        { path: '/', label: 'Панель управления', icon: '📊' },
+        { path: '/methodist', label: 'Панель управления', icon: '📊' },
         { path: '/create-group', label: 'Создать группу', icon: '⊕' },
         { path: '/groups', label: 'Документы группы', icon: '📄' },
     ];

@@ -1,5 +1,6 @@
 <!--docs/templates/docs/training_tasks/course_2/land_training_task.html-->
 <!DOCTYPE html>
+{% load journal_tags %}
 {% load static %}
 <html lang="ru">
 <head>
@@ -337,13 +338,33 @@ body {
             </tbody>
         </table>
 
-        <div class="page-footer">
-            <p>
-                Заключение Преподавателя АСП: Прошел(ла) подготовку {{ group.module.code }} в полном объёме<br>
-                Результаты итоговой аттестации (экзамена): <br><br>
-                Итоговая оценка ___________________________ <br><br><br>
-                Преподаватель АСП: <b>{{ instructor_name|default:"_____________________________" }}</b> _________________ (ФИО, подпись)
-            </p>
+<div class="page-footer">
+    <p>
+        Заключение Преподавателя АСП: Прошел(ла) подготовку {{ group.module.code }} в полном объёме<br>
+        Результаты итоговой аттестации (экзамена):<br><br>
+        {% with grade=final_grades_dict|dict_get:enrollment.id %}
+            {% if grade %}
+                Итоговая оценка: <b>{{ grade.display }}</b>
+            {% else %}
+                Итоговая оценка: ___________________________
+            {% endif %}
+        {% endwith %}
+        <br><br>
+        {% if instructor_signature %}
+            <div style="margin-top: 20px;">
+                Преподаватель АСП:
+                <div style="font-size: 7pt;font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; display: inline-block; margin: 0 10px; vertical-align: bottom;">
+                    {{ instructor_signature }}
+                </div>
+                <b>{{ instructor_name|default:"_____________________________" }}</b>
+            </div>
+        {% else %}
+            <div style="margin-top: 20px;">
+                Преподаватель АСП: ___________________________ <b>{{ instructor_name|default:"_____________________________" }}</b> (ФИО, подпись)
+            </div>
+        {% endif %}
+    </p>
+</div>
         </div>
 
     </div>

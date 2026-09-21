@@ -1,17 +1,47 @@
-/* Header.module.css */
+/* src/components/Footer.module.css */
 .footer {
-    background: #2c3e50;
-    color: white;
+    background: #ffffff;
+    color: #2c3e50;
     padding: 15px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+    border-top: 3px solid #1a252f; /* Линия сверху (чуть темнее фона для видимости) */
+}
+
+.footerContent {
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     font-size: 1.2rem;
     font-weight: bold;
+}
+
+.logoImage {
+    height: 35px;
+    width: auto;
+    object-fit: contain;
+    filter: brightness(0) invert(1); /* Делаем логотип белым для темного фона */
+}
+
+.logoText {
+    color: white;
+    letter-spacing: 0.5px;
+}
+
+.copyright {
+    font-size: 0.9rem;
+    opacity: 0.9;
 }
 
 .logoutBtn {
@@ -21,5 +51,11 @@
     padding: 8px 16px;
     border-radius: 4px;
     cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: background 0.2s;
 }
-.logoutBtn:hover { background: #c0392b; }
+
+.logoutBtn:hover {
+    background: #c0392b;
+}

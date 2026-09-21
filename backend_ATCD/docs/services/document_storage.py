@@ -4,11 +4,12 @@ import re
 from datetime import date
 
 from django.conf import settings
+from django.db.models import Q
 from django.template.loader import render_to_string
 from weasyprint import HTML
 
 from docs.utils import get_logo_base64
-from execution.models import Enrollment, Certificate, ScheduleItem
+from execution.models import Enrollment, Certificate, ScheduleItem, ComplianceLog, Assessment
 from people.models import Staff
 from references.models import License
 from training.models import Section
@@ -113,13 +114,21 @@ class DocumentStorageService:
         return self.save_both('docs/schedules/schedule.html', context, ['schedules'], filename)
 
     def save_journal(self):
-        """Сохраняет журнал подготовки группы"""
+        """Сохраняет журнал подготовки группы с подписями и оценками"""
         from docs.views import get_journal_context
+
+        # 1. Получаем базовый контекст
         context = get_journal_context(self.group)
+
+        # 2. ОБОГАЩАЕМ ДАННЫЕ (это ключевая строка!)
+        context = self.enrich_journal_context(context)
+
+        # 3. Определяем шаблон и сохраняем
         template_name = 'docs/journal/journal_landscape.html' if context.get(
             'use_landscape') else 'docs/journal/journal.html'
         raw_filename = f"Журнал_{self.group.assigned_number}.html"
         filename = sanitize_filename(raw_filename)
+
         return self.save_both(template_name, context, ['journal'], filename)
 
     def _get_training_task_template(self, task_type):
@@ -139,25 +148,59 @@ class DocumentStorageService:
 
     def save_land_training_task(self):
         """Сохраняет задание на тренировку АСП Суша"""
+
         asp_land_items = ScheduleItem.objects.filter(
             group=self.group,
             session_type__iexact='asp-l'
-        ).select_related('section', 'subsection', 'section__stage', 'instructor', 'classroom')
+        ).select_related('instructor')
 
         if not asp_land_items.exists():
             return None
 
-        # Тип ВС из модуля
         aircraft_type = self.group.module.aircraft_type if self.group.module else None
 
-        # Ищем инструктора АСП (тот, кто ведет практическую подготовку / аттестует)
-        # Берем первого попавшегося инструктора из расписания АСП.
-        # Если в расписании никто не назначен, останется пустой строкой.
-        instructor_name = ""
-        for item in asp_land_items:
-            if item.instructor:
-                instructor_name = item.instructor.full_name
-                break
+        # Инструктор АСП
+        instructor = asp_land_items.first().instructor if asp_land_items.first() else None
+        instructor_name = instructor.full_name if instructor else ""
+
+        # Подпись инструктора
+        instructor_signature = None
+        asp_item = asp_land_items.first()
+        if asp_item:
+            log = ComplianceLog.objects.filter(
+                schedule_item=asp_item,
+                action_type='lesson_completed'
+            ).select_related('staff').first()
+            if log:
+                instructor_signature = log.signature_string
+
+        # Итоговые оценки
+        final_section = Section.objects.filter(
+            stage__module=self.group.module
+        ).filter(
+            Q(title__icontains='итоговая') | Q(title__icontains='экзамен') | Q(title__icontains='аттестац')
+        ).exclude(title__icontains='промежуточная').first()
+
+        final_grades_dict = {}
+        if final_section:
+            for assessment in Assessment.objects.filter(
+                    enrollment__group=self.group, section=final_section
+            ).select_related('enrollment'):
+                score = assessment.score
+                if score is None:
+                    display = '—'
+                elif final_section.grade_type == 'binary':
+                    display = 'Зачтено' if score >= 1 else 'Не зачтено'
+                else:
+                    decode_map = {5: 'отлично', 4: 'хорошо', 3: 'удовлетворительно', 2: 'неудовлетворительно'}
+                    word = decode_map.get(score, '')
+                    display = f'{score} ({word})' if word else str(score)
+
+                final_grades_dict[assessment.enrollment_id] = {
+                    'score': score,
+                    'display': display,
+                    'grade_type': final_section.grade_type,
+                }
 
         context = {
             'group': self.group,
@@ -167,7 +210,9 @@ class DocumentStorageService:
                 'stage__order', 'order'),
             'enrollments': Enrollment.objects.filter(group=self.group).select_related('student'),
             'aircraft_type': aircraft_type,
-            'instructor_name': instructor_name,  # <-- Только инструктор АСП из расписания!
+            'instructor_name': instructor_name,
+            'instructor_signature': instructor_signature,  # <-- НОВОЕ
+            'final_grades_dict': final_grades_dict,  # <-- НОВОЕ
             'logo_base64': get_logo_base64(),
         }
 
@@ -179,10 +224,14 @@ class DocumentStorageService:
 
     def save_water_training_task(self):
         """Сохраняет задание на тренировку АСП Вода"""
+        from training.models import Section
+        from execution.models import Assessment, ComplianceLog
+        from django.db.models import Q
+
         asp_water_items = ScheduleItem.objects.filter(
             group=self.group,
             session_type__iexact='asp-w'
-        ).select_related('section', 'subsection', 'section__stage', 'instructor', 'classroom')
+        ).select_related('instructor')
 
         if not asp_water_items.exists():
             return None
@@ -190,12 +239,48 @@ class DocumentStorageService:
         # Тип ВС из модуля
         aircraft_type = self.group.module.aircraft_type if self.group.module else None
 
-        # Ищем инструктора АСП из расписания
-        instructor_name = ""
-        for item in asp_water_items:
-            if item.instructor:
-                instructor_name = item.instructor.full_name
-                break
+        # Инструктор АСП Вода
+        instructor = asp_water_items.first().instructor if asp_water_items.first() else None
+        instructor_name = instructor.full_name if instructor else ""
+
+        # Подпись инструктора (lesson_completed)
+        instructor_signature = None
+        asp_item = asp_water_items.first()
+        if asp_item:
+            log = ComplianceLog.objects.filter(
+                schedule_item=asp_item,
+                action_type='lesson_completed'
+            ).select_related('staff').first()
+            if log:
+                instructor_signature = log.signature_string
+
+        # Итоговые оценки для ЗНТ
+        final_section = Section.objects.filter(
+            stage__module=self.group.module
+        ).filter(
+            Q(title__icontains='итоговая') | Q(title__icontains='экзамен') | Q(title__icontains='аттестац')
+        ).exclude(title__icontains='промежуточная').first()
+
+        final_grades_dict = {}
+        if final_section:
+            for assessment in Assessment.objects.filter(
+                    enrollment__group=self.group, section=final_section
+            ).select_related('enrollment'):
+                score = assessment.score
+                if score is None:
+                    display = '—'
+                elif final_section.grade_type == 'binary':
+                    display = 'Зачтено' if score >= 1 else 'Не зачтено'
+                else:
+                    decode_map = {5: 'отлично', 4: 'хорошо', 3: 'удовлетворительно', 2: 'неудовлетворительно'}
+                    word = decode_map.get(score, '')
+                    display = f'{score} ({word})' if word else str(score)
+
+                final_grades_dict[assessment.enrollment_id] = {
+                    'score': score,
+                    'display': display,
+                    'grade_type': final_section.grade_type,
+                }
 
         context = {
             'group': self.group,
@@ -205,7 +290,9 @@ class DocumentStorageService:
                 'stage__order', 'order'),
             'enrollments': Enrollment.objects.filter(group=self.group).select_related('student'),
             'aircraft_type': aircraft_type,
-            'instructor_name': instructor_name,  # <-- Только инструктор АСП из расписания!
+            'instructor_name': instructor_name,
+            'instructor_signature': instructor_signature,  # <-- ДОБАВЛЕНО: Подпись инструктора
+            'final_grades_dict': final_grades_dict,  # <-- ДОБАВЛЕНО: Итоговые оценки
             'logo_base64': get_logo_base64(),
         }
 
@@ -584,3 +671,203 @@ class DocumentStorageService:
         filename = sanitize_filename(raw_filename)
 
         return self.save_both('docs/references/dismissal_reference.html', context, ['references'], filename)
+
+    def enrich_journal_context(self, context):
+        """
+        Обогащает контекст журнала подписями и оценками для генерации PDF.
+        Полная копия логики из docs.views, адаптированная для сервиса.
+        """
+        group = self.group
+
+        # --- Блок 1: Инструктажи ---
+        enriched_students = []
+        for item in context.get('students', []):
+            enrollment = item.get('enrollment') if isinstance(item, dict) else item
+            if not enrollment:
+                continue
+
+            student_ack = ComplianceLog.objects.filter(enrollment=enrollment, action_type='student_safety_ack').first()
+            instructor_ack = ComplianceLog.objects.filter(enrollment=enrollment,
+                                                          action_type='instructor_briefing_done').first()
+
+            student_data = {
+                'enrollment': enrollment,
+                'student_ack_signature': student_ack.signature_string if student_ack else None,
+                'instructor_ack_signature': instructor_ack.signature_string if instructor_ack else None,
+            }
+            if isinstance(item, dict):
+                student_data.update(item)
+            enriched_students.append(student_data)
+
+        context['students'] = enriched_students
+
+        # --- Блок 2: Посещаемость ---
+        all_schedule_ids = []
+        for page in context.get('attendance_pages', []):
+            for stage in page:
+                for date_info in stage.get('dates', []):
+                    if date_info.get('schedule_item_id'):
+                        all_schedule_ids.append(date_info['schedule_item_id'])
+
+        attendance_logs = ComplianceLog.objects.filter(
+            enrollment__group=group, action_type='student_attendance_confirmed', schedule_item_id__in=all_schedule_ids
+        ).select_related('enrollment')
+
+        attendance_dict = {}
+        for log in attendance_logs:
+            attendance_dict.setdefault(log.enrollment_id, {})[log.schedule_item_id] = log.signature_string
+
+        for student_data in enriched_students:
+            student_data['attendance_signatures'] = attendance_dict.get(student_data['enrollment'].id, {})
+
+        # --- Блок 3: Тематический план ---
+        all_plan_item_ids = [
+            row.get('schedule_item_id')
+            for page in context.get('thematic_plan_pages', [])
+            for row in page.get('rows', [])
+            if row.get('schedule_item_id')
+        ]
+        lesson_logs = ComplianceLog.objects.filter(
+            schedule_item_id__in=all_plan_item_ids, action_type='lesson_completed'
+        ).select_related('staff')
+        lesson_signatures = {log.schedule_item_id: log.signature_string for log in lesson_logs}
+
+        for page in context.get('thematic_plan_pages', []):
+            for row in page.get('rows', []):
+                row['instructor_signature'] = lesson_signatures.get(row.get('schedule_item_id'))
+
+        # --- Блок 4: Промежуточные оценки ---
+        intermediate_section = Section.objects.filter(stage__module=group.module).filter(
+            Q(title__icontains='промежуточная') & Q(title__icontains='оценка')
+        ).first()
+
+        intermediate_grades_dict = {}
+        if intermediate_section:
+            for assessment in Assessment.objects.filter(enrollment__group=group,
+                                                        section=intermediate_section).select_related('enrollment'):
+                instructor_log = ComplianceLog.objects.filter(
+                    enrollment=assessment.enrollment, action_type='grades_submitted', assessment=assessment
+                ).first()
+                intermediate_grades_dict[assessment.enrollment_id] = {
+                    'score': assessment.score,
+                    'grade_type': intermediate_section.grade_type,
+                    'date': getattr(assessment, 'updated_at', None) or getattr(assessment, 'created_at', None),
+                    'instructor_signature': instructor_log.signature_string if instructor_log else None,
+                }
+
+        grade_ack_logs = ComplianceLog.objects.filter(
+            enrollment__group=group, action_type='student_grade_ack'
+        ).select_related('enrollment', 'assessment__section')
+
+        student_grade_ack_dict = {
+            log.enrollment_id: log.signature_string
+            for log in grade_ack_logs
+            if
+            log.assessment and log.assessment.section_id == (intermediate_section.id if intermediate_section else None)
+        }
+
+        # --- Блок 4.1: Подписи кураторов ---
+        curator_signatures_dict = {}
+        if group.curator:
+            curator_logs = ComplianceLog.objects.filter(
+                enrollment__group=group, staff=group.curator, action_type='grades_submitted'
+            ).select_related('enrollment')
+            for log in curator_logs:
+                if log.enrollment_id not in curator_signatures_dict or log.timestamp > \
+                        curator_signatures_dict[log.enrollment_id]['timestamp']:
+                    curator_signatures_dict[log.enrollment_id] = {
+                        'signature': log.signature_string,
+                        'timestamp': log.timestamp
+                    }
+
+        # Прикрепляем данные к студентам
+        for student_data in enriched_students:
+            eid = student_data['enrollment'].id
+            grade_data = intermediate_grades_dict.get(eid, {})
+            student_data.update({
+                'intermediate_score': grade_data.get('score'),
+                'intermediate_grade_type': grade_data.get('grade_type', 'numeric'),
+                'intermediate_date': grade_data.get('date'),
+                'intermediate_instructor_signature': grade_data.get('instructor_signature'),
+                'student_grade_ack_signature': student_grade_ack_dict.get(eid),
+                'curator_signature': curator_signatures_dict.get(eid, {}).get('signature'),
+            })
+
+        # --- Блок 5: Итоговые оценки ---
+        final_section = Section.objects.filter(stage__module=group.module).filter(
+            Q(title__icontains='итоговая') | Q(title__icontains='экзамен') | Q(title__icontains='аттестац')
+        ).exclude(title__icontains='промежуточная').first()
+
+        final_grades_dict = {}
+        final_student_ack_dict = {}
+
+        if final_section:
+            for assessment in Assessment.objects.filter(enrollment__group=group, section=final_section).select_related(
+                    'enrollment'):
+                instructor_log = ComplianceLog.objects.filter(
+                    enrollment=assessment.enrollment, action_type='grades_submitted', assessment=assessment
+                ).first()
+                final_grades_dict[assessment.enrollment_id] = {
+                    'score': assessment.score,
+                    'grade_type': final_section.grade_type,
+                    'date': assessment.assessment_date or getattr(assessment, 'updated_at', None) or getattr(assessment,
+                                                                                                             'created_at',
+                                                                                                             None),
+                    'instructor_signature': instructor_log.signature_string if instructor_log else None,
+                }
+
+            for log in ComplianceLog.objects.filter(
+                    enrollment__group=group, action_type='student_grade_ack', assessment__section=final_section
+            ).select_related('enrollment'):
+                final_student_ack_dict[log.enrollment_id] = log.signature_string
+
+        for student_data in enriched_students:
+            eid = student_data['enrollment'].id
+            final_grade_data = final_grades_dict.get(eid, {})
+            student_data.update({
+                'final_score': final_grade_data.get('score'),
+                'final_grade_type': final_grade_data.get('grade_type', 'numeric'),
+                'final_date': final_grade_data.get('date'),
+                'final_instructor_signature': final_grade_data.get('instructor_signature'),
+                'final_student_ack_signature': final_student_ack_dict.get(eid),
+            })
+
+        # --- Блок 6: Журнал учёта документов ---
+        all_certificate_ids = []
+        enrollment_to_certificates = {}
+
+        for enrollment in Enrollment.objects.filter(group=group).prefetch_related('certificates'):
+            cert_ids = list(enrollment.certificates.values_list('id', flat=True))
+            enrollment_to_certificates[enrollment.id] = cert_ids
+            all_certificate_ids.extend(cert_ids)
+
+        student_cert_signatures = {
+            log.certificate_id: log.signature_string
+            for log in ComplianceLog.objects.filter(
+                enrollment__group=group, action_type='certificate_received', certificate_id__in=all_certificate_ids
+            ) if log.certificate_id
+        }
+
+        student_znt_signatures = {
+            log.enrollment_id: log.signature_string
+            for log in ComplianceLog.objects.filter(enrollment__group=group, action_type='znt_received')
+        }
+
+        curator_cert_signatures = {}
+        if group.curator:
+            for log in ComplianceLog.objects.filter(
+                    enrollment__group=group, staff=group.curator, action_type='grades_submitted'
+            ).select_related('enrollment'):
+                if log.enrollment_id not in curator_cert_signatures:
+                    curator_cert_signatures[log.enrollment_id] = log.signature_string
+
+        for student_data in enriched_students:
+            eid = student_data['enrollment'].id
+            student_data['certificate_signatures'] = {
+                cert_id: student_cert_signatures.get(cert_id)
+                for cert_id in enrollment_to_certificates.get(eid, [])
+            }
+            student_data['znt_signature'] = student_znt_signatures.get(eid)
+            student_data['curator_cert_signature'] = curator_cert_signatures.get(eid)
+
+        return context

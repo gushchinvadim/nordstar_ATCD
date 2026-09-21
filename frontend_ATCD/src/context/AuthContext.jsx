@@ -1,3 +1,4 @@
+// src/context/AuthContext.jsx
 import { createContext, useState, useEffect } from 'react';
 import api from '../api/config';
 
@@ -25,8 +26,9 @@ export const AuthProvider = ({ children }) => {
             localStorage.setItem('accessToken', res.data.access);
             localStorage.setItem('refreshToken', res.data.refresh);
             
-            // 2. Запрашиваем данные пользователя по новому эндпоинту
-            const userRes = await api.get('/docs/api/me/');
+            // 2. Запрашиваем данные пользователя И РОЛИ по новому эндпоинту
+            // ВАЖНО: именно /api/docs/me/roles/, так как он возвращает массив available_roles
+            const userRes = await api.get('/api/docs/me/roles/'); 
             const userData = userRes.data;
             
             // 3. Сохраняем данные пользователя в localStorage и стейт
@@ -43,7 +45,8 @@ export const AuthProvider = ({ children }) => {
     const logout = () => {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
-        localStorage.removeItem('userData'); // <-- Очищаем данные пользователя
+        localStorage.removeItem('userData');
+        localStorage.removeItem('activeRole'); // <-- Очищаем и выбранную роль при выходе
         setUser(null);
     };
 

@@ -26,7 +26,9 @@ class CitizenshipAdmin(admin.ModelAdmin):
 
 @admin.register(Location)
 class LocationAdmin(admin.ModelAdmin):
-    list_display = ['full_name', 'name', 'addr', 'dept']
+    list_display = ['full_name', 'name', 'addr', 'dept', 'timezone']
+    list_editable = ['timezone']  # Можно редактировать прямо в списке
+    list_filter = ['timezone']    # Фильтр справа для удобства
     search_fields = ['full_name', 'name', 'addr', 'dept']
 
 

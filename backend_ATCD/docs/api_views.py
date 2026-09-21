@@ -1,10 +1,11 @@
+# docs/api_views.py
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.db.models import Q, Count
 
 from core.services.schedule_generator import generate_schedule_for_group
-from execution.models import Group, Enrollment
+from execution.models import Group, Enrollment, ScheduleItem
 from people.models import Staff, Student
 from references.models import Location
 from training.models import Course, Module
@@ -207,25 +208,34 @@ def group_detail(request, group_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def current_user_info(request):
-    """Возвращает информацию о текущем авторизованном пользователе"""
     user = request.user
+    is_student = hasattr(user, 'student')
+    full_name = user.username
+    fptitle = False
+    has_lessons = False
+    is_director = False
 
-    # Пытаемся получить полное имя.
-    # Если у вас кастомная модель Staff с полем full_name, сработает оно.
-    # Иначе собираем из first_name и last_name стандартной модели User.
-    full_name = getattr(user, 'full_name', None) or f"{user.first_name}".strip() or user.username
+    if hasattr(user, 'staff') and user.staff:
+        full_name = user.staff.full_name
+        fptitle = getattr(user.staff, 'fptitle', False)
+
+        # ПРОВЕРКА: назначен ли этот сотрудник инструктором хотя бы на одно занятие?
+        has_lessons = ScheduleItem.objects.filter(instructor=user.staff).exists()
+
+        # === ПРАВИЛЬНАЯ ПРОВЕРКА ДИРЕКТОРА/ЗАМА ===
+        # Используем getattr для безопасности, если поля вдруг не окажется в модели
+        is_director = getattr(user.staff, 'tptitle', False)
 
     return Response({
         'username': user.username,
-        'full_name': full_name,
+        'full_name': user.username if not full_name else full_name,
         'is_staff': user.is_staff,
         'is_superuser': user.is_superuser,
+        'fptitle': fptitle,
+        'has_lessons': has_lessons,
+        'is_student': is_student,
+        'is_director': is_director,
     })
-
-
-from training.models import Module
-from people.models import Staff, Student
-from references.models import Location
 
 
 @api_view(['GET'])
@@ -246,6 +256,74 @@ def modules_list(request):
 
     return Response(data)
 
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_roles(request):
+    """
+    GET /api/me/roles/
+    Возвращает все доступные роли пользователя и его данные
+    """
+    user = request.user
+
+    # Базовые данные
+    full_name = user.username
+    fptitle = False
+    tptitle = False
+    has_lessons = False
+    is_student = hasattr(user, 'student')
+    is_director = False
+
+    if hasattr(user, 'staff') and user.staff:
+        staff = user.staff
+        full_name = staff.full_name
+        fptitle = getattr(staff, 'fptitle', False)  # Методист
+        tptitle = getattr(staff, 'tptitle', False)  # Директор/Зам
+
+        # Проверяем, является ли инструктором (назначен на занятия)
+        has_lessons = ScheduleItem.objects.filter(instructor=staff).exists()
+
+        # Директор определяется по tptitle
+        is_director = tptitle
+
+    # Собираем список доступных ролей (ТОЛЬКО явные бизнес-роли)
+    available_roles = []
+
+    if is_director:
+        available_roles.append('director')
+
+    if fptitle:
+        available_roles.append('methodist')
+
+    if has_lessons:
+        available_roles.append('instructor')
+
+    if is_student:
+        available_roles.append('student')
+
+    # Если нет ни одной роли — пользователь без специальных прав
+    # (только публичный доступ к лендингу)
+    if not available_roles:
+        available_roles = []  # Пустой список
+
+    return Response({
+        'username': user.username,
+        'full_name': full_name,
+        'available_roles': available_roles,
+        'roles': {
+            'is_director': is_director,
+            'is_methodist': fptitle,
+            'is_instructor': has_lessons,
+            'is_student': is_student,
+            'is_staff': user.is_staff,
+            'is_superuser': user.is_superuser
+        },
+        'fptitle': fptitle,
+        'tptitle': tptitle,
+        'has_lessons': has_lessons,
+        'is_student': is_student,
+        'is_director': is_director
+    })
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -532,3 +610,62 @@ def generate_group_schedule(request, group_id):
         return Response({'success': False, 'error': str(e)}, status=400)
     except Exception as e:
         return Response({'success': False, 'error': f'Ошибка генерации: {str(e)}'}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny]) # Лендинг доступен всем
+def get_help_content(request):
+    """Возвращает содержание инструкции 'Быстрый старт' в формате JSON"""
+    help_data = [
+        {
+            "id": 1,
+            "title": "1. Наполнение системы исходными данными",
+            "content": "<p>Администратор программы загружает данные из Excel или вручную на страницах: слушатели, сотрудники, программы обучения, аудитории/тренажеры.</p><p>После загрузки необходимо внести ручную коррекцию:</p><ul><li>Программа обучения – Форма обучения – выбрать – сохранить</li><li>Модуль – Шаблон сертификата – указать путь</li><li>Локации – Часовой пояс – выбрать из списка (важно для разных регионов!)</li></ul>"
+        },
+        {
+            "id": 2,
+            "title": "2. Выдача допусков для работы персонала",
+            "content": "<p>Администратор создает пользователей Django для сотрудников и слушателей.</p><ul><li>Для <b>методиста</b>: галочка «Может оформлять документы»</li><li>Для <b>руководителя</b>: галочки «Может оформлять» и «Может подписывать»</li></ul>"
+        },
+        {
+            "id": 3,
+            "title": "3. Как работает приложение методиста",
+            "content": "<p>Методист создает группу, генерирует каркас расписания и редактирует его (не забудьте сохранить!).</p><p>Перед завершением группы методист проверяет вкладку «Журнал»: там должны быть все оценки и <b>системные подписи</b> (синим цветом) преподавателей и слушателей.</p>"
+        },
+        {
+            "id": 4,
+            "title": "4. Как работает приложение руководителя",
+            "content": "<p>Руководитель заходит в панель управления, просматривает сгенерированные методистом расписания и утверждает их системной подписью.</p>"
+        },
+        {
+            "id": 5,
+            "title": "5. Назначение обучения слушателю",
+            "content": "<p>После подписания расписания руководителем, методист назначает слушателю модуль обучения и информирует его о расписании через сайт.</p>"
+        },
+        {
+            "id": 6,
+            "title": "6. Как работает приложение слушателя",
+            "content": "<p>Слушатель заходит в Личный кабинет, знакомится с расписанием и инструктажами, расписывается цифровой подписью.</p><p>Перед очными занятиями подтверждает присутствие. В конце модуля подтверждает ознакомление с оценкой.</p>"
+        },
+        {
+            "id": 7,
+            "title": "7. Как работает приложение преподавателя",
+            "content": "<p>Преподаватель проводит инструктаж, подтверждает проведение занятий и выставляет оценки (вручную или загрузкой из СДО).</p><p><b>Важно:</b> После сохранения оценок система автоматически создаст системную подпись с датой и временем.</p>"
+        },
+        {
+            "id": 8,
+            "title": "8. Закрытие и сохранение документов",
+            "content": "<p>После завершения группы преподавателем, методист нажимает «Завершить всех сдавших».</p><p>Затем на вкладке «Документы группы» нажимает «Сгенерировать и сохранить все доступные PDF». Система создаст полный пакет документов с системными подписями.</p>"
+        },
+        {
+            "id": 9,
+            "title": "9. Архивирование данных групп",
+            "content": "<p>После полного завершения процесса обучения группу можно заархивировать для очистки памяти. Данные хранятся в БД и могут быть восстановлены в любой момент.</p>"
+        },
+        {
+            "id": 10,
+            "title": "10. Особенности системных подписей",
+            "content": "<p>Все действия фиксируются автоматически. Системная подпись содержит: ФИО, пометку «(системная)», дату/время с учетом часового пояса локации и IP-адрес.</p><p class='warning'>⚠️ Нельзя подтвердить действие раньше времени его начала!</p>"
+        }
+    ]
+    return Response(help_data)

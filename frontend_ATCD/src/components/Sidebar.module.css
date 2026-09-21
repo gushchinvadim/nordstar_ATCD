@@ -1,11 +1,13 @@
 /* src/components/Sidebar.module.css */
 .sidebar {
     width: 260px;
-    background: #2c3e50;
-    min-height: calc(100vh - 60px); /* Вычет высоты хедера, если он есть */
+    background: #ffffff;
+    min-height: calc(100vh - 60px);
     padding: 20px 0;
     flex-shrink: 0;
-    transition: width 0.3s ease; /* Плавное изменение ширины при повороте экрана */
+    transition: width 0.3s ease;
+    border-right: 3px solid #1a252f; /* Линия справа (как у футера сверху) */
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1); /* Тень справа */
 }
 
 .nav {
@@ -19,25 +21,27 @@
     align-items: center;
     gap: 15px;
     padding: 15px 20px;
-    color: #ecf0f1;
+    color: #2c3e50;
     text-decoration: none;
     transition: background 0.2s, padding 0.3s ease;
     border-left: 4px solid transparent;
-    white-space: nowrap; /* Запрещаем перенос текста при анимации сужения */
+    white-space: nowrap;
 }
 
 .navItem:hover {
-    background: #34495e;
+    background: #f0f4f8;
 }
 
 .navItem.active {
-    background: #3498db;
-    border-left-color: #ecf0f1;
+    background: #e8f4f8;
+    border-left-color: #3498db;
+    color: #2980b9;
+    font-weight: 600;
 }
 
 .icon {
     font-size: 1.2rem;
-    min-width: 24px; /* Фиксируем минимальную ширину, чтобы иконка не сплющивалась */
+    min-width: 24px;
     text-align: center;
 }
 
@@ -52,32 +56,33 @@
    ========================================= */
 @media (max-width: 768px) {
     .sidebar {
-        width: 70px; /* Узкий сайдбар только под иконки */
+        width: 70px;
         padding: 10px 0;
+        border-right: 2px solid #1a252f;
     }
 
     .navItem {
         padding: 15px 0;
-        justify-content: center; /* Центрируем содержимое по горизонтали */
+        justify-content: center;
         gap: 0;
-        border-left: none; /* Убираем левую границу, она съедает место */
-        border-bottom: 3px solid transparent; /* Индикатор активности снизу */
+        border-left: none;
+        border-bottom: 3px solid transparent;
     }
 
     .navItem.active {
-        background: transparent; /* Убираем фон, делаем акцент на иконке */
-        border-bottom-color: #3498db; /* Синяя полоска под активной иконкой */
+        background: transparent;
+        border-bottom-color: #3498db;
     }
     
     .navItem.active .icon {
-        color: #3498db; /* Подсвечиваем саму иконку синим */
+        color: #3498db;
     }
 
     .label {
-        display: none; /* ПОЛНОСТЬЮ СКРЫВАЕМ ТЕКСТ */
+        display: none;
     }
 
     .icon {
-        font-size: 1.5rem; /* Иконки чуть крупнее для удобного тапа пальцем */
+        font-size: 1.5rem;
     }
 }

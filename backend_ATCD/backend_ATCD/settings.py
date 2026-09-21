@@ -30,11 +30,12 @@ INSTALLED_APPS = [
     # Наши приложения (порядок важен)
     'references',
     'people',
-    'training',  # ← ДОБАВЛЕНО
+    'training',
     'execution',
     'core',
     'docs',
     'reporting',
+    'landing',
 ]
 
 # 3. MIDDLEWARE (Добавлен CorsMiddleware самым первым после Security)

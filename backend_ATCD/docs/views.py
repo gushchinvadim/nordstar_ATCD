@@ -1,4 +1,5 @@
 # docs/views.py
+import base64
 import io
 import json
 import re
@@ -8,27 +9,29 @@ from datetime import date, datetime, timedelta
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.mail import EmailMessage
 from django.db import models
+from django.db.models import Q
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.decorators.http import require_POST, require_GET
 from weasyprint import HTML
-from execution.models import Group, Enrollment, ScheduleItem, Assessment, IndividualStudyPlan
+from execution.models import Group, Enrollment, ScheduleItem, Assessment, IndividualStudyPlan, ComplianceLog
 from execution.services.iup_service import IUPService
 from people.models import Staff
 from references.models import Location, Classroom
 from training.models import Section, Stage
 import os
 from django.conf import settings
-from django.shortcuts import get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required  # или staff_member_required, как у вас принято
+from django.shortcuts import get_object_or_404, redirect, render
+from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, HttpResponse
 from django.contrib import messages
 from execution.models import Group, Enrollment
 from docs.services.document_registry import DocumentRegistry
 from docs.services.document_storage import DocumentStorageService
 from .utils import get_logo_base64, get_exam_date_for_enrollment
+from django.utils import timezone
 
 
 @staff_member_required
@@ -38,7 +41,7 @@ def group_grades_view(request, group_id):
 
     students = Enrollment.objects.filter(
         group=group,
-        status__in=['enrolled', 'in_progress', 'completed', 'dismissed']  # Добавили dismissed, чтобы видеть отчисленных
+        status__in=['enrolled', 'in_progress', 'completed', 'dismissed']
     ).select_related('student', 'student__profession').order_by('number_in_group')
 
     sections = Section.objects.filter(
@@ -50,12 +53,11 @@ def group_grades_view(request, group_id):
         scheduleitem__group=group
     ).distinct().order_by('full_name')
 
-    # Получаем даты из расписания для подстановки по умолчанию
     schedule_dates = {}
     for section_id, date_val in ScheduleItem.objects.filter(
             group=group, section__in=sections
     ).values_list('section_id', 'date'):
-        if section_id not in schedule_dates:  # Берем первую дату для раздела
+        if section_id not in schedule_dates:
             schedule_dates[section_id] = date_val
 
     if request.method == 'POST':
@@ -74,12 +76,35 @@ def group_grades_view(request, group_id):
                 if score_value == '':
                     continue
 
+                # ======================================================================
+                # ЗАЩИТА: Проверка времени занятия перед сохранением оценки
+                # ======================================================================
+                schedule_item = ScheduleItem.objects.filter(group=group, section=section).first()
+                if schedule_item and schedule_item.date:
+                    # Склеиваем дату и время начала занятия
+                    if schedule_item.start_time:
+                        schedule_dt = datetime.combine(schedule_item.date, schedule_item.start_time)
+                    else:
+                        schedule_dt = datetime.combine(schedule_item.date, datetime.min.time())
+
+                    # Делаем время "осознанным" (aware)
+                    if timezone.is_naive(schedule_dt):
+                        schedule_dt = timezone.make_aware(schedule_dt)
+
+                    if schedule_dt > timezone.now():
+                        messages.error(
+                            request,
+                            f'Нельзя выставить оценку по разделу "{section.title}". '
+                            f'Время занятия ({schedule_dt.strftime("%d.%m.%Y %H:%M")}) еще не наступило.'
+                        )
+                        return redirect('docs:group_grades', group_id=group.id)
+                # ======================================================================
+
                 try:
                     score = int(float(score_value))
                 except (ValueError, TypeError):
                     continue
 
-                # Обработка даты
                 assessment_date = None
                 if date_value:
                     try:
@@ -88,9 +113,8 @@ def group_grades_view(request, group_id):
                         pass
 
                 if not assessment_date:
-                    assessment_date = schedule_dates.get(section.id) or date.today()
+                    assessment_date = schedule_dates.get(section.id) or timezone.localdate()
 
-                # Инструктор
                 instructor = None
                 if instructor_id:
                     try:
@@ -106,8 +130,12 @@ def group_grades_view(request, group_id):
 
                 assessment, created = Assessment.objects.get_or_create(
                     enrollment=enrollment, section=section, attempt_number=1,
-                    defaults={'score': score, 'assessment_type': 'test', 'assessment_date': assessment_date,
-                              'instructor': instructor}
+                    defaults={
+                        'score': score,
+                        'assessment_type': 'test',
+                        'assessment_date': assessment_date,
+                        'instructor': instructor
+                    }
                 )
 
                 if not created:
@@ -118,10 +146,34 @@ def group_grades_view(request, group_id):
 
                 saved_count += 1
 
+                # ======================================================================
+                # ИСПРАВЛЕНИЕ: Создаём ComplianceLog сразу для текущей оценки в цикле
+                # ======================================================================
+                if request.user.is_authenticated and hasattr(request.user, 'staff'):
+                    existing_log = ComplianceLog.objects.filter(
+                        enrollment=enrollment,
+                        staff=request.user.staff,
+                        action_type='grades_submitted',
+                        assessment=assessment  # <-- ТЕПЕРЬ ПРИВЯЗАНО К ТЕКУЩЕЙ ОЦЕНКЕ
+                    ).first()
+
+                    if not existing_log:
+                        ComplianceLog.objects.create(
+                            enrollment=enrollment,
+                            staff=request.user.staff,
+                            action_type='grades_submitted',
+                            assessment=assessment,
+                            ip_address=request.META.get('REMOTE_ADDR'),
+                            notes='Оценки внесены через журнал группы'
+                        )
+                # ======================================================================
+
         messages.success(request, f'Сохранено оценок: {saved_count}')
         return redirect('docs:group_grades', group_id=group.id)
 
-    # Подготовка данных
+    # ======================================================================
+    # ПОДГОТОВКА ДАННЫХ ДЛЯ GET-ЗАПРОСА (остается без изменений)
+    # ======================================================================
     students_data = []
     for enrollment in students:
         assessments_dict = {}
@@ -135,9 +187,9 @@ def group_grades_view(request, group_id):
             if not instructor:
                 schedule_item = ScheduleItem.objects.filter(group=group, section=section).select_related(
                     'instructor').first()
-                if schedule_item and schedule_item.instructor: instructor = schedule_item.instructor
+                if schedule_item and schedule_item.instructor:
+                    instructor = schedule_item.instructor
 
-            # Определяем дату: сначала из оценки, потом из расписания
             current_date = assessment.assessment_date if assessment else schedule_dates.get(section.id)
 
             assessments_list.append({
@@ -146,16 +198,19 @@ def group_grades_view(request, group_id):
                 'score': int(assessment.score) if assessment and assessment.score is not None else None,
                 'has_assessment': assessment is not None,
                 'instructor': instructor,
-                'current_date': current_date,  # <-- Передаем дату в шаблон
+                'current_date': current_date,
             })
 
         students_data.append({'enrollment': enrollment, 'assessments_list': assessments_list})
 
     context = {
-        'group': group, 'students_data': students_data, 'students': students,
-        'sections': sections, 'instructors': instructors_from_schedule, 'today': date.today(),
+        'group': group,
+        'students_data': students_data,
+        'students': students,
+        'sections': sections,
+        'instructors': instructors_from_schedule,
+        'today': timezone.localdate(),
         'frontend_url': getattr(settings, 'FRONTEND_URL', 'http://localhost:5173'),
-
     }
     return render(request, 'docs/grades/group_grades.html', context)
 
@@ -306,10 +361,10 @@ def dismiss_enrollments(request, group_id):
     check_and_close_group(group)
     return redirect('docs:group_grades', group_id=group.id)
 
+
 @staff_member_required
 def land_training_task_view(request, group_id):
     """Задание на тренировку АСП Суша"""
-    from docs.utils import get_logo_base64
 
     group = get_object_or_404(Group, id=group_id)
 
@@ -319,19 +374,73 @@ def land_training_task_view(request, group_id):
     ).select_related('student', 'student__profession').order_by('number_in_group')
 
     # Находим инструктора АСП Суша из расписания
-    instructor = None
     asp_item = ScheduleItem.objects.filter(
         group=group,
         session_type='asp-l'
     ).select_related('instructor').first()
 
-    if asp_item and asp_item.instructor:
-        instructor = asp_item.instructor.full_name
+    instructor = asp_item.instructor if asp_item and asp_item.instructor else None
+    instructor_name = instructor.full_name if instructor else None
+
+    # ======================================================================
+    # НОВОЕ: Получаем подпись инструктора АСП (lesson_completed)
+    # ======================================================================
+    instructor_signature = None
+    if asp_item:
+        log = ComplianceLog.objects.filter(
+            schedule_item=asp_item,
+            action_type='lesson_completed'
+        ).select_related('staff').first()
+
+        if log:
+            instructor_signature = log.signature_string
+    # ======================================================================
 
     # Получаем тип ВС
     aircraft_type = group.module.aircraft_type if group.module else None
 
-    # ← ДИНАМИЧЕСКИЙ ВЫБОР ШАБЛОНА
+    # Ищем итоговый раздел
+    final_section = Section.objects.filter(
+        stage__module=group.module
+    ).filter(
+        Q(title__icontains='итоговая') |
+        Q(title__icontains='экзамен') |
+        Q(title__icontains='аттестац')
+    ).exclude(
+        title__icontains='промежуточная'
+    ).first()
+
+    # Словарь итоговых оценок
+    final_grades_dict = {}
+    if final_section:
+        assessments = Assessment.objects.filter(
+            enrollment__group=group,
+            section=final_section
+        ).select_related('enrollment')
+
+        for assessment in assessments:
+            score = assessment.score
+            if score is None:
+                display = '—'
+            elif final_section.grade_type == 'binary':
+                display = 'Зачтено' if score >= 1 else 'Не зачтено'
+            else:
+                decode_map = {
+                    5: 'отлично',
+                    4: 'хорошо',
+                    3: 'удовлетворительно',
+                    2: 'неудовлетворительно',
+                }
+                word = decode_map.get(score, '')
+                display = f'{score} ({word})' if word else str(score)
+
+            final_grades_dict[assessment.enrollment_id] = {
+                'score': score,
+                'display': display,
+                'grade_type': final_section.grade_type,
+            }
+
+    # ДИНАМИЧЕСКИЙ ВЫБОР ШАБЛОНА
     module_code = (group.module.code or "").upper() if group.module else ""
     if '01' in module_code or 'C1' in module_code:
         template_name = 'docs/training_tasks/course_1/land_training_task.html'
@@ -341,9 +450,11 @@ def land_training_task_view(request, group_id):
     context = {
         'group': group,
         'enrollments': enrollments,
-        'instructor_name': instructor,
+        'instructor_name': instructor_name,
+        'instructor_signature': instructor_signature,  # <-- НОВОЕ
         'aircraft_type': aircraft_type,
         'logo_base64': get_logo_base64(),
+        'final_grades_dict': final_grades_dict,
     }
 
     return render(request, template_name, context)
@@ -353,6 +464,9 @@ def land_training_task_view(request, group_id):
 def water_training_task_view(request, group_id):
     """Задание на тренировку АСП Вода"""
     from docs.utils import get_logo_base64
+    from training.models import Section
+    from execution.models import Assessment, ComplianceLog
+    from django.db.models import Q
 
     group = get_object_or_404(Group, id=group_id)
 
@@ -362,19 +476,70 @@ def water_training_task_view(request, group_id):
     ).select_related('student', 'student__profession').order_by('number_in_group')
 
     # Находим инструктора АСП Вода из расписания
-    instructor = None
     asp_item = ScheduleItem.objects.filter(
         group=group,
         session_type='asp-w'
     ).select_related('instructor').first()
 
-    if asp_item and asp_item.instructor:
-        instructor = asp_item.instructor.full_name
+    instructor = asp_item.instructor if asp_item and asp_item.instructor else None
+    instructor_name = instructor.full_name if instructor else None
+
+    # Получаем подпись инструктора АСП (lesson_completed)
+    instructor_signature = None
+    if asp_item:
+        log = ComplianceLog.objects.filter(
+            schedule_item=asp_item,
+            action_type='lesson_completed'
+        ).select_related('staff').first()
+
+        if log:
+            instructor_signature = log.signature_string
 
     # Получаем тип ВС
     aircraft_type = group.module.aircraft_type if group.module else None
 
-    # ← ДИНАМИЧЕСКИЙ ВЫБОР ШАБЛОНА
+    # Ищем итоговый раздел
+    final_section = Section.objects.filter(
+        stage__module=group.module
+    ).filter(
+        Q(title__icontains='итоговая') |
+        Q(title__icontains='экзамен') |
+        Q(title__icontains='аттестац')
+    ).exclude(
+        title__icontains='промежуточная'
+    ).first()
+
+    # Словарь итоговых оценок
+    final_grades_dict = {}
+    if final_section:
+        assessments = Assessment.objects.filter(
+            enrollment__group=group,
+            section=final_section
+        ).select_related('enrollment')
+
+        for assessment in assessments:
+            score = assessment.score
+            if score is None:
+                display = '—'
+            elif final_section.grade_type == 'binary':
+                display = 'Зачтено' if score >= 1 else 'Не зачтено'
+            else:
+                decode_map = {
+                    5: 'отлично',
+                    4: 'хорошо',
+                    3: 'удовлетворительно',
+                    2: 'неудовлетворительно',
+                }
+                word = decode_map.get(score, '')
+                display = f'{score} ({word})' if word else str(score)
+
+            final_grades_dict[assessment.enrollment_id] = {
+                'score': score,
+                'display': display,
+                'grade_type': final_section.grade_type,
+            }
+
+    # ДИНАМИЧЕСКИЙ ВЫБОР ШАБЛОНА
     module_code = (group.module.code or "").upper() if group.module else ""
     if '01' in module_code or 'C1' in module_code:
         template_name = 'docs/training_tasks/course_1/water_training_task.html'
@@ -384,9 +549,11 @@ def water_training_task_view(request, group_id):
     context = {
         'group': group,
         'enrollments': enrollments,
-        'instructor_name': instructor,
+        'instructor_name': instructor_name,
+        'instructor_signature': instructor_signature,
         'aircraft_type': aircraft_type,
         'logo_base64': get_logo_base64(),
+        'final_grades_dict': final_grades_dict,
     }
 
     return render(request, template_name, context)
@@ -419,6 +586,7 @@ def _build_attendance_by_stage(group):
                 'date': item.date,
                 'date_display': item.date.strftime('%d.%m.%Y'),
                 'section_title': item.section.title,
+                'schedule_item_id': item.id,  # <-- ДОБАВИТЬ ЭТУ СТРОКУ
             })
 
     # Сортируем этапы по order и даты внутри этапов
@@ -512,10 +680,11 @@ def _build_thematic_plan(group, rows_per_page=22):
             'date': item.date.strftime('%d.%m.%Y') if item.date else '',
             'start_time': time_str,
             'instructor': instructor,
+            'schedule_item_id': item.id,  # <-- ДОБАВИТЬ ЭТУ СТРОКУ
             'is_first_of_stage': is_first_of_stage,
             'is_last_of_stage': False,
             'stage': stage,
-            'stage_total_hours': stage_items_cache[stage.id]['total_hours'],  # ← ДОБАВЛЕНО
+            'stage_total_hours': stage_items_cache[stage.id]['total_hours'],
         })
 
         prev_stage_id = stage.id
@@ -670,14 +839,401 @@ def get_journal_context(group):
         'has_asp_training': has_asp_training,
     }
 
+
 @staff_member_required
 def journal_view(request, group_id):
-    """Отображение журнала подготовки группы"""
+    """Отображение журнала подготовки группы с электронными подписями (ЭП)"""
     group = get_object_or_404(Group, id=group_id)
+
+    # Получаем базовый контекст из существующей функции
     context = get_journal_context(group)
 
-    template_name = 'docs/journal/journal_landscape.html' if context['use_landscape'] else 'docs/journal/journal.html'
+    # ======================================================================
+    # 1. ВАШ РАБОЧИЙ КОД: ОБОГАЩЕНИЕ ДАННЫХ (Инструктажи)
+    # ======================================================================
+    enriched_students = []
 
+    for item in context.get('students', []):
+        enrollment = item.get('enrollment') if isinstance(item, dict) else item
+
+        if not enrollment:
+            continue
+
+        student_ack = ComplianceLog.objects.filter(
+            enrollment=enrollment,
+            action_type='student_safety_ack'
+        ).first()
+
+        instructor_ack = ComplianceLog.objects.filter(
+            enrollment=enrollment,
+            action_type='instructor_briefing_done'
+        ).first()
+
+        student_data = {
+            'enrollment': enrollment,
+            'student_ack_date': student_ack.timestamp if student_ack else None,
+            'student_ack_signature': student_ack.signature_string if student_ack else None,
+            'instructor_ack_date': instructor_ack.timestamp if instructor_ack else None,
+            'instructor_ack_signature': instructor_ack.signature_string if instructor_ack else None,
+            'instructor_name': instructor_ack.staff.full_name if (instructor_ack and instructor_ack.staff) else None,
+        }
+
+        if isinstance(item, dict):
+            student_data.update(item)
+
+        enriched_students.append(student_data)
+
+    context['students'] = enriched_students
+
+    # ======================================================================
+    # 2. ПОСЕЩАЕМОСТЬ: Точная привязка по schedule_item_id
+    # ======================================================================
+    # 1. Собираем все ID занятий со всех страниц журнала, чтобы сделать один запрос
+    all_schedule_ids = []
+    for page in context.get('attendance_pages', []):
+        for stage in page:
+            for date_info in stage.get('dates', []):
+                if date_info.get('schedule_item_id'):
+                    all_schedule_ids.append(date_info['schedule_item_id'])
+
+    # 2. Делаем ОДИН запрос ко всем подтверждениям посещаемости
+    attendance_logs = ComplianceLog.objects.filter(
+        enrollment__group=group,
+        action_type='student_attendance_confirmed',
+        schedule_item_id__in=all_schedule_ids
+    ).select_related('enrollment')
+
+    # 3. Группируем: { enrollment_id: { schedule_item_id: "подпись" } }
+    attendance_dict = {}
+    for log in attendance_logs:
+        eid = log.enrollment_id
+        if eid not in attendance_dict:
+            attendance_dict[eid] = {}
+        attendance_dict[eid][log.schedule_item_id] = log.signature_string
+
+    # 4. Прикрепляем словарь к каждому студенту
+    for student_data in enriched_students:
+        eid = student_data['enrollment'].id
+        student_data['attendance_signatures'] = attendance_dict.get(eid, {})
+
+    # ======================================================================
+    # 3. ТЕМАТИЧЕСКИЙ ПЛАН: Добавляем подписи инструкторов
+    # ======================================================================
+    # Собираем все schedule_item_id из тематического плана
+    all_plan_item_ids = []
+    for page in context.get('thematic_plan_pages', []):
+        for row in page.get('rows', []):
+            if row.get('schedule_item_id'):
+                all_plan_item_ids.append(row['schedule_item_id'])
+
+    # Один запрос ко всем подтверждениям проведения занятий
+    lesson_logs = ComplianceLog.objects.filter(
+        schedule_item_id__in=all_plan_item_ids,
+        action_type='lesson_completed'
+    ).select_related('staff')
+
+    # Группируем: { schedule_item_id: signature_string }
+    lesson_signatures = {}
+    for log in lesson_logs:
+        lesson_signatures[log.schedule_item_id] = log.signature_string
+
+    # Прикрепляем подпись к каждой строке
+    for page in context.get('thematic_plan_pages', []):
+        for row in page.get('rows', []):
+            item_id = row.get('schedule_item_id')
+            row['instructor_signature'] = lesson_signatures.get(item_id)
+    # ======================================================================
+
+    # ======================================================================
+    # 4. ПРОМЕЖУТОЧНЫЕ ОЦЕНКИ: оценки, даты, подписи инструктора и студента
+    # ======================================================================
+    # Ищем раздел "Промежуточная оценка" для модуля группы
+    intermediate_section = Section.objects.filter(
+        stage__module=group.module
+    ).filter(
+        Q(title__icontains='промежуточная') & Q(title__icontains='оценка')
+    ).first()
+
+    # Собираем все ID оценок (Assessment) для этого раздела в группе
+    if intermediate_section:
+        # Получаем все оценки студентов по этому разделу
+        intermediate_assessments = Assessment.objects.filter(
+            enrollment__group=group,
+            section=intermediate_section
+        ).select_related('enrollment')
+
+        # Словарь: { enrollment_id: { score, date, instructor_signature } }
+        intermediate_grades_dict = {}
+        for assessment in intermediate_assessments:
+            # Ищем подпись инструктора о выставлении оценки (grades_submitted)
+            instructor_log = ComplianceLog.objects.filter(
+                enrollment=assessment.enrollment,
+                action_type='grades_submitted',
+                assessment=assessment
+            ).first()
+
+            intermediate_grades_dict[assessment.enrollment_id] = {
+                'score': assessment.score,
+                'grade_type': intermediate_section.grade_type,
+                'date': assessment.updated_at if hasattr(assessment,
+                                                         'updated_at') and assessment.updated_at else assessment.created_at,
+                'instructor_signature': instructor_log.signature_string if instructor_log else None,
+            }
+    else:
+        intermediate_grades_dict = {}
+        print(f"⚠️ Раздел 'Промежуточная оценка' не найден для модуля {group.module.title}")
+
+    # Собираем подписи студентов об ознакомлении с оценкой (student_grade_ack)
+    grade_ack_logs = ComplianceLog.objects.filter(
+        enrollment__group=group,
+        action_type='student_grade_ack'
+    ).select_related('enrollment', 'assessment__section')
+
+    # Словарь: { enrollment_id: signature_string }
+    student_grade_ack_dict = {}
+    for log in grade_ack_logs:
+        # Берём только если это подпись по промежуточной оценке
+        if log.assessment and log.assessment.section_id == (intermediate_section.id if intermediate_section else None):
+            student_grade_ack_dict[log.enrollment_id] = log.signature_string
+
+    # ======================================================================
+    # 4.1. ПОДПИСИ КУРАТОРОВ (ответственных за организацию)
+    # ======================================================================
+    # print(f"\n🔍 ПОИСК ПОДПИСЕЙ КУРАТОРА для группы {group.id}:")
+    # print(f"  - Куратор группы: {group.curator.full_name if group.curator else 'НЕТ'}")
+
+    if group.curator:
+        # Ищем подпись куратора через выставление оценок (grades_submitted)
+        curator_logs = ComplianceLog.objects.filter(
+            enrollment__group=group,
+            staff=group.curator,
+            action_type='grades_submitted'
+        ).select_related('enrollment')
+
+        # print(f"  - Найдено записей grades_submitted от куратора: {curator_logs.count()}")
+
+        # Словарь: { enrollment_id: signature_string }
+        curator_signatures_dict = {}
+        for log in curator_logs:
+            eid = log.enrollment_id
+            if eid not in curator_signatures_dict or log.timestamp > curator_signatures_dict[eid]['timestamp']:
+                curator_signatures_dict[eid] = {
+                    'signature': log.signature_string,
+                    'timestamp': log.timestamp
+                }
+
+        # print(f"  - Уникальных студентов с подписью куратора: {len(curator_signatures_dict)}")
+    else:
+        curator_signatures_dict = {}
+        print("  - Куратор не назначен!")
+    # ======================================================================
+
+    # Прикрепляем данные к каждому студенту (ОДИН ЦИКЛ для всего)
+    for student_data in enriched_students:
+        eid = student_data['enrollment'].id
+
+        # Данные о промежуточной оценке
+        grade_data = intermediate_grades_dict.get(eid, {})
+        student_data['intermediate_score'] = grade_data.get('score')
+        student_data['intermediate_grade_type'] = grade_data.get('grade_type', 'numeric')
+        student_data['intermediate_date'] = grade_data.get('date')
+        student_data['intermediate_instructor_signature'] = grade_data.get('instructor_signature')
+
+        # Подпись студента об ознакомлении
+        student_data['student_grade_ack_signature'] = student_grade_ack_dict.get(eid)
+
+        # Подпись куратора
+        curator_data = curator_signatures_dict.get(eid, {})
+        student_data['curator_signature'] = curator_data.get('signature')
+        student_data['curator_signature_date'] = curator_data.get('timestamp')
+    # ======================================================================
+
+    # Прикрепляем данные к каждому студенту (ОДИН ЦИКЛ для всего)
+    for student_data in enriched_students:
+        eid = student_data['enrollment'].id
+
+        # Данные о промежуточной оценке
+        grade_data = intermediate_grades_dict.get(eid, {})
+        student_data['intermediate_score'] = grade_data.get('score')
+        student_data['intermediate_grade_type'] = grade_data.get('grade_type', 'numeric')
+        student_data['intermediate_date'] = grade_data.get('date')
+        student_data['intermediate_instructor_signature'] = grade_data.get('instructor_signature')
+
+        # Подпись студента об ознакомлении
+        student_data['student_grade_ack_signature'] = student_grade_ack_dict.get(eid)
+
+        # Подпись куратора
+        curator_data = curator_signatures_dict.get(eid, {})
+        student_data['curator_signature'] = curator_data.get('signature')
+        student_data['curator_signature_date'] = curator_data.get('timestamp')
+    # ======================================================================
+
+    # ======================================================================
+    # 5. ИТОГОВЫЕ ОЦЕНКИ (ЭКЗАМЕН): оценки, даты, подписи
+    # ======================================================================
+    # Ищем раздел "Итоговая оценка" (исключая "Промежуточная")
+    final_section = Section.objects.filter(
+        stage__module=group.module
+    ).filter(
+        Q(title__icontains='итоговая') |
+        Q(title__icontains='экзамен') |
+        Q(title__icontains='аттестац')
+    ).exclude(
+        title__icontains='промежуточная'
+    ).first()
+
+    # Если не нашли по строгим критериям — ищем расширенно
+    if not final_section:
+        final_section = Section.objects.filter(
+            stage__module=group.module
+        ).filter(
+            Q(title__icontains='итогов') |
+            Q(title__icontains='оценка знаний')
+        ).exclude(
+            title__icontains='промежуточная'
+        ).first()
+
+    if final_section:
+        print(f"🔍 Найден итоговый раздел: {final_section.title} (ID: {final_section.id})")
+
+        # Получаем все итоговые оценки студентов
+        final_assessments = Assessment.objects.filter(
+            enrollment__group=group,
+            section=final_section
+        ).select_related('enrollment')
+
+        # Словарь: { enrollment_id: { score, date, instructor_signature } }
+        final_grades_dict = {}
+        for assessment in final_assessments:
+            # Ищем подпись инструктора о выставлении оценки
+            instructor_log = ComplianceLog.objects.filter(
+                enrollment=assessment.enrollment,
+                action_type='grades_submitted',
+                assessment=assessment
+            ).first()
+
+            final_grades_dict[assessment.enrollment_id] = {
+                'score': assessment.score,
+                'grade_type': final_section.grade_type,
+                'date': assessment.assessment_date or assessment.updated_at if hasattr(assessment,
+                                                                                       'updated_at') and assessment.updated_at else assessment.created_at,
+                'instructor_signature': instructor_log.signature_string if instructor_log else None,
+            }
+
+        # Подписи студентов об ознакомлении с итоговой оценкой
+        final_grade_ack_logs = ComplianceLog.objects.filter(
+            enrollment__group=group,
+            action_type='student_grade_ack',
+            assessment__section=final_section
+        ).select_related('enrollment')
+
+        # Словарь: { enrollment_id: signature_string }
+        final_student_ack_dict = {}
+        for log in final_grade_ack_logs:
+            final_student_ack_dict[log.enrollment_id] = log.signature_string
+
+        print(f"  - Итоговых оценок найдено: {len(final_grades_dict)}")
+        print(f"  - Подписей студентов об ознакомлении: {len(final_student_ack_dict)}")
+    else:
+        final_grades_dict = {}
+        final_student_ack_dict = {}
+        print(f"️ Итоговый раздел не найден для модуля {group.module.title}")
+
+    # Прикрепляем данные о итоговых оценках к каждому студенту
+    for student_data in enriched_students:
+        eid = student_data['enrollment'].id
+
+        final_grade_data = final_grades_dict.get(eid, {})
+        student_data['final_score'] = final_grade_data.get('score')
+        student_data['final_grade_type'] = final_grade_data.get('grade_type', 'numeric')
+        student_data['final_date'] = final_grade_data.get('date')
+        student_data['final_instructor_signature'] = final_grade_data.get('instructor_signature')
+        student_data['final_student_ack_signature'] = final_student_ack_dict.get(eid)
+    # ======================================================================
+    # ======================================================================
+    # 6. ЖУРНАЛ УЧЁТА ДОКУМЕНТОВ: сертификаты и ЗНТ
+    # ======================================================================
+    print(f"\n🔍 ПОИСК ПОДПИСЕЙ ДЛЯ ЖУРНАЛА ДОКУМЕНТОВ группы {group.id}:")
+
+    # Собираем все certificate_id и enrollment_id для группы
+    all_certificate_ids = []
+    enrollment_to_certificates = {}  # { enrollment_id: [certificate_ids] }
+
+    for enrollment in Enrollment.objects.filter(group=group).prefetch_related('certificates'):
+        cert_ids = list(enrollment.certificates.values_list('id', flat=True))
+        enrollment_to_certificates[enrollment.id] = cert_ids
+        all_certificate_ids.extend(cert_ids)
+
+    print(f"  - Всего сертификатов в группе: {len(all_certificate_ids)}")
+
+    # Подписи студентов о получении сертификатов (certificate_received)
+    cert_received_logs = ComplianceLog.objects.filter(
+        enrollment__group=group,
+        action_type='certificate_received',
+        certificate_id__in=all_certificate_ids
+    ).select_related('enrollment', 'certificate')
+
+    # Словарь: { certificate_id: signature_string }
+    student_cert_signatures = {}
+    for log in cert_received_logs:
+        if log.certificate_id:
+            student_cert_signatures[log.certificate_id] = log.signature_string
+
+    print(f"  - Подписей студентов о получении сертификатов: {len(student_cert_signatures)}")
+
+    # Подписи студентов о получении ЗНТ (znt_received)
+    znt_received_logs = ComplianceLog.objects.filter(
+        enrollment__group=group,
+        action_type='znt_received'
+    ).select_related('enrollment')
+
+    # Словарь: { enrollment_id: signature_string }
+    student_znt_signatures = {}
+    for log in znt_received_logs:
+        student_znt_signatures[log.enrollment_id] = log.signature_string
+
+    print(f"  - Подписей студентов о получении ЗНТ: {len(student_znt_signatures)}")
+
+    # Подпись оформившего (куратора) — используем grades_submitted
+    # (ту же, что и для оценок, так как куратор оформляет все документы)
+    curator_cert_signatures = {}
+    if group.curator:
+        curator_logs = ComplianceLog.objects.filter(
+            enrollment__group=group,
+            staff=group.curator,
+            action_type='grades_submitted'
+        ).select_related('enrollment')
+
+        for log in curator_logs:
+            eid = log.enrollment_id
+            if eid not in curator_cert_signatures:
+                curator_cert_signatures[eid] = log.signature_string
+
+    print(f"  - Подписей куратора-оформителя: {len(curator_cert_signatures)}")
+
+    # Прикрепляем данные к каждому студенту
+    for student_data in enriched_students:
+        eid = student_data['enrollment'].id
+
+        # Подписи по сертификатам
+        student_data['certificate_signatures'] = {}
+        for cert_id in enrollment_to_certificates.get(eid, []):
+            student_data['certificate_signatures'][cert_id] = student_cert_signatures.get(cert_id)
+
+        # Подпись по ЗНТ
+        student_data['znt_signature'] = student_znt_signatures.get(eid)
+
+        # Подпись оформившего (куратора)
+        student_data['curator_cert_signature'] = curator_cert_signatures.get(eid)
+    # ======================================================================
+    # Добавляем URL фронтенда для кнопки "Назад"
+    if 'frontend_url' not in context:
+        from django.conf import settings
+        context['frontend_url'] = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+
+    # Выбор шаблона (альбомная или книжная ориентация)
+    template_name = 'docs/journal/journal_landscape.html' if context.get(
+        'use_landscape') else 'docs/journal/journal.html'
 
     return render(request, template_name, context)
 
@@ -1874,3 +2430,39 @@ def edit_iup_view(request, iup_id):
     }
     return render(request, 'docs/iup/create_iup.html', context)  # Используем тот же шаблон
 
+
+@login_required # Обязательно! Студент должен быть залогинен
+def instructing(request):
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo-nordstar.png')
+
+    logo_base64 = ""
+    if os.path.exists(logo_path):
+        with open(logo_path, "rb") as image_file:
+            # Кодируем изображение в base64
+            logo_base64 = base64.b64encode(image_file.read()).decode('utf-8')
+
+    context = {
+        'logo_base64': logo_base64,  # <-- Передаем переменную в шаблон
+    }
+
+    return render(request, 'docs/instructing/instructing.html', context)
+
+
+@staff_member_required
+def help_view(request):
+    """Страница с инструкцией 'Быстрый старт'"""
+    return render(request, 'docs/help/quick_start.html')
+
+
+@staff_member_required
+def download_help_pdf(request):
+    """Генерация PDF версии инструкции"""
+    from weasyprint import HTML
+    from django.http import HttpResponse
+
+    html_content = render_to_string('docs/help/quick_start.html')
+    pdf_file = HTML(string=html_content).write_pdf()
+
+    response = HttpResponse(pdf_file, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="ATCD_Быстрый_старт.pdf"'
+    return response

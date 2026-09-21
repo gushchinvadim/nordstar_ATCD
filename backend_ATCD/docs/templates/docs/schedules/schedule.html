@@ -151,10 +151,20 @@
     <p style="margin: 5px 0;"><strong></strong> {{ group.module.title }}</p>
     <p style="margin: 5px 0;"><strong>Начало занятий:</strong> {{ group.start_date|date:"d.m.Y" }}</p>
 
-    <div class="curator-director">
-        <p style="margin: 0;">Куратор: {{ group.mentor.full_name|default:"____________________________" }}, e-mail: {{ group.mentor.email|default:"__________________________" }}</p>
-        <p style="margin: 0;">Утверждаю: ___________________________ {{ group.director.full_name|default:"" }}</p>
-    </div>
+<div class="curator-director">
+    <p style="margin: 0;">Куратор: {{ group.mentor.full_name|default:"____________________________" }}, e-mail: {{ group.mentor.email|default:"__________________________" }}</p>
+
+    {% with approval_log=group.compliance_logs.filter action_type='director_schedule_approved' %}
+        {% if approval_log %}
+            <p style="margin: 0; margin-top: 10px;">
+                Утверждаю: {{ approval_log.first.staff.full_name }} (системная) {{ approval_log.first.timestamp|date:"d.m.Y H:i" }}
+            </p>
+        {% else %}
+            <p style="margin: 0; margin-top: 10px;">Утверждаю: ___________________________ {{ group.director.full_name|default:"" }}</p>
+        {% endif %}
+    {% endwith %}
+</div>
+    
 </div>
 
 <!-- ТАБЛИЦА РАСПИСАНИЯ -->
@@ -331,64 +341,64 @@
 <div class="no-print">
     <button class="print-btn" onclick="window.print()">🖨 Распечатать</button>
 
-    <button class="print-btn" onclick="saveToGroupFolder('schedule')"
-            style="background: #FF9800; margin-left: 12px;">
-        💾 Сохранить в папку группы
-    </button>
+<!--    <button class="print-btn" onclick="saveToGroupFolder('schedule')"-->
+<!--            style="background: #FF9800; margin-left: 12px;">-->
+<!--        💾 Сохранить в папку группы-->
+<!--    </button>-->
 
-    <button class="print-btn" onclick="sendScheduleToEmail()"
-            style="background: #2196F3; margin-left: 12px;">
-         Отправить на почту
-    </button>
+<!--    <button class="print-btn" onclick="sendScheduleToEmail()"-->
+<!--            style="background: #2196F3; margin-left: 12px;">-->
+<!--         Отправить на почту-->
+<!--    </button>-->
 </div>
 
 <script>
-function sendScheduleToEmail() {
-    const defaultEmail = "{{ group.curator.email|default:'' }}";
-    const email = prompt("Введите email для отправки расписания:", defaultEmail);
+// function sendScheduleToEmail() {
+//     const defaultEmail = "{{ group.curator.email|default:'' }}";
+//     const email = prompt("Введите email для отправки расписания:", defaultEmail);
+//
+//     if (email) {
+//         fetch("{% url 'docs:send_schedule_email' group.id %}", {
+//             method: 'POST',
+//             headers: {
+//                 'X-CSRFToken': getCookie('csrftoken'),
+//                 'Content-Type': 'application/json',
+//             },
+//             body: JSON.stringify({ email: email })
+//         })
+//         .then(response => response.json())
+//         .then(data => {
+//             if (data.success) {
+//                 alert('✅ ' + data.message);
+//             } else {
+//                 alert('❌ Ошибка: ' + data.error);
+//             }
+//         })
+//         .catch(error => alert('❌ Ошибка сети: ' + error));
+//     }
+// }
 
-    if (email) {
-        fetch("{% url 'docs:send_schedule_email' group.id %}", {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email: email })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('✅ ' + data.message);
-            } else {
-                alert('❌ Ошибка: ' + data.error);
-            }
-        })
-        .catch(error => alert('❌ Ошибка сети: ' + error));
-    }
-}
-
-function saveToGroupFolder(docType) {
-    if (confirm('Сохранить документ в папку группы?')) {
-        fetch("{% url 'docs:save_document' group.id %}", {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ document_type: docType })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('✅ Документ сохранён:\nPDF: ' + data.pdf_path);
-            } else {
-                alert(' Ошибка: ' + data.error);
-            }
-        })
-        .catch(error => alert(' Ошибка сети: ' + error));
-    }
-}
+// function saveToGroupFolder(docType) {
+//     if (confirm('Сохранить документ в папку группы?')) {
+//         fetch("{% url 'docs:save_document' group.id %}", {
+//             method: 'POST',
+//             headers: {
+//                 'X-CSRFToken': getCookie('csrftoken'),
+//                 'Content-Type': 'application/json',
+//             },
+//             body: JSON.stringify({ document_type: docType })
+//         })
+//         .then(response => response.json())
+//         .then(data => {
+//             if (data.success) {
+//                 alert('✅ Документ сохранён:\nPDF: ' + data.pdf_path);
+//             } else {
+//                 alert(' Ошибка: ' + data.error);
+//             }
+//         })
+//         .catch(error => alert(' Ошибка сети: ' + error));
+//     }
+// }
 
 function getCookie(name) {
     let cookieValue = null;

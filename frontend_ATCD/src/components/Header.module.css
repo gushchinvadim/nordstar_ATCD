@@ -1,25 +1,147 @@
-/* Header.module.css */
+/* src/components/Header.module.css */
 .header {
-    background: #2c3e50;
-    color: white;
+    background: #ffffff;
+    color: #2c3e50;
     padding: 15px 20px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    border-bottom: 3px solid #2c3e50; /* Тонкая линия в цвет футера для единства */
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    justify-content: space-between;
 }
 
 .logo {
-    font-size: 1.2rem;
-    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
-.logoutBtn {
+.logoImage {
+    height: 35px;
+    width: auto;
+    object-fit: contain;
+}
+
+.logoText {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #2c3e50;
+    letter-spacing: 0.5px;
+}
+
+.userInfo {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.userName {
+    font-weight: 500;
+    color: #2c3e50;
+    font-size: 0.95rem;
+}
+
+/* Стили для переключателя ролей */
+.roleSwitcher {
+    position: relative;
+}
+
+.roleButton {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f0f4f8;
+    border: 1px solid #d1d9e6;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #2c3e50;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.roleButton:hover {
+    background: #e2e8f0;
+    border-color: #2c3e50;
+}
+
+.arrow {
+    font-size: 0.7rem;
+    transition: transform 0.2s;
+}
+
+.roleButton:hover .arrow {
+    transform: translateY(1px);
+}
+
+.dropdownMenu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 180px;
+    overflow: hidden;
+    z-index: 1001;
+}
+
+.dropdownItem {
+    width: 100%;
+    text-align: left;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    font-size: 0.9rem;
+    color: #34495e;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.dropdownItem:hover {
+    background: #f5f7fa;
+}
+
+.dropdownItem.active {
+    background: #e8f4f8;
+    color: #2980b9;
+    font-weight: 600;
+}
+
+/* Бейдж для пользователей с одной ролью */
+.singleRoleBadge {
+    background: #f0f4f8;
+    color: #2c3e50;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid #d1d9e6;
+}
+
+.logoutButton {
     background: #e74c3c;
     color: white;
     border: none;
     padding: 8px 16px;
     border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
     cursor: pointer;
+    transition: background 0.2s;
 }
-.logoutBtn:hover { background: #c0392b; }
+
+.logoutButton:hover {
+    background: #c0392b;
+}

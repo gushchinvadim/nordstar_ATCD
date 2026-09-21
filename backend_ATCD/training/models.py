@@ -1,4 +1,6 @@
 # training/models.py
+from django.utils import timezone
+from dateutil.relativedelta import relativedelta
 from django.db import models
 from references.models import AircraftType
 
@@ -132,6 +134,33 @@ class Stage(models.Model):
         ordering = ['module', 'order']
     def __str__(self): return f"{self.module.title[:30]} - {self.title}"
 
+
+class Subject(models.Model):
+    """
+    Справочник предметов/дисциплин (вне привязки к модулям).
+    Например: "Перевозка опасных грузов", "АСП вода", "FFS B737"
+    """
+    name = models.CharField("Название предмета", max_length=200)
+    code = models.CharField(
+        "Код предмета",
+        max_length=50,
+        blank=True,
+        help_text="Например: DG, ASP-W, ASP-L, FFS"
+    )
+    description = models.TextField("Описание", blank=True)
+    is_active = models.BooleanField("Активен", default=True)
+
+    class Meta:
+        verbose_name = "Предмет / Дисциплина"
+        verbose_name_plural = "Предметы / Дисциплины"
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.code} - {self.name}" if self.code else self.name
+
+
+
+
 class Section(models.Model):
     GRADE_TYPE_CHOICES = [('numeric', 'Числовая'), ('binary', 'Зачтено/Не зачтено'), ('none', 'Без оценки')]
     DETAIL_CHOICES = [
@@ -146,6 +175,14 @@ class Section(models.Model):
     min_score = models.IntegerField("Минимальный балл", null=True, blank=True)
     order = models.IntegerField("Порядковый номер", default=0)
     detail = models.CharField(max_length=50, choices=DETAIL_CHOICES, null=True, blank=True, verbose_name="Тип расписания")
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Предмет / Дисциплина",
+        help_text="К какому предмету относится этот раздел (для допусков инструкторов). Пока необязательно."
+    )
     class Meta:
         verbose_name = "Раздел/Дисциплина"
         verbose_name_plural = "Разделы/Дисциплины"
@@ -163,3 +200,137 @@ class Subsection(models.Model):
         verbose_name_plural = "Подразделы/Сессии"
         ordering = ['section', 'order']
     def __str__(self): return f"{self.section.title[:30]} - {self.title}"
+
+
+class InstructorQualification(models.Model):
+    """
+    Допуск инструктора к преподаванию определенного предмета.
+    Один инструктор может иметь несколько допусков к разным предметам.
+    """
+
+    DEVICE_CHOICES = [
+        ('CLASS', 'Аудиторные занятия'),
+        ('FFS', 'Комплексный тренажер (FFS)'),
+        ('FTD', 'Процедурный тренажер (FTD)'),
+        ('CBT', 'Компьютерное обучение (CBT)'),
+        ('ON_JOB', 'Стажировка на рабочем месте'),
+        ('VR', 'VR-тренировки'),
+        ('ASP_W', 'АСП вода'),
+        ('ASP_L', 'АСП суша'),
+    ]
+
+    staff = models.ForeignKey(
+        'people.Staff',  # Замените на ваш путь к модели Staff
+        on_delete=models.CASCADE,
+        verbose_name="Сотрудник (Инструктор)",
+        related_name='qualifications'
+    )
+
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        verbose_name="Предмет / Дисциплина",
+        help_text="К какому предмету допущен инструктор"
+    )
+
+    device_type = models.CharField(
+        "Тип средства обучения",
+        max_length=20,
+        choices=DEVICE_CHOICES,
+        default='CLASS',
+        help_text="На каком оборудовании/формате может преподавать"
+    )
+
+    certificate_number = models.CharField(
+        "Номер сертификата / допуска",
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Например: № 123-А от 01.01.2024"
+    )
+
+    issue_date = models.DateField(
+        "Дата выдачи",
+        default=timezone.now
+    )
+
+    validity_months = models.PositiveIntegerField(
+        "Срок действия (месяцев)",
+        default=24,
+        help_text="Через сколько месяцев нужно продление"
+    )
+
+    is_active = models.BooleanField(
+        "Допуск активен",
+        default=True,
+        help_text="Снимите галочку при досрочном аннулировании"
+    )
+
+    waiver_notes = models.TextField(
+        "Примечание / Временное разрешение",
+        blank=True,
+        null=True,
+        help_text="Например: 'Временное продление по распоряжению Росавиации до 01.12.2024'"
+    )
+
+    class Meta:
+        verbose_name = "Допуск инструктора"
+        verbose_name_plural = "Допуски инструкторов"
+        ordering = ['staff', 'subject']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['staff', 'subject', 'device_type'],
+                condition=models.Q(is_active=True),
+                name='unique_active_qualification'
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.staff.full_name} — {self.subject} ({self.get_device_type_display()})"
+
+    @property
+    def expiration_date(self):
+        """Вычисляемая дата окончания допуска"""
+        return self.issue_date + relativedelta(months=self.validity_months)
+
+    @property
+    def months_left(self):
+        """Сколько месяцев осталось до окончания (может быть отрицательным)"""
+        now = timezone.now().date()
+        exp = self.expiration_date
+        delta = relativedelta(exp, now)
+        return delta.years * 12 + delta.months
+
+    @property
+    def status(self):
+        """
+        Статус допуска для цветовой индикации:
+        - 'valid': зеленый (более 2 месяцев)
+        - 'warning': желтый (1-2 месяца)
+        - 'critical': красный (менее 1 месяца или просрочено)
+        - 'inactive': серый (деактивирован)
+        """
+        if not self.is_active:
+            return 'inactive'
+
+        months = self.months_left
+
+        if months < 0:
+            return 'critical'  # Просрочено
+        elif months <= 1:
+            return 'critical'  # Менее 1 месяца
+        elif months <= 2:
+            return 'warning'  # 1-2 месяца
+        else:
+            return 'valid'  # Более 2 месяцев
+
+    @property
+    def status_color(self):
+        """Возвращает цвет для UI"""
+        colors = {
+            'valid': 'green',
+            'warning': 'orange',
+            'critical': 'red',
+            'inactive': 'gray'
+        }
+        return colors.get(self.status, 'gray')
