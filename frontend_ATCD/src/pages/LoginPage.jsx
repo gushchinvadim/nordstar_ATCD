@@ -22,6 +22,7 @@ const LoginPage = () => {
         const success = await login(username, password);
         if (success) {
             const data = JSON.parse(localStorage.getItem('userData') || '{}');
+            // console.log('🔍 DEBUG userData:', data);
             setUserData(data);
             
             const roles = data.available_roles || [];

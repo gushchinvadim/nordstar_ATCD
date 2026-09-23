@@ -5,6 +5,48 @@ from references.models import AircraftType, Citizenship, Location, Organization,
 from training.models import Course, Module, Stage, Section, Subsection, Subject, InstructorQualification
 from people.models import Staff, Student
 from core.services.aircraft_utils import get_or_create_aircraft_type
+from django.contrib.auth.models import User
+
+
+def create_user_for_person(person, person_type='student'):
+    """
+    Создает Django User для Staff или Student.
+    Логин = email до @, Пароль = полный email (или fallback)
+    """
+    if person.user:
+        return False  # User уже существует
+
+    email = getattr(person, 'email', '')
+    if not email or '@' not in email:
+        # Fallback: если email нет, используем стандартный пароль
+        username = f"{person_type}_{person.id}"
+        password = "Nordstar2026!"
+    else:
+        # Логин = часть email до @
+        username = email.split('@')[0].strip().lower()
+        # Пароль = полный email
+        password = email
+
+    # Проверяем уникальность логина
+    if User.objects.filter(username=username).exists():
+        username = f"{username}_{person.id}"
+
+    # Создаем User
+    user = User.objects.create_user(
+        username=username,
+        email=email,
+        password=password,
+        first_name=getattr(person, 'name', '') or getattr(person, 'full_name', '').split()[0] if hasattr(person,
+                                                                                                         'full_name') else '',
+        last_name=getattr(person, 'surname', '') or getattr(person, 'full_name', '').split()[-1] if hasattr(person,
+                                                                                                            'full_name') else ''
+    )
+
+    # Привязываем User к Staff/Student
+    person.user = user
+    person.save(update_fields=['user'])
+
+    return True
 
 # ==========================================
 # СПИСКИ ОБЯЗАТЕЛЬНЫХ КОЛОНОК ДЛЯ ВАЛИДАЦИИ
@@ -338,6 +380,8 @@ def import_staff(file_path):
 
         if created:
             created_staff += 1
+            # Создаем Django User для нового сотрудника
+            create_user_for_person(staff, person_type='staff')
         else:
             staff.organization = organization
             staff.position = position
@@ -349,6 +393,9 @@ def import_staff(file_path):
             staff.phone = str(row.get('phone', '')).strip() if pd.notna(row.get('phone')) else ''
             staff.save()
             updated_staff += 1
+            # Если User не был создан ранее, создаем сейчас
+            if not staff.user:
+                create_user_for_person(staff, person_type='staff')
 
     return {
         'staff_created': created_staff, 'staff_updated': updated_staff,
@@ -456,6 +503,8 @@ def import_students(file_path):
 
         if created:
             created_students += 1
+            # Создаем Django User для нового студента
+            create_user_for_person(student, person_type='student')
         else:
             student.sex = sex
             student.dob = parse_date(row.get('dob'))
@@ -472,6 +521,9 @@ def import_students(file_path):
             student.employee_id = str(row.get('employee_id', '')).strip() if pd.notna(row.get('employee_id')) else ''
             student.save()
             updated_students += 1
+            # Если User не был создан ранее, создаем сейчас
+            if not student.user:
+                create_user_for_person(student, person_type='student')
 
     return {
         'students_created': created_students, 'students_updated': updated_students,

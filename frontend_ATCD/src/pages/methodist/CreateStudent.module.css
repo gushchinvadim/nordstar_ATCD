@@ -1,0 +1,147 @@
+/* src/pages/methodist/CreateStudent.module.css */
+.container {
+    max-width: 1000px; /* Чуть уже, чем 1200px, чтобы форма смотрелась компактнее и аккуратнее */
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.container h1 {
+    color: #2c3e50;
+    margin-bottom: 30px;
+    font-size: 1.8rem;
+}
+
+.section {
+    background: white;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    margin-bottom: 25px;
+}
+
+.section h2 {
+    color: #34495e;
+    margin-top: 0;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #ecf0f1;
+    font-size: 1.3rem;
+}
+
+.subtitle {
+    color: #7f8c8d;
+    margin-bottom: 25px;
+    font-size: 0.95rem;
+}
+
+.row {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 15px;
+    flex-wrap: wrap; /* Позволяет полям переноситься на маленьких экранах */
+}
+
+.field {
+    flex: 1;
+    min-width: 200px; /* Защита от сплющивания полей */
+    margin-bottom: 15px;
+}
+
+.fieldSmall {
+    width: 120px;
+    min-width: 120px;
+    margin-bottom: 15px;
+}
+
+.field label,
+.fieldSmall label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #555;
+    font-size: 0.9rem;
+}
+
+.field input,
+.field select,
+.fieldSmall input,
+.fieldSmall select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.field input:focus,
+.field select:focus,
+.fieldSmall input:focus,
+.fieldSmall select:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 30px;
+    justify-content: flex-end; /* Кнопки справа */
+}
+
+.submitBtn {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.submitBtn:hover {
+    background: #2980b9;
+}
+
+.submitBtn:disabled {
+    background: #95a5a6;
+    cursor: not-allowed;
+}
+
+.cancelBtn {
+    background: #ecf0f1;
+    color: #2c3e50;
+    border: 1px solid #bdc3c7;
+    padding: 12px 30px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.cancelBtn:hover {
+    background: #bdc3c7;
+}
+
+.error {
+    background: #fee;
+    color: #c33;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border-left: 4px solid #c33;
+}
+
+.success {
+    background: #e8f5e9;
+    color: #2e7d32;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border-left: 4px solid #2e7d32;
+}

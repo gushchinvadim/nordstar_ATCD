@@ -6,12 +6,12 @@ from rest_framework.response import Response
 from django.db.models import Q
 from django.utils import timezone
 from datetime import datetime
-from people.models import Staff
+from people.models import Staff, Student
 from training.models import Section
 from .models import ScheduleItem, Assessment, Enrollment, Group
 from .serializers import (
     InstructorScheduleSerializer,
-    InstructorGradesSerializer,
+    InstructorGradesSerializer, StudentCreateSerializer,
 )
 from .models import ScheduleItem, ComplianceLog
 from rest_framework.permissions import IsAuthenticated
@@ -609,3 +609,49 @@ def instructor_log_action(request):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """Смена пароля пользователя"""
+    old_password = request.data.get('old_password')
+    new_password = request.data.get('new_password')
+
+    if not old_password or not new_password:
+        return Response({'error': 'Укажите старый и новый пароль'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if len(new_password) < 8:
+        return Response({'error': 'Пароль должен содержать минимум 8 символов'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = request.user
+    if not user.check_password(old_password):
+        return Response({'error': 'Неверный старый пароль'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(new_password)
+    user.save()
+
+    # Обновляем last_login, чтобы модалка больше не показывалась при первом входе
+    from django.utils import timezone
+    user.last_login = timezone.now()
+    user.save(update_fields=['last_login'])
+
+    return Response({'success': 'Пароль успешно изменен'}, status=status.HTTP_200_OK)
+
+
+
+
+class StudentCreateAPIView(generics.CreateAPIView):
+    queryset = Student.objects.all()
+    serializer_class = StudentCreateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+
+        # Возвращаем успешный ответ с данными
+        return Response({
+            "message": "Слушатель успешно создан",
+            "student": serializer.data
+        }, status=status.HTTP_201_CREATED)

@@ -260,51 +260,49 @@ def modules_list(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def user_roles(request):
-    """
-    GET /api/me/roles/
-    Возвращает все доступные роли пользователя и его данные
-    """
     user = request.user
 
-    # Базовые данные
     full_name = user.username
     fptitle = False
     tptitle = False
     has_lessons = False
-    is_student = hasattr(user, 'student')
+    is_student = hasattr(user, 'student') and user.student is not None
     is_director = False
+    is_instructor = False  # <-- Добавили явную переменную
 
     if hasattr(user, 'staff') and user.staff:
         staff = user.staff
         full_name = staff.full_name
-        fptitle = getattr(staff, 'fptitle', False)  # Методист
-        tptitle = getattr(staff, 'tptitle', False)  # Директор/Зам
+        fptitle = getattr(staff, 'fptitle', False)
+        tptitle = getattr(staff, 'tptitle', False)
 
-        # Проверяем, является ли инструктором (назначен на занятия)
         has_lessons = ScheduleItem.objects.filter(instructor=staff).exists()
-
-        # Директор определяется по tptitle
         is_director = tptitle
 
-    # Собираем список доступных ролей (ТОЛЬКО явные бизнес-роли)
-    available_roles = []
+        # НОВАЯ ЛОГИКА: Проверяем название должности
+        position_name = staff.position.name.lower() if staff.position else ''
+        is_instructor_by_position = any(word in position_name for word in ['преподаватель', 'инструктор', 'учитель'])
 
+        # Инструктор = есть занятия ИЛИ подходящая должность
+        if has_lessons or is_instructor_by_position:
+            is_instructor = True
+
+    # Собираем список доступных ролей
+    available_roles = []
     if is_director:
         available_roles.append('director')
-
     if fptitle:
         available_roles.append('methodist')
-
-    if has_lessons:
+    if is_instructor:  # <-- Используем новую переменную
         available_roles.append('instructor')
-
     if is_student:
         available_roles.append('student')
 
-    # Если нет ни одной роли — пользователь без специальных прав
-    # (только публичный доступ к лендингу)
-    if not available_roles:
-        available_roles = []  # Пустой список
+    # Спасательный круг для админов/разработчиков
+    if not available_roles and (user.is_superuser or user.is_staff):
+        available_roles.append('methodist')
+
+    is_first_login = user.last_login is None
 
     return Response({
         'username': user.username,
@@ -313,7 +311,7 @@ def user_roles(request):
         'roles': {
             'is_director': is_director,
             'is_methodist': fptitle,
-            'is_instructor': has_lessons,
+            'is_instructor': is_instructor,
             'is_student': is_student,
             'is_staff': user.is_staff,
             'is_superuser': user.is_superuser
@@ -322,7 +320,8 @@ def user_roles(request):
         'tptitle': tptitle,
         'has_lessons': has_lessons,
         'is_student': is_student,
-        'is_director': is_director
+        'is_director': is_director,
+        'is_first_login': is_first_login
     })
 
 @api_view(['GET'])

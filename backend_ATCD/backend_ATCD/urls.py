@@ -26,6 +26,7 @@ urlpatterns = [
     # === API МАРШРУТИЗАЦИЯ (ЧЕТКОЕ РАЗДЕЛЕНИЕ) ===
     path('api/docs/', include('docs.api_urls')),  # <-- Справочники, группы, помощь
     path('api/execution/', include('execution.urls')),  # <-- Логика выполнения
+    path('api/', include('references.urls')),
 
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

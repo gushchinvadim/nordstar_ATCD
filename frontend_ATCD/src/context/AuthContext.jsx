@@ -7,9 +7,9 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [showFirstLoginModal, setShowFirstLoginModal] = useState(false); // <-- НОВОЕ
 
     useEffect(() => {
-        // При загрузке проверяем, есть ли сохраненный пользователь и токен
         const token = localStorage.getItem('accessToken');
         const savedUser = localStorage.getItem('userData');
         
@@ -21,19 +21,20 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (username, password) => {
         try {
-            // 1. Получаем токены
             const res = await api.post('/api/token/', { username, password });
             localStorage.setItem('accessToken', res.data.access);
             localStorage.setItem('refreshToken', res.data.refresh);
             
-            // 2. Запрашиваем данные пользователя И РОЛИ по новому эндпоинту
-            // ВАЖНО: именно /api/docs/me/roles/, так как он возвращает массив available_roles
             const userRes = await api.get('/api/docs/me/roles/'); 
             const userData = userRes.data;
             
-            // 3. Сохраняем данные пользователя в localStorage и стейт
             localStorage.setItem('userData', JSON.stringify(userData));
             setUser(userData);
+            
+            // <-- НОВОЕ: Если это первый вход, открываем модалку
+            if (userData.is_first_login) {
+                setShowFirstLoginModal(true);
+            }
             
             return true;
         } catch (err) {
@@ -46,12 +47,20 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('userData');
-        localStorage.removeItem('activeRole'); // <-- Очищаем и выбранную роль при выходе
+        localStorage.removeItem('activeRole');
         setUser(null);
+        setShowFirstLoginModal(false); // <-- НОВОЕ
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, loading }}>
+        <AuthContext.Provider value={{ 
+            user, 
+            login, 
+            logout, 
+            loading, 
+            showFirstLoginModal,       // <-- НОВОЕ
+            setShowFirstLoginModal     // <-- НОВОЕ
+        }}>
             {children}
         </AuthContext.Provider>
     );

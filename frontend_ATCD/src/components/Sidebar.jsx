@@ -12,8 +12,9 @@ const Sidebar = () => {
 
     const menuItems = [
         { path: '/methodist', label: 'Панель управления', icon: '📊' },
-        { path: '/create-group', label: 'Создать группу', icon: '⊕' },
         { path: '/groups', label: 'Документы группы', icon: '📄' },
+        { path: '/create-group', label: 'Создать группу', icon: '⊕' },
+        { path: '/create-student', label: 'Создать слушателя', icon: '👤' }, 
     ];
 
     return (
@@ -24,7 +25,7 @@ const Sidebar = () => {
                         key={item.path}
                         to={item.path}
                         className={`${styles.navItem} ${isActive(item.path) ? styles.active : ''}`}
-                        title={item.label} // Подсказка при наведении
+                        title={item.label}
                     >
                         <span className={styles.icon}>{item.icon}</span>
                         <span className={styles.label}>{item.label}</span>

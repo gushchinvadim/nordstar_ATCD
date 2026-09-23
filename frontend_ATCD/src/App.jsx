@@ -24,6 +24,7 @@ import InstructorGrades from './pages/instructor/Grades';
 // Студент (НОВОЕ)
 import StudentDashboard from './pages/student/Dashboard';
 import StudentLayout from './components/StudentLayout';
+import CreateStudent from './pages/methodist/CreateStudent';
 
 // Директор
 import DirectorLayout from './components/DirectorLayout';
@@ -47,6 +48,7 @@ function App() {
                             <Route path="/groups" element={<GroupDocuments />} />
                             <Route path="/create-group" element={<CreateGroup />} />
                             <Route path="/groups/:groupId/edit" element={<EditGroup />} />
+                            <Route path="/create-student" element={<CreateStudent />} />
                         </Route>
 
                         {/* === ИНСТРУКТОР === */}

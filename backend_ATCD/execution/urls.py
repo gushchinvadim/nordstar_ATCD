@@ -3,10 +3,13 @@ from django.urls import path
 from . import api_views
 from . import student_views
 from . import director_views
+from .api_views import change_password, StudentCreateAPIView
 
 app_name = 'execution'
 
 urlpatterns = [
+    # === ИЗМЕНЕНИЕ ПАРОЛЯ ===
+    path('auth/change-password/', change_password, name='change_password'),
     # === ИНСТРУКТОР ===
     path('instructor/schedule/', api_views.InstructorScheduleView.as_view(), name='instructor_schedule'),
     path('instructor/schedule/<int:pk>/log/', api_views.log_schedule_action, name='log_schedule_action'),
@@ -19,6 +22,8 @@ urlpatterns = [
     # === СТУДЕНТ ===
     path('student/modules/', student_views.student_modules, name='student_modules'),
     path('student/confirm/', student_views.student_confirm_action, name='student_confirm_action'),
+    path('students/', StudentCreateAPIView.as_view(), name='student-create'),
+
 
     # === ДИРЕКТОР ===
     path('director/groups/', director_views.director_groups, name='director_groups'),

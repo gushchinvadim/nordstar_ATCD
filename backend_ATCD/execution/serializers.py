@@ -1,4 +1,5 @@
 # execution/serializers.py
+from people.models import Student
 from .models import ScheduleItem, Assessment, Enrollment, ComplianceLog
 from rest_framework import serializers
 from .models import ScheduleItem
@@ -147,3 +148,21 @@ class DirectorScheduleSerializer(serializers.ModelSerializer):
             'date', 'start_time', 'end_time', 'classroom_name',
             'instructor_name', 'session_type', 'status'
         ]
+
+
+class StudentCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Student
+        fields = [
+            'surname', 'name', 'patronymic', 'email', 'sex', 'dob', 'snils',
+            'name_latin', 'surname_latin', 'employee_id',
+            'citizenship', 'aircraft_type', 'profession', 'is_active'
+        ]
+        extra_kwargs = {
+            'is_active': {'default': True}
+        }
+
+    def validate_email(self, value):
+        if value and Student.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Слушатель с таким email уже существует в базе.")
+        return value

@@ -145,3 +145,90 @@
 .logoutButton:hover {
     background: #c0392b;
 }
+
+.passwordBtn {
+    background: transparent;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    margin-right: 15px;
+    padding: 5px;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+.passwordBtn:hover {
+    background: #f0f0f0;
+}
+
+/* ==========================================
+   АДАПТАЦИЯ ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ
+   ========================================== */
+
+@media (max-width: 768px) {
+    /* 1. Уменьшаем отступы самого хедера */
+    .header {
+        padding: 10px 15px;
+    }
+
+    /* 2. Логотип: оставляем только картинку, скрываем текст "АУЦ" */
+    .logoText {
+        display: none;
+    }
+    .logoImage {
+        height: 30px; /* Чуть компактнее */
+    }
+
+    /* 3. Блок пользователя: уменьшаем расстояния */
+    .userInfo {
+        gap: 8px; /* Было 20px, теперь элементы плотнее */
+    }
+
+    /* 4. Скрываем полное имя пользователя (экономит много места) */
+    .userName {
+        display: none;
+    }
+
+    /* 5. Делаем бейдж роли и кнопку переключения компактнее */
+    .singleRoleBadge,
+    .roleButton {
+        font-size: 0.8rem;
+        padding: 4px 8px;
+    }
+    
+    /* На очень маленьких экранах скрываем стрелочку в дропдауне */
+    .arrow {
+        display: none;
+    }
+
+    /* 6. Кнопка смены пароля: убираем лишний отступ */
+    .passwordBtn {
+        margin-right: 5px;
+        font-size: 1.1rem;
+        padding: 4px;
+    }
+
+    /* 7. Кнопка "Выйти": превращаем в квадратную иконку */
+    .logoutButton {
+        font-size: 0; /* Скрываем текст "Выйти" */
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        /* Вставляем SVG-иконку выхода прямо в CSS (не нужны дополнительные файлы) */
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'%3E%3C/path%3E%3Cpolyline points='16 17 21 12 16 7'%3E%3C/polyline%3E%3Cline x1='21' y1='12' x2='9' y2='12'%3E%3C/line%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: center;
+    }
+}
+
+/* Для совсем узких экранов (например, iPhone SE) */
+@media (max-width: 380px) {
+    .singleRoleBadge,
+    .roleButton {
+        font-size: 0.75rem;
+        padding: 4px 6px;
+    }
+}
