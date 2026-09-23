@@ -1,19 +1,21 @@
-// Footer.jsx
-import { useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
+// src/components/Footer.jsx
+import packageJson from '../../package.json';
 import styles from './Footer.module.css';
 
 const Footer = () => {
-    const { user, logout } = useContext(AuthContext);
+    const currentYear = new Date().getFullYear();
+    const appVersion = packageJson.version;
 
     return (
-        <header className={styles.footer}>
-            <div className={styles.logo}>АУЦ НордСтар | ATCD</div>
-            <div>
-                <span style={{ marginRight: 15 }}>© GVE, 2026</span>
-
+        <footer className={styles.footer}>
+            <div className={styles.container}>
+                <div className={styles.brand}>АУЦ НордСтар | ATCD</div>
+                <div className={styles.info}>
+                    <span className={styles.copyright}>© GVE, {currentYear}</span>
+                    <span className={styles.version}>v{appVersion}</span>
+                </div>
             </div>
-        </header>
+        </footer>
     );
 };
 
