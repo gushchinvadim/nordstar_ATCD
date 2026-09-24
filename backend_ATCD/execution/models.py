@@ -314,11 +314,12 @@ class ComplianceLog(models.Model):
     ACTION_CHOICES = [
         # Инструктор
         ('instructor_familiarized', 'Инструктор ознакомлен с планом занятия'),
-        ('instructor_schedule_ack', 'Инструктор ознакомлен с учебным расписанием'), # <-- НОВОЕ
-        ('instructor_briefing_done', 'Инструктор провел инструктаж для студента'), # <-- НОВОЕ
+        ('instructor_schedule_ack', 'Инструктор ознакомлен с учебным расписанием'),
+        ('instructor_briefing_done', 'Инструктор провел инструктаж для студента'),
         ('lesson_completed', 'Инструктор подтвердил проведение занятия'),
         ('grades_submitted', 'Инструктор сохранил/выставил оценки'),
         ('methodist_corrected', 'Методист внес исправления в журнал'),
+        ('methodist_documents_issued', 'Методист выдал документы (сертификаты/ЗНТ)'),  # <-- НОВОЕ
 
         # Студент
         ('student_schedule_ack', 'Ознакомление с учебным расписанием'),

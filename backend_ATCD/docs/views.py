@@ -326,13 +326,43 @@ def complete_all_enrollments(request, group_id):
 
 def check_and_close_group(group):
     """Автоматически меняет статус группы на completed, если все студенты обработаны"""
+    from django.utils import timezone
+    from execution.models import ComplianceLog
+
     total = Enrollment.objects.filter(group=group).count()
-    if total == 0: return
+    if total == 0:
+        return
 
     finished = Enrollment.objects.filter(group=group, status__in=['completed', 'dismissed']).count()
     if total == finished:
-        group.status = 'completed'  # Убедитесь, что такой статус есть в Group.STATUS_CHOICES
+        group.status = 'completed'
         group.save()
+
+        # ======================================================================
+        # НОВОЕ: Создаем системную подпись куратора (методиста) для всех студентов
+        # ======================================================================
+        if group.curator:
+            signature_text = f"{group.curator.full_name} (системная) {timezone.now().strftime('%d.%m.%Y %H:%M')}"
+
+            enrollments = list(Enrollment.objects.filter(group=group))
+
+            logs_to_create = [
+                ComplianceLog(
+                    enrollment=enrollment,
+                    staff=group.curator,
+                    action_type='methodist_documents_issued',  # <-- НОВОЕ ДЕЙСТВИЕ
+                    signature_string=signature_text,
+                    timestamp=timezone.now()
+                )
+                for enrollment in enrollments
+            ]
+
+            if logs_to_create:
+                ComplianceLog.objects.bulk_create(logs_to_create)
+                print(f"✅ Создано {len(logs_to_create)} подписей методиста для группы {group.id}")
+        else:
+            print(f"⚠️ У группы {group.id} не назначен куратор. Подписи не созданы.")
+        # ======================================================================
 
 
 @staff_member_required
@@ -1007,7 +1037,7 @@ def journal_view(request, group_id):
         curator_logs = ComplianceLog.objects.filter(
             enrollment__group=group,
             staff=group.curator,
-            action_type='grades_submitted'
+            action_type='methodist_documents_issued'  # ← Стало так
         ).select_related('enrollment')
 
         # print(f"  - Найдено записей grades_submitted от куратора: {curator_logs.count()}")
@@ -1201,7 +1231,7 @@ def journal_view(request, group_id):
         curator_logs = ComplianceLog.objects.filter(
             enrollment__group=group,
             staff=group.curator,
-            action_type='grades_submitted'
+            action_type='methodist_documents_issued'
         ).select_related('enrollment')
 
         for log in curator_logs:

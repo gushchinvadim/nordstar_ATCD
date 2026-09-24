@@ -42,10 +42,13 @@ class StudentProfession(models.Model):
         ordering = ['name']
     def __str__(self): return self.name
 
+
 class Location(models.Model):
     name = models.CharField("Код города IATA", max_length=10, help_text="DME")
-    full_name = models.CharField("Географическое название", max_length=50, help_text="Домодедово", null=True, blank=True)
-    addr = models.CharField("Код РАУЦ (Место проведения)", max_length=10, null=True, blank=True, help_text="Например: 174")
+    full_name = models.CharField("Географическое название", max_length=50, help_text="Домодедово", null=True,
+                                 blank=True)
+    addr = models.CharField("Код РАУЦ (Место проведения)", max_length=10, null=True, blank=True,
+                            help_text="Например: 174")
     dept = models.CharField("Код РАУЦ (Филиал)", max_length=10, null=True, blank=True, help_text="Например: 37")
     timezone = models.CharField(
         "Часовой пояс",
@@ -60,18 +63,25 @@ class Location(models.Model):
         ordering = ['name']
 
     def __str__(self):
-        return self.full_name
+        # ИСПРАВЛЕНО: Если full_name пустой, используем обязательное поле name (IATA код)
+        return self.full_name or self.name
+
 
 class Organization(models.Model):
-    location = models.ForeignKey(Location, on_delete=models.CASCADE, verbose_name="Местоположение", null=True, blank=True)
+    location = models.ForeignKey(Location, on_delete=models.CASCADE, verbose_name="Местоположение", null=True,
+                                 blank=True)
     company_name = models.CharField("Название компании", max_length=200)
     address = models.CharField("Адрес", max_length=300, blank=True)
     is_active = models.BooleanField("Активна", default=True)
+
     class Meta:
         verbose_name = "Организация"
         verbose_name_plural = "Организации"
         ordering = ['company_name']
-    def __str__(self): return self.company_name
+
+    def __str__(self):
+        # ИСПРАВЛЕНО: Защита на случай, если company_name почему-то окажется пустым
+        return self.company_name or "Без названия"
 
 
 class Classroom(models.Model):
@@ -82,7 +92,7 @@ class Classroom(models.Model):
                                      null=True, blank=True)
     title = models.CharField("Название", max_length=200)
     address = models.CharField("Фактический адрес", max_length=300, blank=True, null=True,
-                               help_text="Если не заполнен, используется адрес организации")  # ← Опционально
+                               help_text="Если не заполнен, используется адрес организации")
     audience = models.CharField("Аудитория", max_length=100, blank=True)
 
     @property
@@ -98,7 +108,12 @@ class Classroom(models.Model):
         verbose_name = "Аудитория/Тренажёр"
         verbose_name_plural = "Аудитории/Тренажёры"
         ordering = ['title']
-    def __str__(self): return f"{self.title} ({self.audience})"
+
+    def __str__(self):
+        # ИСПРАВЛЕНО: Красивый вывод без пустых скобок, если audience не заполнено
+        if self.audience:
+            return f"{self.title} ({self.audience})"
+        return str(self.title)
 
 class License(models.Model):
     organ = models.CharField("Название органа", max_length=200)
