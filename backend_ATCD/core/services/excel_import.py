@@ -439,14 +439,16 @@ def import_staff(file_path):
         if users_to_create:
             User.objects.bulk_create(users_to_create)
 
-            # Привязываем созданных пользователей к сотрудникам одним запросом
-            staff_to_update = []
-            for person in needs_user:
-                user = staff_user_map.get(person.id)
-                if user:
-                    person.user = user
-                    staff_to_update.append(person)
-            Staff.objects.bulk_update(staff_to_update, ['user'])
+            # Создаем "легковесные" объекты только с id и user_id для bulk_update
+            staff_to_update = [
+                Staff(id=person.id, user_id=staff_user_map[person.id].id)
+                for person in needs_user
+                if person.id in staff_user_map
+            ]
+
+            if staff_to_update:
+                Staff.objects.bulk_update(staff_to_update, ['user_id'])
+                print(f"✅ Привязано {len(staff_to_update)} пользователей к сотрудникам одним запросом")
 
     finally:
         # Обязательно включаем сигнал обратно для ручной работы через админку
@@ -611,14 +613,16 @@ def import_students(file_path):
         if users_to_create:
             User.objects.bulk_create(users_to_create)
 
-            # Привязываем созданных пользователей к студентам одним запросом
-            students_to_update = []
-            for person in needs_user:
-                user = student_user_map.get(person.id)
-                if user:
-                    person.user = user
-                    students_to_update.append(person)
-            Student.objects.bulk_update(students_to_update, ['user'])
+            # Создаем "легковесные" объекты только с id и user_id для bulk_update
+            students_to_update = [
+                Student(id=person.id, user_id=student_user_map[person.id].id)
+                for person in needs_user
+                if person.id in student_user_map
+            ]
+
+            if students_to_update:
+                Student.objects.bulk_update(students_to_update, ['user_id'])
+                print(f"✅ Привязано {len(students_to_update)} пользователей к студентам одним запросом")
 
     finally:
         # Обязательно включаем сигнал обратно для ручной работы через админку
