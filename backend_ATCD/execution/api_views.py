@@ -555,8 +555,46 @@ def instructor_complete_group(request, group_id):
     # ======================================================================
     # 5. Если всё отлично — завершаем группу
     # ======================================================================
+
     group.status = 'completed'
-    group.save(update_fields=['status'])
+
+    # === НОВОЕ: Вычисляем фактическую дату завершения ===
+    last_schedule_item = ScheduleItem.objects.filter(group=group).order_by('-date').first()
+    if last_schedule_item:
+        group.actual_completion_date = last_schedule_item.date
+    else:
+        group.actual_completion_date = timezone.now().date()
+    # ===================================================
+
+    group.save(update_fields=['status', 'actual_completion_date'])
+
+    # ======================================================================
+    # НОВОЕ: Автоматическая генерация системной подписи куратора
+    # ======================================================================
+    if group.curator:
+        signature_text = f"{group.curator.full_name} (системная) {timezone.now().strftime('%d.%m.%Y %H:%M')}"
+
+        # Получаем всех студентов группы
+        enrollments = list(Enrollment.objects.filter(group=group))
+
+        # Создаем объекты ComplianceLog в памяти для массовой вставки
+        logs_to_create = [
+            ComplianceLog(
+                enrollment=enrollment,
+                staff=group.curator,
+                action_type='methodist_documents_issued',
+                timestamp=timezone.now()
+            )
+            for enrollment in enrollments
+        ]
+
+        # Массово сохраняем в базу одним запросом
+        if logs_to_create:
+            ComplianceLog.objects.bulk_create(logs_to_create)
+            print(f"✅ Создано {len(logs_to_create)} подписей куратора для группы {group.id}")
+    else:
+        print(f"⚠️ У группы {group.id} не назначен куратор. Подписи не созданы.")
+    # ======================================================================
 
     return Response({
         'message': 'Группа успешно завершена и передана методисту для архивации и печати документов.'

@@ -54,6 +54,13 @@ class Group(models.Model):
     start_face_to_face = models.DateField(null=True, blank=True, verbose_name="Дата начала очных занятий")
     end_date = models.DateField(null=True, blank=True, verbose_name="Плановая дата окончания")
 
+    actual_completion_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Фактическая дата завершения обучения",
+        help_text="Дата последнего занятия/экзамена. Используется в сертификатах и ЗНТ. Можно редактировать вручную."
+    )
+
     mentor = models.ForeignKey(Staff, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Наставник группы",
                                related_name='mentor_groups')
     curator = models.ForeignKey(Staff, on_delete=models.SET_NULL, null=True, blank=True,

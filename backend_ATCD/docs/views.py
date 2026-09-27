@@ -326,8 +326,6 @@ def complete_all_enrollments(request, group_id):
 
 def check_and_close_group(group):
     """Автоматически меняет статус группы на completed, если все студенты обработаны"""
-    from django.utils import timezone
-    from execution.models import ComplianceLog
 
     total = Enrollment.objects.filter(group=group).count()
     if total == 0:
@@ -336,7 +334,19 @@ def check_and_close_group(group):
     finished = Enrollment.objects.filter(group=group, status__in=['completed', 'dismissed']).count()
     if total == finished:
         group.status = 'completed'
-        group.save()
+
+        # === НОВОЕ: Вычисляем и сохраняем фактическую дату завершения ===
+        # Берем дату самого последнего занятия в расписании группы
+        last_schedule_item = ScheduleItem.objects.filter(group=group).order_by('-date').first()
+
+        if last_schedule_item:
+            group.actual_completion_date = last_schedule_item.date
+        else:
+            # Если расписания нет, используем текущую дату
+            group.actual_completion_date = timezone.now().date()
+        # ================================================================
+
+        group.save(update_fields=['status', 'actual_completion_date'])
 
         # ======================================================================
         # НОВОЕ: Создаем системную подпись куратора (методиста) для всех студентов
@@ -350,8 +360,7 @@ def check_and_close_group(group):
                 ComplianceLog(
                     enrollment=enrollment,
                     staff=group.curator,
-                    action_type='methodist_documents_issued',  # <-- НОВОЕ ДЕЙСТВИЕ
-                    signature_string=signature_text,
+                    action_type='methodist_documents_issued',
                     timestamp=timezone.now()
                 )
                 for enrollment in enrollments

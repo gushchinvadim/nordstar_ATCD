@@ -239,7 +239,7 @@ class GroupAdmin(admin.ModelAdmin):
     fieldsets = (
         # ← Убрали 'application' из кортежа полей
         ('Основная информация', {'fields': ('serial_number', 'application', 'assigned_number', 'order_in_number', 'order_in_date', 'module', 'status')}),
-        ('Место и время', {'fields': ('location', 'start_date', 'start_face_to_face', 'end_date', 'is_sdo', 'start_time_default')}),
+        ('Место и время', {'fields': ('location', 'start_date', 'start_face_to_face', 'end_date', 'is_sdo', 'start_time_default', 'actual_completion_date')}),
         ('Преподавательский состав', {'fields': ('mentor', 'curator', 'director')}),
     )
 

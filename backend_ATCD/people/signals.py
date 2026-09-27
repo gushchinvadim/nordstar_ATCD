@@ -7,23 +7,23 @@ from .models import Student, Staff
 
 @receiver(post_save, sender=Student)
 def create_student_user(sender, instance, created, **kwargs):
-    """Автоматически создает Django User при создании Student"""
-    if created:
+    """Создает Django User при ручном создании Student (например, через админку)"""
+    if created and not instance.user:
         email = getattr(instance, 'email', '')
 
-        # Логика логина и пароля
         if email and '@' in email:
             username = email.split('@')[0].strip().lower()
-            password = email  # Пароль = полный email
+            password = email
         else:
-            username = f"student_{instance.id}"
-            password = "Nordstar2026!"  # Fallback
+            # Если email нет, используем фамилию. ID добавляется только сигналом как крайняя мера.
+            username = f"student_{instance.surname.lower().replace(' ', '_')}" if instance.surname else f"student_{instance.id}"
+            password = "Nordstar2026!"
 
-        # Проверка на уникальность логина
+        # ЗАЩИТА ОТ ДУБЛИКАТОВ: Если логин занят, добавляем ID студента.
+        # Это гарантирует, что два студента с одинаковым email не получат один логин.
         if User.objects.filter(username=username).exists():
             username = f"{username}_{instance.id}"
 
-        # Создаем пользователя
         user = User.objects.create_user(
             username=username,
             email=email,
@@ -32,22 +32,22 @@ def create_student_user(sender, instance, created, **kwargs):
             last_name=instance.surname
         )
 
-        # Привязываем User к Student
         instance.user = user
         instance.save(update_fields=['user'])
 
 
 @receiver(post_save, sender=Staff)
 def create_staff_user(sender, instance, created, **kwargs):
-    """Автоматически создает Django User при создании Staff"""
-    if created:
+    """Создает Django User при ручном создании Staff"""
+    if created and not instance.user:
         email = getattr(instance, 'email', '')
 
         if email and '@' in email:
             username = email.split('@')[0].strip().lower()
             password = email
         else:
-            username = f"staff_{instance.id}"
+            name_part = instance.full_name.split()[0].lower() if instance.full_name else 'staff'
+            username = f"staff_{name_part}"
             password = "Nordstar2026!"
 
         if User.objects.filter(username=username).exists():

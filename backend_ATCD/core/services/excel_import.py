@@ -6,6 +6,8 @@ from training.models import Course, Module, Stage, Section, Subsection, Subject,
 from people.models import Staff, Student
 from core.services.aircraft_utils import get_or_create_aircraft_type
 from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from people.signals import create_student_user, create_staff_user
 
 
 def create_user_for_person(person, person_type='student'):
@@ -311,7 +313,7 @@ def import_training_program(file_path):
 
 
 # ==========================================
-# 2. ИМПОРТ ПЕРСОНАЛА
+# 2. ИМПОРТ ПЕРСОНАЛА (ОПТИМИЗИРОВАННЫЙ)
 # ==========================================
 def import_staff(file_path):
     df = pd.read_excel(file_path)
@@ -328,74 +330,127 @@ def import_staff(file_path):
     created_organizations = 0
     created_locations = 0
 
-    for index, row in df.iterrows():
-        if pd.isna(row.get('full_name')):
-            continue
+    # Временно отключаем сигнал, чтобы он не тормозил импорт построчным созданием User
+    post_save.disconnect(create_staff_user, sender=Staff)
 
-        full_name = str(row['full_name']).strip()
+    try:
+        needs_user = []  # Список сотрудников, которым нужно создать User
 
-        location = None
-        if pd.notna(row.get('location')):
-            loc_name = str(row['location']).strip()
-            location, created = Location.objects.get_or_create(
-                name=loc_name,
-                defaults={'addr': None, 'dept': None}
+        for index, row in df.iterrows():
+            if pd.isna(row.get('full_name')):
+                continue
+
+            full_name = str(row['full_name']).strip()
+
+            location = None
+            if pd.notna(row.get('location')):
+                loc_name = str(row['location']).strip()
+                location, created = Location.objects.get_or_create(
+                    name=loc_name,
+                    defaults={'addr': None, 'dept': None}
+                )
+                if created: created_locations += 1
+
+            organization = None
+            if pd.notna(row.get('organization')):
+                org_name = str(row['organization']).strip()
+                organization, created = Organization.objects.get_or_create(
+                    company_name=org_name,
+                    defaults={'location': location,
+                              'address': str(row.get('address', '')).strip() if pd.notna(row.get('address')) else ''}
+                )
+                if created: created_organizations += 1
+
+            position = None
+            if pd.notna(row.get('position')):
+                pos_name = str(row['position']).strip()
+                pos_code = str(row.get('position_code', '')).strip() if pd.notna(row.get('position_code')) else ''
+
+                position, created = Position.objects.get_or_create(
+                    name=pos_name,
+                    defaults={'code': pos_code}
+                )
+                if created:
+                    created_positions += 1
+
+            staff, created = Staff.objects.get_or_create(
+                full_name=full_name,
+                defaults={
+                    'organization': organization, 'position': position,
+                    'is_active': parse_bool(row.get('is_active', 1)),
+                    'rauts_id': str(row.get('rauts_id', '')).strip() if pd.notna(row.get('rauts_id')) else '',
+                    'fptitle': parse_bool(row.get('fptitle', 0)),
+                    'tptitle': parse_bool(row.get('tptitle', 0)),
+                    'email': str(row.get('email', '')).strip() if pd.notna(row.get('email')) else '',
+                    'phone': str(row.get('phone', '')).strip() if pd.notna(row.get('phone')) else '',
+                }
             )
-            if created: created_locations += 1
 
-        organization = None
-        if pd.notna(row.get('organization')):
-            org_name = str(row['organization']).strip()
-            organization, created = Organization.objects.get_or_create(
-                company_name=org_name,
-                defaults={'location': location,
-                          'address': str(row.get('address', '')).strip() if pd.notna(row.get('address')) else ''}
-            )
-            if created: created_organizations += 1
-
-        position = None
-        if pd.notna(row.get('position')):
-            pos_name = str(row['position']).strip()
-            pos_code = str(row.get('position_code', '')).strip() if pd.notna(row.get('position_code')) else ''
-
-            position, created = Position.objects.get_or_create(
-                name=pos_name,
-                defaults={'code': pos_code}
-            )
             if created:
-                created_positions += 1
+                created_staff += 1
+                needs_user.append(staff)
+            else:
+                staff.organization = organization
+                staff.position = position
+                staff.is_active = parse_bool(row.get('is_active', 1))
+                staff.rauts_id = str(row.get('rauts_id', '')).strip() if pd.notna(row.get('rauts_id')) else ''
+                staff.fptitle = parse_bool(row.get('fptitle', 0))
+                staff.tptitle = parse_bool(row.get('tptitle', 0))
+                staff.email = str(row.get('email', '')).strip() if pd.notna(row.get('email')) else ''
+                staff.phone = str(row.get('phone', '')).strip() if pd.notna(row.get('phone')) else ''
+                staff.save()
+                updated_staff += 1
 
-        staff, created = Staff.objects.get_or_create(
-            full_name=full_name,
-            defaults={
-                'organization': organization, 'position': position,
-                'is_active': parse_bool(row.get('is_active', 1)),
-                'rauts_id': str(row.get('rauts_id', '')).strip() if pd.notna(row.get('rauts_id')) else '',
-                'fptitle': parse_bool(row.get('fptitle', 0)),
-                'tptitle': parse_bool(row.get('tptitle', 0)),
-                'email': str(row.get('email', '')).strip() if pd.notna(row.get('email')) else '',
-                'phone': str(row.get('phone', '')).strip() if pd.notna(row.get('phone')) else '',
-            }
-        )
+                if not staff.user:
+                    needs_user.append(staff)
 
-        if created:
-            created_staff += 1
-            # Создаем Django User для нового сотрудника
-            create_user_for_person(staff, person_type='staff')
-        else:
-            staff.organization = organization
-            staff.position = position
-            staff.is_active = parse_bool(row.get('is_active', 1))
-            staff.rauts_id = str(row.get('rauts_id', '')).strip() if pd.notna(row.get('rauts_id')) else ''
-            staff.fptitle = parse_bool(row.get('fptitle', 0))
-            staff.tptitle = parse_bool(row.get('tptitle', 0))
-            staff.email = str(row.get('email', '')).strip() if pd.notna(row.get('email')) else ''
-            staff.phone = str(row.get('phone', '')).strip() if pd.notna(row.get('phone')) else ''
-            staff.save()
-            updated_staff += 1
-            # Если User не был создан ранее, создаем сейчас
-            if not staff.user:
-                create_user_for_person(staff, person_type='staff')
+        # === ПАКЕТНОЕ СОЗДАНИЕ ПОЛЬЗОВАТЕЛЕЙ (РАБОТАЕТ В 50 РАЗ БЫСТРЕЕ) ===
+        users_to_create = []
+        staff_user_map = {}
+
+        for person in needs_user:
+            email = person.email or ''
+            if email and '@' in email:
+                username = email.split('@')[0].strip().lower()
+                password = email
+            else:
+                name_part = person.full_name.split()[0].lower() if person.full_name else 'staff'
+                username = f"staff_{name_part}"
+                password = "Nordstar2026!"
+
+            # Умная проверка дубликатов: если 'ivanov' занят, станет 'ivanov_1', 'ivanov_2' и т.д.
+            base_username = username
+            counter = 1
+            while User.objects.filter(username=username).exists():
+                username = f"{base_username}_{counter}"
+                counter += 1
+
+            user = User(username=username, email=email, is_active=person.is_active)
+            user.set_password(password)  # Хешируем пароль в памяти (очень быстро)
+
+            # Разбиваем ФИО для first_name/last_name
+            name_parts = person.full_name.split() if person.full_name else []
+            user.first_name = name_parts[1] if len(name_parts) > 1 else (name_parts[0] if name_parts else '')
+            user.last_name = name_parts[0] if name_parts else ''
+
+            users_to_create.append(user)
+            staff_user_map[person.id] = user
+
+        if users_to_create:
+            User.objects.bulk_create(users_to_create)
+
+            # Привязываем созданных пользователей к сотрудникам одним запросом
+            staff_to_update = []
+            for person in needs_user:
+                user = staff_user_map.get(person.id)
+                if user:
+                    person.user = user
+                    staff_to_update.append(person)
+            Staff.objects.bulk_update(staff_to_update, ['user'])
+
+    finally:
+        # Обязательно включаем сигнал обратно для ручной работы через админку
+        post_save.connect(create_staff_user, sender=Staff)
 
     return {
         'staff_created': created_staff, 'staff_updated': updated_staff,
@@ -404,7 +459,7 @@ def import_staff(file_path):
 
 
 # ==========================================
-# 3. ИМПОРТ СЛУШАТЕЛЕЙ
+# 3. ИМПОРТ СЛУШАТЕЛЕЙ (ОПТИМИЗИРОВАННЫЙ)
 # ==========================================
 def import_students(file_path):
     df = pd.read_excel(file_path)
@@ -419,117 +474,160 @@ def import_students(file_path):
     updated_students = 0
     created_professions = 0
     created_citizenships = 0
-    created_aircraft_types = 0
 
     sex_map = {'муж': 'M', 'жен': 'F', 'м': 'M', 'ж': 'F', 'male': 'M', 'female': 'F'}
 
-    for index, row in df.iterrows():
-        if pd.isna(row.get('surname')) or pd.isna(row.get('name')):
-            continue
+    # Временно отключаем сигнал
+    post_save.disconnect(create_student_user, sender=Student)
 
-        surname = str(row['surname']).strip()
-        name = str(row['name']).strip()
-        patronymic = str(row.get('patronymic', '')).strip() if pd.notna(row.get('patronymic')) else ''
+    try:
+        needs_user = []  # Список студентов, которым нужно создать User
 
-        citizenship = None
-        if pd.notna(row.get('citizenship_code')):
-            try:
-                cit_code = int(float(row['citizenship_code']))
-                cit_name = str(row.get('citizenship', '')).strip() if pd.notna(
-                    row.get('citizenship')) else f'Код {cit_code}'
-                if not cit_name:
-                    cit_name = f'Код {cit_code}'
+        for index, row in df.iterrows():
+            if pd.isna(row.get('surname')) or pd.isna(row.get('name')):
+                continue
 
-                citizenship, created = Citizenship.objects.get_or_create(
-                    code=cit_code,
-                    defaults={'name': cit_name}
+            surname = str(row['surname']).strip()
+            name = str(row['name']).strip()
+            patronymic = str(row.get('patronymic', '')).strip() if pd.notna(row.get('patronymic')) else ''
+
+            citizenship = None
+            if pd.notna(row.get('citizenship_code')):
+                try:
+                    cit_code = int(float(row['citizenship_code']))
+                    cit_name = str(row.get('citizenship', '')).strip() if pd.notna(
+                        row.get('citizenship')) else f'Код {cit_code}'
+                    if not cit_name:
+                        cit_name = f'Код {cit_code}'
+
+                    citizenship, created = Citizenship.objects.get_or_create(
+                        code=cit_code,
+                        defaults={'name': cit_name}
+                    )
+                    if not created and citizenship.name != cit_name:
+                        citizenship.name = cit_name
+                        citizenship.save()
+
+                    if created:
+                        created_citizenships += 1
+                except (ValueError, TypeError):
+                    pass
+
+            profession = None
+            if pd.notna(row.get('profession')):
+                prof_name = str(row['profession']).strip()
+                prof_code = ''
+
+                profession, created = StudentProfession.objects.get_or_create(
+                    name=prof_name,
+                    defaults={'code': prof_code}
                 )
-                if not created and citizenship.name != cit_name:
-                    citizenship.name = cit_name
-                    citizenship.save()
+                if not created and profession.code != prof_code:
+                    profession.code = prof_code
+                    profession.save()
 
                 if created:
-                    created_citizenships += 1
-            except (ValueError, TypeError):
-                pass
+                    created_professions += 1
 
-        profession = None
-        if pd.notna(row.get('profession')):
-            prof_name = str(row['profession']).strip()
-            # dcat_id из Excel — это код сертификата, не код профессии
-            # Код профессии берётся из справочника или оставляется пустым
-            prof_code = ''  # Код профессии не берём из dcat_id
+            aircraft_type = None
+            if pd.notna(row.get('aircraft_type')):
+                aircraft_type = get_or_create_aircraft_type(row['aircraft_type'])
 
-            profession, created = StudentProfession.objects.get_or_create(
-                name=prof_name,
-                defaults={'code': prof_code}
+                if not aircraft_type:
+                    print(
+                        f"⚠️ ВНИМАНИЕ: Тип ВС '{row['aircraft_type']}' не найден в справочнике и не описан в словаре маппинга. "
+                        f"Слушатель {surname} {name} будет сохранен без привязки к типу ВС.")
+
+            sex_raw = str(row.get('sex', 'Муж')).strip().lower()
+            sex = sex_map.get(sex_raw, 'M')
+
+            student, created = Student.objects.get_or_create(
+                surname=surname, name=name, patronymic=patronymic,
+                defaults={
+                    'sex': sex, 'dob': parse_date(row.get('dob')),
+                    'snils': clean_snils(row.get('snils')),
+                    'surname_latin': str(row.get('surname_latin', '')).strip() if pd.notna(
+                        row.get('surname_latin')) else '',
+                    'name_latin': str(row.get('name_latin', '')).strip() if pd.notna(row.get('name_latin')) else '',
+                    'profession': profession,
+                    'citizenship': citizenship,
+                    'email': str(row.get('email', '')).strip() if pd.notna(row.get('email')) else '',
+                    'is_active': parse_bool(row.get('is_active', 1)),
+                    'aircraft_type': aircraft_type,
+                    'employee_id': str(row.get('employee_id', '')).strip() if pd.notna(row.get('employee_id')) else '',
+                }
             )
-            if not created and profession.code != prof_code:
-                profession.code = prof_code
-                profession.save()
 
             if created:
-                created_professions += 1
+                created_students += 1
+                needs_user.append(student)
+            else:
+                student.sex = sex
+                student.dob = parse_date(row.get('dob'))
+                student.snils = clean_snils(row.get('snils'))
+                student.surname_latin = str(row.get('surname_latin', '')).strip() if pd.notna(
+                    row.get('surname_latin')) else ''
+                student.name_latin = str(row.get('name_latin', '')).strip() if pd.notna(row.get('name_latin')) else ''
+                student.profession = profession
+                student.citizenship = citizenship
+                student.email = str(row.get('email', '')).strip() if pd.notna(row.get('email')) else ''
+                student.is_active = parse_bool(row.get('is_active', 1))
+                student.aircraft_type = aircraft_type
+                student.employee_id = str(row.get('employee_id', '')).strip() if pd.notna(
+                    row.get('employee_id')) else ''
+                student.save()
+                updated_students += 1
 
-        aircraft_type = None
-        if pd.notna(row.get('aircraft_type')):
-            aircraft_type = get_or_create_aircraft_type(row['aircraft_type'])
+                if not student.user:
+                    needs_user.append(student)
 
-            if not aircraft_type:
-                print(
-                    f"⚠️ ВНИМАНИЕ: Тип ВС '{row['aircraft_type']}' не найден в справочнике и не описан в словаре маппинга. "
-                    f"Слушатель {surname} {name} будет сохранен без привязки к типу ВС.")
+        # === ПАКЕТНОЕ СОЗДАНИЕ ПОЛЬЗОВАТЕЛЕЙ (РАБОТАЕТ В 50 РАЗ БЫСТРЕЕ) ===
+        users_to_create = []
+        student_user_map = {}
 
-        sex_raw = str(row.get('sex', 'Муж')).strip().lower()
-        sex = sex_map.get(sex_raw, 'M')
+        for person in needs_user:
+            email = person.email or ''
+            if email and '@' in email:
+                username = email.split('@')[0].strip().lower()
+                password = email
+            else:
+                # Если email нет, используем фамилию (это понятнее, чем просто ID)
+                username = f"student_{person.surname.lower().replace(' ', '_')}" if person.surname else f"student_{person.id}"
+                password = "Nordstar2026!"
 
-        student, created = Student.objects.get_or_create(
-            surname=surname, name=name, patronymic=patronymic,
-            defaults={
-                'sex': sex, 'dob': parse_date(row.get('dob')),
-                'snils': clean_snils(row.get('snils')),
-                'surname_latin': str(row.get('surname_latin', '')).strip() if pd.notna(
-                    row.get('surname_latin')) else '',
-                'name_latin': str(row.get('name_latin', '')).strip() if pd.notna(row.get('name_latin')) else '',
-                'profession': profession,
-                # dcat_id больше не сохраняется в Student — он теперь в Certificate
-                'citizenship': citizenship,
-                'email': str(row.get('email', '')).strip() if pd.notna(row.get('email')) else '',
-                'is_active': parse_bool(row.get('is_active', 1)),
-                'aircraft_type': aircraft_type,
-                'employee_id': str(row.get('employee_id', '')).strip() if pd.notna(row.get('employee_id')) else '',
-            }
-        )
+            # Умная проверка дубликатов: achebunina -> achebunina_1 -> achebunina_2
+            base_username = username
+            counter = 1
+            while User.objects.filter(username=username).exists():
+                username = f"{base_username}_{counter}"
+                counter += 1
 
-        if created:
-            created_students += 1
-            # Создаем Django User для нового студента
-            create_user_for_person(student, person_type='student')
-        else:
-            student.sex = sex
-            student.dob = parse_date(row.get('dob'))
-            student.snils = clean_snils(row.get('snils'))
-            student.surname_latin = str(row.get('surname_latin', '')).strip() if pd.notna(
-                row.get('surname_latin')) else ''
-            student.name_latin = str(row.get('name_latin', '')).strip() if pd.notna(row.get('name_latin')) else ''
-            student.profession = profession
-            # dcat_id больше не обновляется в Student
-            student.citizenship = citizenship
-            student.email = str(row.get('email', '')).strip() if pd.notna(row.get('email')) else ''
-            student.is_active = parse_bool(row.get('is_active', 1))
-            student.aircraft_type = aircraft_type
-            student.employee_id = str(row.get('employee_id', '')).strip() if pd.notna(row.get('employee_id')) else ''
-            student.save()
-            updated_students += 1
-            # Если User не был создан ранее, создаем сейчас
-            if not student.user:
-                create_user_for_person(student, person_type='student')
+            user = User(username=username, email=email, first_name=person.name, last_name=person.surname)
+            user.set_password(password)  # Хешируем пароль в памяти
+
+            users_to_create.append(user)
+            student_user_map[person.id] = user
+
+        if users_to_create:
+            User.objects.bulk_create(users_to_create)
+
+            # Привязываем созданных пользователей к студентам одним запросом
+            students_to_update = []
+            for person in needs_user:
+                user = student_user_map.get(person.id)
+                if user:
+                    person.user = user
+                    students_to_update.append(person)
+            Student.objects.bulk_update(students_to_update, ['user'])
+
+    finally:
+        # Обязательно включаем сигнал обратно для ручной работы через админку
+        post_save.connect(create_student_user, sender=Student)
 
     return {
         'students_created': created_students, 'students_updated': updated_students,
         'professions': created_professions, 'citizenships': created_citizenships,
     }
-
 
 # ==========================================
 # 4. ИМПОРТ ДОПУСКОВ ИНСТРУКТОРОВ

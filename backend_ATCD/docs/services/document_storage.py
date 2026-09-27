@@ -770,7 +770,7 @@ class DocumentStorageService:
         curator_signatures_dict = {}
         if group.curator:
             curator_logs = ComplianceLog.objects.filter(
-                enrollment__group=group, staff=group.curator, action_type='grades_submitted'
+                enrollment__group=group, staff=group.curator, action_type='methodist_documents_issued'  # ← НОВОЕ
             ).select_related('enrollment')
             for log in curator_logs:
                 if log.enrollment_id not in curator_signatures_dict or log.timestamp > \
@@ -856,7 +856,7 @@ class DocumentStorageService:
         curator_cert_signatures = {}
         if group.curator:
             for log in ComplianceLog.objects.filter(
-                    enrollment__group=group, staff=group.curator, action_type='grades_submitted'
+                    enrollment__group=group, staff=group.curator, action_type='methodist_documents_issued'  # ← НОВОЕ
             ).select_related('enrollment'):
                 if log.enrollment_id not in curator_cert_signatures:
                     curator_cert_signatures[log.enrollment_id] = log.signature_string
