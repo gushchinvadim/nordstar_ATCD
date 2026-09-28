@@ -13,12 +13,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# @staff_member_required
-# @require_POST
+@staff_member_required
+@require_POST
 def save_rauc_excel(request, group_id):
-    # === ЯДЕРНЫЙ ТЕСТ ===
-    raise Exception("ЕСЛИ ВЫ ВИДИТЕ ЭТО В ЛОГАХ, ЗНАЧИТ DJANGO ЧИТАЕТ ЭТОТ ФАЙЛ!")
-
 
     """AJAX: Сохраняет Excel РАУЦ в папку группы и БД"""
     group = get_object_or_404(Group, id=group_id)
@@ -42,8 +39,6 @@ def save_rauc_excel(request, group_id):
 @staff_member_required
 @require_POST
 def save_rauc_xml(request, group_id):
-    print(f"!!! ПОЛУЧЕН МЕТОД: {request.method} !!!")
-    print(f"!!! ПОЛУЧЕН URL: {request.path} !!!")
     """AJAX: Сохраняет XML РАУЦ в папку группы и БД"""
     group = get_object_or_404(Group, id=group_id)
     try:
@@ -106,8 +101,6 @@ def download_rauc_file(request, file_path):
 @staff_member_required
 @require_POST
 def save_frdo_excel(request, group_id):
-    print(f"!!! ПОЛУЧЕН МЕТОД: {request.method} !!!")
-    print(f"!!! ПОЛУЧЕН URL: {request.path} !!!")
     """AJAX: Сохраняет Excel ФРДО в папку группы и БД"""
     group = get_object_or_404(Group, id=group_id)
     try:
