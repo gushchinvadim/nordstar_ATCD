@@ -9,13 +9,14 @@ from django.views.decorators.http import require_POST
 from execution.models import Group
 from reporting.services.frdo_export import FRDOExportService
 from reporting.services.rauc_export import RAUCExportService
+import logging
+logger = logging.getLogger(__name__)
 
-
-@staff_member_required
-@require_POST
+# @staff_member_required
+# @require_POST
 def save_rauc_excel(request, group_id):
-    print(f"!!! ПОЛУЧЕН МЕТОД: {request.method} !!!")
-    print(f"!!! ПОЛУЧЕН URL: {request.path} !!!")
+    logger.error(f"!!! DEBUG save_rauc_excel: Метод = {request.method}, Путь = {request.path}, User = {request.user.username}, is_staff = {request.user.is_staff} !!!")
+
     """AJAX: Сохраняет Excel РАУЦ в папку группы и БД"""
     group = get_object_or_404(Group, id=group_id)
     try:
