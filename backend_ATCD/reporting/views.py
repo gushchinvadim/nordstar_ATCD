@@ -15,8 +15,15 @@ logger = logging.getLogger(__name__)
 # @staff_member_required
 # @require_POST
 def save_rauc_excel(request, group_id):
-    logger.error(f"!!! DEBUG save_rauc_excel: Метод = {request.method}, Путь = {request.path}, User = {request.user.username}, is_staff = {request.user.is_staff} !!!")
-
+    # === МАКСИМАЛЬНАЯ ОТЛАДКА ===
+    print("=" * 80)
+    print(f"!!! ФУНКЦИЯ ВЫЗВАНА !!!")
+    print(f"Метод: {request.method}")
+    print(f"Путь: {request.path}")
+    print(f"User: {request.user}")
+    print(f"is_staff: {request.user.is_staff}")
+    print("=" * 80)
+    # ============================
     """AJAX: Сохраняет Excel РАУЦ в папку группы и БД"""
     group = get_object_or_404(Group, id=group_id)
     try:
