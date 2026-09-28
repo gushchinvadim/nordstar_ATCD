@@ -433,7 +433,10 @@ def import_staff(file_path):
         users_to_create = []
         staff_user_map = {}
 
-        # ПЕРЕД созданием пользователей переключаем на быстрый хешер
+        # ОДИН РАЗ загружаем все существующие usernames в память
+        existing_usernames = set(User.objects.values_list('username', flat=True))
+
+        # Переключаем на быстрый хешер
         original_hashers = settings.PASSWORD_HASHERS
         settings.PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 
@@ -441,24 +444,26 @@ def import_staff(file_path):
             for person in needs_user:
                 email = person.email or ''
                 if email and '@' in email:
-                    # Очищаем email от любых скрытых пробелов и переносов строки из Excel
                     clean_email = email.strip()
                     username = clean_email.split('@')[0].lower()
-                    password = clean_email  # Теперь пароль тоже идеально чистый
+                    password = clean_email
                 else:
                     name_part = person.full_name.split()[0].lower() if person.full_name else 'staff'
                     username = f"staff_{name_part}"
                     password = "Nordstar2026!"
 
-                # Умная проверка дубликатов
+                # БЫСТРАЯ проверка дубликатов (в памяти, без запросов к БД!)
                 base_username = username
                 counter = 1
-                while User.objects.filter(username=username).exists():
+                while username in existing_usernames:
                     username = f"{base_username}_{counter}"
                     counter += 1
 
-                user = User(username=username, email=email, is_active=person.is_active)
-                user.set_password(password)  # Теперь хешируется через MD5 (мгновенно!)
+                existing_usernames.add(username)
+
+                user = User(username=username, email=clean_email if email and '@' in email else '',
+                            is_active=person.is_active)
+                user.set_password(password)
 
                 # Разбиваем ФИО
                 name_parts = person.full_name.split() if person.full_name else []
@@ -479,7 +484,6 @@ def import_staff(file_path):
                 if staff_to_update:
                     Staff.objects.bulk_update(staff_to_update, ['user_id'])
         finally:
-            # Возвращаем безопасный хешер
             settings.PASSWORD_HASHERS = original_hashers
 
     finally:
@@ -619,7 +623,21 @@ def import_students(file_path):
         users_to_create = []
         student_user_map = {}
 
-        # ПЕРЕД созданием пользователей переключаем на быстрый хешер
+        # ОДИН РАЗ загружаем все существующие usernames в память (быстрая проверка дубликатов)
+        existing_usernames = set(User.objects.values_list('username', flat=True))
+
+        # Загружаем маппинг email -> user_id для поиска существующих пользователей (дубликаты сотрудник=студент)
+        emails_to_check = [
+            p.email.lower().strip()
+            for p in needs_user
+            if p.email and '@' in p.email
+        ]
+        existing_users_by_email = {
+            u.email.lower().strip(): u.id
+            for u in User.objects.filter(email__in=emails_to_check).exclude(email='')
+        }
+
+        # Переключаем на быстрый хешер
         original_hashers = settings.PASSWORD_HASHERS
         settings.PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 
@@ -627,23 +645,42 @@ def import_students(file_path):
             for person in needs_user:
                 email = person.email or ''
                 if email and '@' in email:
-                    # Очищаем email от любых скрытых пробелов и переносов строки из Excel
                     clean_email = email.strip()
                     username = clean_email.split('@')[0].lower()
-                    password = clean_email  # Теперь пароль тоже идеально чистый
+                    password = clean_email
                 else:
                     username = f"student_{person.surname.lower().replace(' ', '_')}" if person.surname else f"student_{person.id}"
                     password = "Nordstar2026!"
 
-                # Умная проверка дубликатов
+                # Проверяем, есть ли уже пользователь с таким email (возможно, это сотрудник)
+                existing_user_id = existing_users_by_email.get(clean_email.lower())
+
+                if existing_user_id:
+                    # Пользователь уже существует - используем его (не создаём дубликат)
+                    person.user_id = existing_user_id
+                    person.save(update_fields=['user_id'])
+                    print(
+                        f"️  Использован существующий пользователь для {person.surname} {person.name} (user_id={existing_user_id})")
+                    continue  # Пропускаем создание нового пользователя
+
+                # БЫСТРАЯ проверка дубликатов username (в памяти, без запросов к БД!)
                 base_username = username
                 counter = 1
-                while User.objects.filter(username=username).exists():
+                while username in existing_usernames:
                     username = f"{base_username}_{counter}"
                     counter += 1
 
-                user = User(username=username, email=email, first_name=person.name, last_name=person.surname)
-                user.set_password(password)  # Теперь хешируется через MD5 (мгновенно!)
+                # Добавляем в множество, чтобы следующий не получил тот же логин
+                existing_usernames.add(username)
+
+                user = User(
+                    username=username,
+                    email=clean_email if email and '@' in email else '',
+                    is_active=person.is_active,
+                    first_name=person.name,
+                    last_name=person.surname
+                )
+                user.set_password(password)  # Хешируется через MD5 (мгновенно!)
 
                 users_to_create.append(user)
                 student_user_map[person.id] = user
@@ -658,8 +695,8 @@ def import_students(file_path):
                 ]
                 if students_to_update:
                     Student.objects.bulk_update(students_to_update, ['user_id'])
+                    print(f"✅ Привязано {len(students_to_update)} новых пользователей к студентам")
         finally:
-            # Возвращаем безопасный хешер
             settings.PASSWORD_HASHERS = original_hashers
 
     finally:
