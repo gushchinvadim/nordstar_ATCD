@@ -421,8 +421,10 @@ def import_staff(file_path):
             for person in needs_user:
                 email = person.email or ''
                 if email and '@' in email:
-                    username = email.split('@')[0].strip().lower()
-                    password = email
+                    # Очищаем email от любых скрытых пробелов и переносов строки из Excel
+                    clean_email = email.strip()
+                    username = clean_email.split('@')[0].lower()
+                    password = clean_email  # Теперь пароль тоже идеально чистый
                 else:
                     name_part = person.full_name.split()[0].lower() if person.full_name else 'staff'
                     username = f"staff_{name_part}"
@@ -605,8 +607,10 @@ def import_students(file_path):
             for person in needs_user:
                 email = person.email or ''
                 if email and '@' in email:
-                    username = email.split('@')[0].strip().lower()
-                    password = email
+                    # Очищаем email от любых скрытых пробелов и переносов строки из Excel
+                    clean_email = email.strip()
+                    username = clean_email.split('@')[0].lower()
+                    password = clean_email  # Теперь пароль тоже идеально чистый
                 else:
                     username = f"student_{person.surname.lower().replace(' ', '_')}" if person.surname else f"student_{person.id}"
                     password = "Nordstar2026!"
