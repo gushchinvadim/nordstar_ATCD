@@ -404,9 +404,16 @@ ${docsList}
     function saveRaucFile(format) {
         if (!confirm('Сгенерировать отчёт и сохранить в папку группы?')) return;
 
-        const url = format === 'excel'
+        let url = format === 'excel'
             ? "{% url 'reporting:save_rauc_excel' group.id %}"
             : "{% url 'reporting:save_rauc_xml' group.id %}";
+
+        // ГАРАНТИРУЕМ ЗАМЫКАЮЩИЙ СЛЕШ, чтобы избежать 301 редиректа
+        if (!url.endsWith('/')) {
+            url += '/';
+        }
+
+        console.log("🚀 Отправка запроса на URL:", url); // <-- ОТЛАДКА
 
         fetch(url, {
             method: 'POST',
@@ -415,7 +422,12 @@ ${docsList}
                 'Content-Type': 'application/json',
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Сервер вернул статус: ${response.status} ${response.statusText}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 if (data.warnings && data.warnings.length > 0) {
@@ -445,13 +457,23 @@ ${docsList}
                 alert('❌ Ошибка: ' + data.error);
             }
         })
-        .catch(error => alert('❌ Ошибка сети: ' + error));
+        .catch(error => {
+            console.error("❌ Детали ошибки fetch:", error);
+            alert('❌ Ошибка сети или сервера: ' + error.message);
+        });
     }
 
     function saveFrdoFile(format) {
         if (!confirm('Сгенерировать отчёт ФРДО и сохранить в папку группы?')) return;
 
-        const url = "{% url 'reporting:save_frdo_excel' group.id %}";
+        let url = "{% url 'reporting:save_frdo_excel' group.id %}";
+
+        // ГАРАНТИРУЕМ ЗАМЫКАЮЩИЙ СЛЕШ
+        if (!url.endsWith('/')) {
+            url += '/';
+        }
+
+        console.log("🚀 Отправка запроса ФРДО на URL:", url); // <-- ОТЛАДКА
 
         fetch(url, {
             method: 'POST',
@@ -460,7 +482,12 @@ ${docsList}
                 'Content-Type': 'application/json',
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Сервер вернул статус: ${response.status} ${response.statusText}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 if (data.warnings && data.warnings.length > 0) {
@@ -483,7 +510,10 @@ ${docsList}
                 alert('❌ Ошибка: ' + data.error);
             }
         })
-        .catch(error => alert('❌ Ошибка сети: ' + error));
+        .catch(error => {
+            console.error("❌ Детали ошибки fetch:", error);
+            alert('❌ Ошибка сети или сервера: ' + error.message);
+        });
     }
     </script>
 </body>

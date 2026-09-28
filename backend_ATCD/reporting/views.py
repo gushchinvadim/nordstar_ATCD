@@ -14,6 +14,8 @@ from reporting.services.rauc_export import RAUCExportService
 @staff_member_required
 @require_POST
 def save_rauc_excel(request, group_id):
+    print(f"!!! ПОЛУЧЕН МЕТОД: {request.method} !!!")
+    print(f"!!! ПОЛУЧЕН URL: {request.path} !!!")
     """AJAX: Сохраняет Excel РАУЦ в папку группы и БД"""
     group = get_object_or_404(Group, id=group_id)
     try:
@@ -36,6 +38,8 @@ def save_rauc_excel(request, group_id):
 @staff_member_required
 @require_POST
 def save_rauc_xml(request, group_id):
+    print(f"!!! ПОЛУЧЕН МЕТОД: {request.method} !!!")
+    print(f"!!! ПОЛУЧЕН URL: {request.path} !!!")
     """AJAX: Сохраняет XML РАУЦ в папку группы и БД"""
     group = get_object_or_404(Group, id=group_id)
     try:
@@ -98,6 +102,8 @@ def download_rauc_file(request, file_path):
 @staff_member_required
 @require_POST
 def save_frdo_excel(request, group_id):
+    print(f"!!! ПОЛУЧЕН МЕТОД: {request.method} !!!")
+    print(f"!!! ПОЛУЧЕН URL: {request.path} !!!")
     """AJAX: Сохраняет Excel ФРДО в папку группы и БД"""
     group = get_object_or_404(Group, id=group_id)
     try:
