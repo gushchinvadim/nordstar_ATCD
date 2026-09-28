@@ -9,7 +9,27 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from people.signals import create_student_user, create_staff_user
 from django.conf import settings
+import re
 
+
+def bulletproof_clean_email(raw_value):
+    """Агрессивная очистка email от мусора Excel/Outlook/1С"""
+    if pd.isna(raw_value):
+        return ""
+
+    email = str(raw_value)
+
+    # 1. Убираем префикс mailto: если он есть (частая проблема гиперссылок)
+    email = re.sub(r'^mailto:', '', email, flags=re.IGNORECASE)
+
+    # 2. Заменяем неразрывные пробелы и другие невидимые символы Unicode на обычные
+    email = email.replace('\xa0', ' ').replace('\u200b', '').replace('\u200c', '').replace('\u200d', '')
+
+    # 3. Убираем все пробелы по краям
+    email = email.strip()
+
+    # 4. Приводим к нижнему регистру
+    return email.lower()
 
 def create_user_for_person(person, person_type='student'):
     """
@@ -386,7 +406,7 @@ def import_staff(file_path):
                     'rauts_id': str(row.get('rauts_id', '')).strip() if pd.notna(row.get('rauts_id')) else '',
                     'fptitle': parse_bool(row.get('fptitle', 0)),
                     'tptitle': parse_bool(row.get('tptitle', 0)),
-                    'email': str(row.get('email', '')).strip() if pd.notna(row.get('email')) else '',
+                    'email': bulletproof_clean_email(row.get('email')),
                     'phone': str(row.get('phone', '')).strip() if pd.notna(row.get('phone')) else '',
                 }
             )
@@ -565,7 +585,7 @@ def import_students(file_path):
                     'name_latin': str(row.get('name_latin', '')).strip() if pd.notna(row.get('name_latin')) else '',
                     'profession': profession,
                     'citizenship': citizenship,
-                    'email': str(row.get('email', '')).strip() if pd.notna(row.get('email')) else '',
+                    'email': bulletproof_clean_email(row.get('email')),
                     'is_active': parse_bool(row.get('is_active', 1)),
                     'aircraft_type': aircraft_type,
                     'employee_id': str(row.get('employee_id', '')).strip() if pd.notna(row.get('employee_id')) else '',
