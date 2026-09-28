@@ -8,6 +8,7 @@ from core.services.aircraft_utils import get_or_create_aircraft_type
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from people.signals import create_student_user, create_staff_user
+from django.conf import settings
 
 
 def create_user_for_person(person, person_type='student'):
@@ -312,6 +313,10 @@ def import_training_program(file_path):
     }
 
 
+# В начало файла добавьте (если еще нет):
+from django.conf import settings
+
+
 # ==========================================
 # 2. ИМПОРТ ПЕРСОНАЛА (ОПТИМИЗИРОВАННЫЙ)
 # ==========================================
@@ -330,11 +335,11 @@ def import_staff(file_path):
     created_organizations = 0
     created_locations = 0
 
-    # Временно отключаем сигнал, чтобы он не тормозил импорт построчным созданием User
+    # Временно отключаем сигнал
     post_save.disconnect(create_staff_user, sender=Staff)
 
     try:
-        needs_user = []  # Список сотрудников, которым нужно создать User
+        needs_user = []
 
         for index, row in df.iterrows():
             if pd.isna(row.get('full_name')):
@@ -404,54 +409,59 @@ def import_staff(file_path):
                 if not staff.user:
                     needs_user.append(staff)
 
-        # === ПАКЕТНОЕ СОЗДАНИЕ ПОЛЬЗОВАТЕЛЕЙ (РАБОТАЕТ В 50 РАЗ БЫСТРЕЕ) ===
+        # === ПАКЕТНОЕ СОЗДАНИЕ ПОЛЬЗОВАТЕЛЕЙ ===
         users_to_create = []
         staff_user_map = {}
 
-        for person in needs_user:
-            email = person.email or ''
-            if email and '@' in email:
-                username = email.split('@')[0].strip().lower()
-                password = email
-            else:
-                name_part = person.full_name.split()[0].lower() if person.full_name else 'staff'
-                username = f"staff_{name_part}"
-                password = "Nordstar2026!"
+        # ПЕРЕД созданием пользователей переключаем на быстрый хешер
+        original_hashers = settings.PASSWORD_HASHERS
+        settings.PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 
-            # Умная проверка дубликатов: если 'ivanov' занят, станет 'ivanov_1', 'ivanov_2' и т.д.
-            base_username = username
-            counter = 1
-            while User.objects.filter(username=username).exists():
-                username = f"{base_username}_{counter}"
-                counter += 1
+        try:
+            for person in needs_user:
+                email = person.email or ''
+                if email and '@' in email:
+                    username = email.split('@')[0].strip().lower()
+                    password = email
+                else:
+                    name_part = person.full_name.split()[0].lower() if person.full_name else 'staff'
+                    username = f"staff_{name_part}"
+                    password = "Nordstar2026!"
 
-            user = User(username=username, email=email, is_active=person.is_active)
-            user.set_password(password)  # Хешируем пароль в памяти (очень быстро)
+                # Умная проверка дубликатов
+                base_username = username
+                counter = 1
+                while User.objects.filter(username=username).exists():
+                    username = f"{base_username}_{counter}"
+                    counter += 1
 
-            # Разбиваем ФИО для first_name/last_name
-            name_parts = person.full_name.split() if person.full_name else []
-            user.first_name = name_parts[1] if len(name_parts) > 1 else (name_parts[0] if name_parts else '')
-            user.last_name = name_parts[0] if name_parts else ''
+                user = User(username=username, email=email, is_active=person.is_active)
+                user.set_password(password)  # Теперь хешируется через MD5 (мгновенно!)
 
-            users_to_create.append(user)
-            staff_user_map[person.id] = user
+                # Разбиваем ФИО
+                name_parts = person.full_name.split() if person.full_name else []
+                user.first_name = name_parts[1] if len(name_parts) > 1 else (name_parts[0] if name_parts else '')
+                user.last_name = name_parts[0] if name_parts else ''
 
-        if users_to_create:
-            User.objects.bulk_create(users_to_create)
+                users_to_create.append(user)
+                staff_user_map[person.id] = user
 
-            # Создаем "легковесные" объекты только с id и user_id для bulk_update
-            staff_to_update = [
-                Staff(id=person.id, user_id=staff_user_map[person.id].id)
-                for person in needs_user
-                if person.id in staff_user_map
-            ]
+            if users_to_create:
+                User.objects.bulk_create(users_to_create)
 
-            if staff_to_update:
-                Staff.objects.bulk_update(staff_to_update, ['user_id'])
-                print(f"✅ Привязано {len(staff_to_update)} пользователей к сотрудникам одним запросом")
+                staff_to_update = [
+                    Staff(id=person.id, user_id=staff_user_map[person.id].id)
+                    for person in needs_user
+                    if person.id in staff_user_map
+                ]
+                if staff_to_update:
+                    Staff.objects.bulk_update(staff_to_update, ['user_id'])
+        finally:
+            # Возвращаем безопасный хешер
+            settings.PASSWORD_HASHERS = original_hashers
 
     finally:
-        # Обязательно включаем сигнал обратно для ручной работы через админку
+        # Включаем сигнал обратно
         post_save.connect(create_staff_user, sender=Staff)
 
     return {
@@ -483,7 +493,7 @@ def import_students(file_path):
     post_save.disconnect(create_student_user, sender=Student)
 
     try:
-        needs_user = []  # Список студентов, которым нужно создать User
+        needs_user = []
 
         for index, row in df.iterrows():
             if pd.isna(row.get('surname')) or pd.isna(row.get('name')):
@@ -537,7 +547,7 @@ def import_students(file_path):
 
                 if not aircraft_type:
                     print(
-                        f"⚠️ ВНИМАНИЕ: Тип ВС '{row['aircraft_type']}' не найден в справочнике и не описан в словаре маппинга. "
+                        f"⚠️ ВНИМАНИЕ: Тип ВС '{row['aircraft_type']}' не найден в справочнике. "
                         f"Слушатель {surname} {name} будет сохранен без привязки к типу ВС.")
 
             sex_raw = str(row.get('sex', 'Муж')).strip().lower()
@@ -583,49 +593,53 @@ def import_students(file_path):
                 if not student.user:
                     needs_user.append(student)
 
-        # === ПАКЕТНОЕ СОЗДАНИЕ ПОЛЬЗОВАТЕЛЕЙ (РАБОТАЕТ В 50 РАЗ БЫСТРЕЕ) ===
+        # === ПАКЕТНОЕ СОЗДАНИЕ ПОЛЬЗОВАТЕЛЕЙ ===
         users_to_create = []
         student_user_map = {}
 
-        for person in needs_user:
-            email = person.email or ''
-            if email and '@' in email:
-                username = email.split('@')[0].strip().lower()
-                password = email
-            else:
-                # Если email нет, используем фамилию (это понятнее, чем просто ID)
-                username = f"student_{person.surname.lower().replace(' ', '_')}" if person.surname else f"student_{person.id}"
-                password = "Nordstar2026!"
+        # ПЕРЕД созданием пользователей переключаем на быстрый хешер
+        original_hashers = settings.PASSWORD_HASHERS
+        settings.PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 
-            # Умная проверка дубликатов: achebunina -> achebunina_1 -> achebunina_2
-            base_username = username
-            counter = 1
-            while User.objects.filter(username=username).exists():
-                username = f"{base_username}_{counter}"
-                counter += 1
+        try:
+            for person in needs_user:
+                email = person.email or ''
+                if email and '@' in email:
+                    username = email.split('@')[0].strip().lower()
+                    password = email
+                else:
+                    username = f"student_{person.surname.lower().replace(' ', '_')}" if person.surname else f"student_{person.id}"
+                    password = "Nordstar2026!"
 
-            user = User(username=username, email=email, first_name=person.name, last_name=person.surname)
-            user.set_password(password)  # Хешируем пароль в памяти
+                # Умная проверка дубликатов
+                base_username = username
+                counter = 1
+                while User.objects.filter(username=username).exists():
+                    username = f"{base_username}_{counter}"
+                    counter += 1
 
-            users_to_create.append(user)
-            student_user_map[person.id] = user
+                user = User(username=username, email=email, first_name=person.name, last_name=person.surname)
+                user.set_password(password)  # Теперь хешируется через MD5 (мгновенно!)
 
-        if users_to_create:
-            User.objects.bulk_create(users_to_create)
+                users_to_create.append(user)
+                student_user_map[person.id] = user
 
-            # Создаем "легковесные" объекты только с id и user_id для bulk_update
-            students_to_update = [
-                Student(id=person.id, user_id=student_user_map[person.id].id)
-                for person in needs_user
-                if person.id in student_user_map
-            ]
+            if users_to_create:
+                User.objects.bulk_create(users_to_create)
 
-            if students_to_update:
-                Student.objects.bulk_update(students_to_update, ['user_id'])
-                print(f"✅ Привязано {len(students_to_update)} пользователей к студентам одним запросом")
+                students_to_update = [
+                    Student(id=person.id, user_id=student_user_map[person.id].id)
+                    for person in needs_user
+                    if person.id in student_user_map
+                ]
+                if students_to_update:
+                    Student.objects.bulk_update(students_to_update, ['user_id'])
+        finally:
+            # Возвращаем безопасный хешер
+            settings.PASSWORD_HASHERS = original_hashers
 
     finally:
-        # Обязательно включаем сигнал обратно для ручной работы через админку
+        # Включаем сигнал обратно
         post_save.connect(create_student_user, sender=Student)
 
     return {
