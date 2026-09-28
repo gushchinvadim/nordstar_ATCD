@@ -15,15 +15,17 @@ logger = logging.getLogger(__name__)
 # @staff_member_required
 # @require_POST
 def save_rauc_excel(request, group_id):
-    # === МАКСИМАЛЬНАЯ ОТЛАДКА ===
-    print("=" * 80)
-    print(f"!!! ФУНКЦИЯ ВЫЗВАНА !!!")
-    print(f"Метод: {request.method}")
-    print(f"Путь: {request.path}")
-    print(f"User: {request.user}")
-    print(f"is_staff: {request.user.is_staff}")
-    print("=" * 80)
-    # ============================
+    # === ПРЯМАЯ ЗАПИСЬ В ФАЙЛ (100% ГАРАНТИЯ) ===
+    debug_file = '/var/www/nordstar_ATCD/nordstar_ATCD/backend_ATCD/debug_output.txt'
+    with open(debug_file, 'a') as f:
+        f.write(f"\n{'='*80}\n")
+        f.write(f"ФУНКЦИЯ ВЫЗВАНА: save_rauc_excel\n")
+        f.write(f"Метод: {request.method}\n")
+        f.write(f"Путь: {request.path}\n")
+        f.write(f"User: {request.user}\n")
+        f.write(f"is_staff: {request.user.is_staff}\n")
+        f.write(f"{'='*80}\n")
+    # ================================================
     """AJAX: Сохраняет Excel РАУЦ в папку группы и БД"""
     group = get_object_or_404(Group, id=group_id)
     try:
