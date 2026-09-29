@@ -18,7 +18,16 @@ def student_modules(request):
     except ObjectDoesNotExist:
         return Response({'error': 'Профиль студента не найден'}, status=status.HTTP_403_FORBIDDEN)
 
-    enrollments = Enrollment.objects.filter(student=student).select_related('group__module')
+    # 🔑 КЛЮЧЕВОЕ ИЗМЕНЕНИЕ:
+    # Мы отдаем фронтенду ВСЕ назначения студента.
+    # Фронтенд сам отфильтрует их по флагу !is_fully_completed.
+    # Это гарантирует, что студент сможет ознакомиться с оценкой
+    # даже если его статус сменили на 'failed' или 'dismissed'.
+
+    enrollments = Enrollment.objects.filter(
+        student=student
+    ).select_related('group__module')
+    
     modules_data = []
 
     for enrollment in enrollments:
