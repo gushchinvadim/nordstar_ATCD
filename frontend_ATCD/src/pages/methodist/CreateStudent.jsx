@@ -185,11 +185,11 @@ const CreateStudent = () => {
                         </div>
                         <div className={styles.field}>
                             <label>Фамилия (латиницей)</label>
-                            <input name="surname_latin" value={formData.surname_latin} onChange={handleChange} placeholder="Ivanov" />
+                            <input name="surname_latin" value={formData.surname_latin} onChange={handleChange} placeholder="IVANOV" />
                         </div>
                         <div className={styles.field}>
                             <label>Имя (латиницей)</label>
-                            <input name="name_latin" value={formData.name_latin} onChange={handleChange} placeholder="Ivan" />
+                            <input name="name_latin" value={formData.name_latin} onChange={handleChange} placeholder="IVAN" />
                         </div>
                     </div>
 

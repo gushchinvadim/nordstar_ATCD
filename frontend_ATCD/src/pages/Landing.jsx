@@ -1,3 +1,4 @@
+// src/pages/Landing.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -35,16 +36,10 @@ const Landing = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     
-    // НОВЫЕ СОСТОЯНИЯ ДЛЯ СПРАВКИ
-    const [showHelp, setShowHelp] = useState(false);
-    const [helpData, setHelpData] = useState([]);
-    const [helpLoading, setHelpLoading] = useState(false);
-
     const navigate = useNavigate();
 
     useEffect(() => {
         fetchContent();
-        fetchHelpContent();
     }, []);
 
     const fetchContent = async () => {
@@ -56,18 +51,6 @@ const Landing = () => {
             console.error("Ошибка загрузки лендинга:", err);
             setError('Ошибка загрузки данных');
             setLoading(false);
-        }
-    };
-
-    const fetchHelpContent = async () => {
-        try {
-            setHelpLoading(true);
-            const response = await api.get('/api/docs/help/content/');
-            setHelpData(response.data);
-            setHelpLoading(false);
-        } catch (err) {
-            console.error("Ошибка загрузки справки:", err);
-            setHelpLoading(false);
         }
     };
 
@@ -142,7 +125,8 @@ const Landing = () => {
                         <a href="#courses" className={styles.btnSecondary}>
                             Наши курсы
                         </a>
-                        <button className={styles.btnHelp} onClick={() => setShowHelp(true)}>
+                        {/* 🔑 ИЗМЕНЕНО: Переход на отдельную страницу вместо модального окна */}
+                        <button className={styles.btnHelp} onClick={() => navigate('/quick-start')}>
                             📖 Быстрый старт
                         </button>
                     </div>
@@ -299,67 +283,8 @@ const Landing = () => {
                     </button>
                 </div>
             </section>
-
-            {/* МОДАЛЬНОЕ ОКНО СПРАВКИ */}
-            {showHelp && (
-                <div className={styles.modalOverlay} onClick={() => setShowHelp(false)}>
-                    <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-                        <div className={styles.modalHeader}>
-                            <h2> Быстрый старт ATCD</h2>
-                            <button className={styles.closeBtn} onClick={() => setShowHelp(false)}>×</button>
-                        </div>
-                        
-                        <div className={styles.modalBody}>
-                            {helpLoading ? (
-                                <p>Загрузка инструкции...</p>
-                            ) : (
-                                <div className={styles.accordion}>
-                                    {helpData.map((section) => (
-                                        <details key={section.id} className={styles.accordionItem}>
-                                            <summary className={styles.accordionHeader}>
-                                                {section.title}
-                                            </summary>
-                                            <div 
-                                                className={styles.accordionContent}
-                                                dangerouslySetInnerHTML={{ __html: section.content }} 
-                                            />
-                                        </details>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className={styles.modalFooter}>
-                            {(() => {
-                                // 1. Определяем базовый URL API
-                                // Если задан в .env — берем его. 
-                                // Иначе: если это локальная разработка (DEV) — используем 127.0.0.1:8000
-                                // Иначе (продакшен) — используем текущий домен сайта (window.location.origin)
-                                const apiBaseUrl = import.meta.env.VITE_API_URL || 
-                                                (import.meta.env.DEV ? 'http://127.0.0.1:8000' : window.location.origin);
-                                
-                                // 2. Формируем полный URL
-                                const pdfUrl = `${apiBaseUrl}/docs/help/pdf/`;
-
-                                return (
-                                    <a 
-                                        href={pdfUrl} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className={styles.downloadPdfBtn}
-                                    >
-                                        📄 Скачать полную инструкцию (PDF)
-                                    </a>
-                                );
-                            })()}
-                            
-                            <button className={styles.closeBtnFooter} onClick={() => setShowHelp(false)}>
-                                Закрыть
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            
+            {/* Модальное окно полностью удалено, так как теперь используется отдельная страница /quick-start */}
         </div>
     );
 };

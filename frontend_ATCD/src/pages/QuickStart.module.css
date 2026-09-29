@@ -1,0 +1,257 @@
+/* src/pages/QuickStart.module.css */
+/* src/pages/QuickStart.module.css */
+.pageContainer {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    overflow: hidden;
+}
+
+.header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 40px;
+    text-align: center;
+}
+
+.header h1 {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+}
+
+.header p {
+    font-size: 1.2em;
+    opacity: 0.9;
+}
+
+.content {
+    padding: 40px;
+}
+
+.downloadBtn {
+    display: inline-block;
+    background: #4CAF50;
+    color: white;
+    padding: 12px 24px;
+    text-decoration: none;
+    border-radius: 6px;
+    margin-bottom: 30px;
+    transition: background 0.3s;
+    font-weight: 600;
+}
+
+.downloadBtn:hover {
+    background: #45a049;
+}
+
+.accordion {
+    margin-bottom: 20px;
+}
+
+.accordionItem {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    transition: box-shadow 0.3s;
+}
+
+.accordionItem:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+
+.accordionHeader {
+    background: #f8f9fa;
+    padding: 20px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.3s;
+}
+
+.accordionHeader:hover {
+    background: #e9ecef;
+}
+
+.accordionHeader h2 {
+    font-size: 1.2em;
+    color: #333;
+    margin: 0;
+    font-weight: 600;
+}
+
+.accordionIcon {
+    font-size: 1.2em;
+    transition: transform 0.3s;
+    color: #667eea;
+}
+
+.accordionItem.active .accordionIcon {
+    transform: rotate(180deg);
+}
+
+.accordionItem.active .accordionHeader {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.accordionItem.active .accordionHeader h2,
+.accordionItem.active .accordionHeader .accordionIcon {
+    color: white;
+}
+
+.accordionContent {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease-out, padding 0.4s ease-out;
+    padding: 0 20px;
+    background: white;
+}
+
+.accordionItem.active .accordionContent {
+    max-height: 2000px; /* Достаточно большое значение для раскрытия */
+    padding: 20px;
+    border-top: 1px solid #eee;
+}
+
+.accordionContent h3 {
+    color: #667eea;
+    margin: 20px 0 10px 0;
+    font-size: 1.1em;
+}
+
+.accordionContent p {
+    margin-bottom: 15px;
+    line-height: 1.6;
+    color: #555;
+}
+
+.accordionContent ul, 
+.accordionContent ol {
+    margin-left: 25px;
+    margin-bottom: 15px;
+    color: #555;
+}
+
+.accordionContent li {
+    margin-bottom: 8px;
+    line-height: 1.6;
+}
+
+.accordionContent code {
+    background: #f4f4f4;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    color: #e83e8c;
+    font-size: 0.9em;
+}
+
+/* Блоки уведомлений */
+.note, .important, .success {
+    padding: 15px;
+    margin: 15px 0;
+    border-radius: 6px;
+    line-height: 1.5;
+    font-size: 0.95em;
+}
+
+.note {
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    color: #856404;
+}
+
+.important {
+    background: #f8d7da;
+    border-left: 4px solid #dc3545;
+    color: #721c24;
+}
+
+.success {
+    background: #d4edda;
+    border-left: 4px solid #28a745;
+    color: #155724;
+}
+
+.backBtn {
+    display: inline-block;
+    background: #6c757d;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    margin-top: 20px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.3s;
+}
+
+.backBtn:hover {
+    background: #5a6268;
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+    .pageContainer {
+        padding: 10px;
+    }
+    
+    .header {
+        padding: 30px 20px;
+    }
+    
+    .header h1 {
+        font-size: 1.8em;
+    }
+    
+    .content {
+        padding: 20px;
+    }
+    
+    .accordionHeader h2 {
+        font-size: 1em;
+    }
+    
+    .downloadBtn, .backBtn {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+@media print {
+    .pageContainer {
+        background: white;
+        padding: 0;
+    }
+    .container {
+        box-shadow: none;
+        max-width: 100%;
+    }
+    .accordionContent {
+        max-height: none !important;
+        padding: 10px 0 !important;
+        border: none;
+    }
+    .downloadBtn, .backBtn, .accordionIcon {
+        display: none !important;
+    }
+    .accordionHeader {
+        background: white !important;
+        color: black !important;
+        border-bottom: 1px solid #ccc;
+        padding: 10px 0;
+    }
+    .accordionHeader h2 {
+        color: black !important;
+    }
+}

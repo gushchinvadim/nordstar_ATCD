@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('userData');
         localStorage.removeItem('activeRole');
         setUser(null);
-        setShowFirstLoginModal(false); // <-- НОВОЕ
+        setShowFirstLoginModal(false); 
     };
 
     return (
@@ -58,8 +58,8 @@ export const AuthProvider = ({ children }) => {
             login, 
             logout, 
             loading, 
-            showFirstLoginModal,       // <-- НОВОЕ
-            setShowFirstLoginModal     // <-- НОВОЕ
+            showFirstLoginModal,     
+            setShowFirstLoginModal    
         }}>
             {children}
         </AuthContext.Provider>

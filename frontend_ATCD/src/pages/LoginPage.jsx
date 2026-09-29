@@ -66,6 +66,7 @@ const LoginPage = () => {
         logout();
         setShowRoleSelector(false);
         setUserData(null);
+        navigate('/'); // добавил сюда
     };
 
     // Если выбран режим выбора роли, рендерим RoleSelector вместо формы входа

@@ -2,11 +2,12 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import Landing from './pages/Landing'; 
+
 
 // Общая страница
+import Landing from './pages/Landing'; 
 import LoginPage from './pages/LoginPage';
-
+import QuickStart from './pages/QuickStart';
 // Layouts
 import Layout from './components/Layout';
 import InstructorLayout from './components/InstructorLayout';
@@ -38,6 +39,7 @@ function App() {
                     {/* 1. Публичный маршрут: ГЛАВНАЯ СТРАНИЦА (Лендинг) */}
                     <Route path="/" element={<Landing />} /> 
                     <Route path="/login" element={<LoginPage />} />
+                     <Route path="/quick-start" element={<QuickStart />} /> 
                     
                     {/* 2. Защищенные маршруты (требуют авторизации) */}
                     <Route element={<ProtectedRoute />}>

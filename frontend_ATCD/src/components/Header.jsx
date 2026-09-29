@@ -6,7 +6,7 @@ import ChangePasswordModal from './ChangePasswordModal'; // <-- НОВЫЙ ИМ�
 import styles from './Header.module.css';
 
 const Header = () => {
-    const { logout, showFirstLoginModal, setShowFirstLoginModal } = useContext(AuthContext); // <-- ОБНОВЛЕНО
+    const { logout, showFirstLoginModal, setShowFirstLoginModal } = useContext(AuthContext); 
     const navigate = useNavigate();
     
     const [userData, setUserData] = useState(null);
@@ -45,9 +45,18 @@ const Header = () => {
         navigate(targetPath);
     };
 
+    // const handleLogout = () => {
+    //     logout();
+    //     navigate('/');
+    // };
+
     const handleLogout = () => {
+        // 1. Очищаем данные в контексте и localStorage
         logout();
-        navigate('/login');
+        
+        // 2. Жесткий, но надежный редирект на лендинг
+        // Это полностью перезагружает приложение, минуя конфликты React Router
+        window.location.href = '/'; 
     };
 
     // <-- НОВАЯ ФУНКЦИЯ закрытия модалки с очисткой флага

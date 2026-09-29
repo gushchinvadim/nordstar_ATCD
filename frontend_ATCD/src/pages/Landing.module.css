@@ -38,6 +38,7 @@
     font-size: 2rem;
     margin-bottom: 20px;
     font-weight: 500;
+    color: white;
 }
 
 .heroSubtitle {
@@ -162,36 +163,48 @@ section:nth-child(even) {
     color: #555;
 }
 
-/* КУРСЫ */
+/* ==========================================
+   КУРСЫ (Всегда вертикально: График -> Список)
+   ========================================== */
 .coursesLayout {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 40px;
-    align-items: start;
+    width: 100%;
+    align-items: center;
 }
 
 .chartContainer {
-    height: 400px;
+    width: 100%;
+    max-width: 800px;
+    height: 350px;
     background: white;
     padding: 20px;
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    box-sizing: border-box;
 }
 
 .coursesList {
     display: flex;
     flex-direction: column;
     gap: 15px;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
 }
 
 .courseItem {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 15px;
     background: white;
     padding: 15px 20px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .courseRank {
@@ -199,16 +212,21 @@ section:nth-child(even) {
     font-weight: 700;
     color: #3498db;
     min-width: 40px;
+    flex-shrink: 0;
 }
 
 .courseInfo {
     flex: 1;
+    min-width: 0;
+    padding-right: 10px;
 }
 
 .courseInfo h4 {
     margin: 0 0 5px 0;
     font-size: 1rem;
     color: #2c3e50;
+    word-wrap: break-word;
+    line-height: 1.3;
 }
 
 .courseCode {
@@ -219,11 +237,13 @@ section:nth-child(even) {
 
 .courseCount {
     text-align: right;
+    flex-shrink: 0;
+    min-width: 80px;
 }
 
 .countNumber {
     display: block;
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     font-weight: 700;
     color: #27ae60;
 }
@@ -367,6 +387,7 @@ section:nth-child(even) {
 .ctaSection h2 {
     font-size: 2rem;
     margin-bottom: 15px;
+    color: white;
 }
 
 .ctaSection p {
@@ -732,6 +753,56 @@ section:nth-child(even) {
    АДАПТИВНОСТЬ ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ
    ============================================ */
 @media (max-width: 768px) {
+    .heroTitle {
+        font-size: 1.8rem;
+    }
+    
+    .heroSubtitle {
+        font-size: 1.1rem;
+    }
+    
+    .sectionTitle {
+        font-size: 1.5rem;
+        margin-bottom: 25px;
+    }
+    
+    section {
+        padding: 40px 0;
+    }
+
+    /* Чуть компактнее на телефоне */
+    .chartContainer {
+        height: 280px;
+        padding: 15px;
+    }
+
+    .coursesList {
+        gap: 12px;
+    }
+
+    .courseItem {
+        padding: 12px 15px;
+        gap: 10px;
+    }
+    
+    .courseRank {
+        font-size: 1.3rem;
+        min-width: 35px;
+    }
+    
+    .courseInfo h4 {
+        font-size: 0.95rem;
+    }
+
+    .countNumber {
+        font-size: 1.2rem;
+    }
+    
+    .countLabel {
+        font-size: 0.75rem;
+    }
+
+    /* Адаптация модального окна для мобильных */
     .modalOverlay {
         padding: 10px;
         align-items: flex-end;
@@ -814,28 +885,5 @@ section:nth-child(even) {
 @media print {
     .modalOverlay {
         display: none;
-    }
-}
-
-/* АДАПТИВНОСТЬ */
-@media (max-width: 768px) {
-    .heroTitle {
-        font-size: 2rem;
-    }
-    
-    .heroSubtitle {
-        font-size: 1.1rem;
-    }
-    
-    .coursesLayout {
-        grid-template-columns: 1fr;
-    }
-    
-    .sectionTitle {
-        font-size: 1.6rem;
-    }
-    
-    section {
-        padding: 50px 0;
     }
 }

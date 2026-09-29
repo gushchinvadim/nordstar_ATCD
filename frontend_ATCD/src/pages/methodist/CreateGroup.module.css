@@ -1,3 +1,4 @@
+/* src/pages/methodist/CreateGroup.module.css */
 .container {
     max-width: 1200px;
     margin: 0 auto;
@@ -27,6 +28,7 @@
     font-size: 1.3rem;
 }
 
+/* Базовые стили для строки (Десктоп) */
 .row {
     display: flex;
     gap: 20px;
@@ -95,6 +97,7 @@
     cursor: pointer;
 }
 
+/* Строка назначения слушателя (Десктоп) */
 .enrollmentRow {
     display: flex;
     gap: 15px;
@@ -115,6 +118,7 @@
     cursor: pointer;
     font-size: 1.2rem;
     margin-bottom: 15px;
+    flex-shrink: 0;
 }
 
 .removeBtn:hover {
@@ -130,6 +134,8 @@
     cursor: pointer;
     font-size: 1rem;
     font-weight: 600;
+    width: 100%; /* На десктопе тоже лучше смотрится на всю ширину блока или можно сделать auto */
+    max-width: 250px;
 }
 
 .addBtn:hover {
@@ -151,6 +157,7 @@
     cursor: pointer;
     font-size: 1.1rem;
     font-weight: 600;
+    flex: 1;
 }
 
 .submitBtn:hover {
@@ -170,6 +177,7 @@
     border-radius: 6px;
     cursor: pointer;
     font-size: 1.1rem;
+    flex: 1;
 }
 
 .cancelBtn:hover {
@@ -183,4 +191,76 @@
     border-radius: 6px;
     margin-bottom: 20px;
     border-left: 4px solid #c33;
+}
+
+/* ==========================================
+   МОБИЛЬНАЯ АДАПТАЦИЯ (до 768px)
+   ========================================== */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+
+    .container h1 {
+        font-size: 1.5rem;
+        margin-bottom: 20px;
+    }
+
+    .section {
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+
+    .section h2 {
+        font-size: 1.1rem;
+        margin-bottom: 15px;
+    }
+
+    /* 🔑 ПРЕВРАЩАЕМ СТРОКИ В КОЛОНКИ */
+    .row {
+        flex-direction: column;
+        gap: 0; /* Отступы теперь контролируются margin-bottom у .field */
+    }
+
+    .field, 
+    .fieldSmall {
+        width: 100%; /* Занимаем всю доступную ширину */
+        flex: none;  /* Отменяем растягивание */
+    }
+
+    /* 🔑 АДАПТАЦИЯ БЛОКА НАЗНАЧЕНИЯ СЛУШАТЕЛЯ */
+    .enrollmentRow {
+        flex-direction: column;
+        align-items: stretch; /* Растягиваем элементы на всю ширину */
+        gap: 15px;
+        padding: 15px;
+    }
+
+    .enrollmentRow .field,
+    .enrollmentRow .fieldSmall {
+        width: 100%;
+        margin-bottom: 0;
+    }
+
+    /* Делаем кнопку удаления удобной для пальца (на всю ширину) */
+    .removeBtn {
+        width: 100%;
+        height: 44px; /* Минимальный рекомендуемый размер для тач-интерфейсов */
+        margin-bottom: 0;
+        font-size: 1rem;
+        font-weight: 600;
+    }
+
+    /* Кнопки действий тоже ставим друг под другом на маленьких экранах */
+    .actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .submitBtn,
+    .cancelBtn {
+        width: 100%;
+        text-align: center;
+        padding: 14px;
+    }
 }
