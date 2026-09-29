@@ -24,7 +24,7 @@ class NewsItem(models.Model):
 class CourseHighlight(models.Model):
     """Рекомендуемые курсы на лендинге"""
     module = models.ForeignKey(Module, on_delete=models.CASCADE, verbose_name="Модуль обучения")
-    description = models.TextField("Краткое описание", max_length=500)
+    description = models.TextField("Краткое описание", max_length=2000)
     order = models.PositiveIntegerField("Порядок отображения", default=0)
     is_featured = models.BooleanField("Рекомендуемый", default=False)
 
