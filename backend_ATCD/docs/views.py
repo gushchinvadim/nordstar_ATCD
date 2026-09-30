@@ -267,7 +267,7 @@ def complete_enrollment(request, enrollment_id):
 
             messages.success(request, f'{enrollment.student} завершил обучение. Приказ: {enrollment.order_out_number}')
 
-        check_and_close_group(enrollment.group)
+        # check_and_close_group(enrollment.group) - отменяем автоматическое завершение группы
     else:
         messages.error(request, f'{enrollment.student} не сдал все разделы')
 
@@ -316,7 +316,7 @@ def complete_all_enrollments(request, group_id):
             count += 1
 
     if count > 0:
-        check_and_close_group(group)
+        # check_and_close_group(group) - отменяем автоматическое завершение группы
         messages.success(request, f'Успешно завершили обучение: {count} чел.')
     else:
         messages.warning(request, 'Нет студентов, готовых к завершению')
@@ -397,7 +397,7 @@ def dismiss_enrollments(request, group_id):
         count += 1
 
     messages.success(request, f'Отчислено студентов: {count}')
-    check_and_close_group(group)
+    # check_and_close_group(group) - отменяем автоматическое завершение группы
     return redirect('docs:group_grades', group_id=group.id)
 
 
