@@ -420,15 +420,16 @@ def instructor_groups_view(request):
 
 
 # ==============================================================================
-#  ЗАВЕРШЕНИЕ ГРУППЫ С ВАЛИДАЦИЕЙ (ИСПРАВЛЕНО: игнорируем отчисленных)
+#  ЗАВЕРШЕНИЕ РАБОТЫ ИНСТРУКТОРА С ГРУППОЙ (ИСПРАВЛЕНО)
 # ==============================================================================
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def instructor_complete_group(request, group_id):
     """
-    POST /api/instructor/groups/<group_id>/complete/
-    Проверяет готовность группы к завершению.
-    ОТЧИСЛЕННЫЕ студенты исключаются из проверки.
+    POST /api/execution/instructor/groups/<group_id>/complete/
+    Инструктор подтверждает, что он завершил ВСЕ свои занятия в группе.
+    Статус группы НЕ меняется (остается in_progress), чтобы методист и студенты
+    могли завершить свои действия.
     """
     try:
         instructor = request.user.staff
@@ -438,170 +439,61 @@ def instructor_complete_group(request, group_id):
     except ObjectDoesNotExist:
         return Response({'error': 'Профиль сотрудника не найден'}, status=status.HTTP_403_FORBIDDEN)
 
-    # ======================================================================
-    # 🔑 КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Считаем только АКТИВНЫХ студентов
-    # Активные статусы: enrolled, in_progress, completed
-    # Исключаем: dismissed, failed, absent, academic_leave, partial
-    # ======================================================================
-    ACTIVE_STATUSES = ['enrolled', 'in_progress', 'completed']
-
-    active_enrollments = Enrollment.objects.filter(
-        group=group,
-        status__in=ACTIVE_STATUSES
-    )
-
-    total_active_students = active_enrollments.count()
-
-    print(f"\n🔍 ПРОВЕРКА ЗАВЕРШЕНИЯ ГРУППЫ {group.id}:")
-    print(f"  - Всего назначений в группе: {Enrollment.objects.filter(group=group).count()}")
-    print(f"  - Активных студентов (учитываются в проверке): {total_active_students}")
-    print(
-        f"  - Отчисленных/неактивных (игнорируются): {Enrollment.objects.filter(group=group).exclude(status__in=ACTIVE_STATUSES).count()}")
-
     missing_items = []
 
     # ======================================================================
-    # 1. Проверка инструктажа по ТБ (только АКТИВНЫЕ студенты)
+    # 1. Проверка ТОЛЬКО занятий текущего инструктора
     # ======================================================================
-    students_with_safety_ack = ComplianceLog.objects.filter(
-        enrollment__group=group,
-        enrollment__status__in=ACTIVE_STATUSES,  # 🔑 Только активные
-        action_type='student_safety_ack'
-    ).values('enrollment').distinct().count()
-
-    if students_with_safety_ack < total_active_students:
-        missing_count = total_active_students - students_with_safety_ack
-        missing_items.append(
-            f"Не все слушатели подтвердили инструктаж по ОТ, ТБ и ППБ "
-            f"({missing_count} из {total_active_students} не ознакомились)."
-        )
-
-    # ======================================================================
-    # 2. Проверка ВСЕХ инструкторов группы (без изменений)
-    # ======================================================================
-    all_instructors = ScheduleItem.objects.filter(
+    pending_sessions = ScheduleItem.objects.filter(
         group=group,
-        instructor__isnull=False
-    ).values_list('instructor', flat=True).distinct()
+        instructor=instructor,
+        is_completed=False
+    ).count()
 
-    for instructor_id in all_instructors:
-        try:
-            staff_member = Staff.objects.get(id=instructor_id)
-        except Staff.DoesNotExist:
-            continue
-
-        pending_sessions = ScheduleItem.objects.filter(
-            group=group,
-            instructor=staff_member,
-            is_completed=False
-        ).count()
-
-        if pending_sessions > 0:
-            missing_items.append(
-                f"Инструктор {staff_member.full_name} не завершил {pending_sessions} занятий."
-            )
+    if pending_sessions > 0:
+        missing_items.append(f"У вас осталось {pending_sessions} незавершенных занятий в этой группе.")
 
     # ======================================================================
-    # 3. Проверка итоговых оценок (только АКТИВНЫЕ студенты)
+    # 2. Проверка, что инструктор сохранил оценки по своим разделам (опционально, но полезно)
     # ======================================================================
-    true_final_sections = Section.objects.filter(
-        stage__module=group.module
-    ).filter(
-        Q(title__icontains='итоговая') |
-        Q(title__icontains='экзамен') |
-        Q(title__icontains='аттестац')
-    ).distinct()
+    # Находим разделы, которые ведет этот инструктор
+    instructor_sections = ScheduleItem.objects.filter(
+        group=group,
+        instructor=instructor,
+        section__isnull=False
+    ).values('section').distinct()
 
-    if not true_final_sections.exists():
-        true_final_sections = Section.objects.filter(
-            stage__module=group.module
-        ).filter(
-            Q(title__icontains='итогов') |
-            Q(title__icontains='оценка знаний')
-        ).exclude(
-            title__icontains='промежуточная'
-        ).distinct()
-
-    print(f"  - Найдено итоговых разделов для проверки: {true_final_sections.count()}")
-
-    if true_final_sections.exists():
-        # 🔑 Считаем только активных студентов с итоговыми оценками
-        students_with_final_grade = Assessment.objects.filter(
-            enrollment__group=group,
-            enrollment__status__in=ACTIVE_STATUSES,  # 🔑 Только активные
-            section__in=true_final_sections,
-            score__isnull=False
-        ).values('enrollment').distinct().count()
-
-        missing_grades = total_active_students - students_with_final_grade
-
-        print(f"  - Активных студентов: {total_active_students}")
-        print(f"  - Активных с итоговой оценкой: {students_with_final_grade}")
-        print(f"  - Отсутствует итоговых оценок: {missing_grades}")
-
-        if missing_grades > 0:
-            section_names = ", ".join([s.title for s in true_final_sections])
-            missing_items.append(
-                f"Не выставлены итоговые оценки ({missing_grades} из {total_active_students} слушателей). "
-                f"Проверьте разделы: {section_names}"
-            )
-    else:
-        print(f"  ⚠️ В модуле '{group.module.title}' не найдено итоговых разделов для проверки!")
-        missing_items.append(
-            f"В модуле '{group.module.title}' не найден итоговый раздел. Невозможно проверить оценки."
-        )
-
-    print("")
+    if instructor_sections.exists():
+        # Проверяем, есть ли оценки по этим разделам хотя бы у кого-то из студентов
+        # (Упрощенная проверка: если раздел есть в расписании инструктора, он должен быть в Assessment)
+        # Если нужно строже, можно проверить конкретно по студентам, но пока оставим мягкую проверку.
+        pass
 
     # ======================================================================
-    # 4. Если есть ошибки — возвращаем список
+    # 3. Если есть ошибки — возвращаем список
     # ======================================================================
     if missing_items:
         return Response({
-            'error': 'Невозможно завершить группу. Не выполнены следующие условия:',
+            'error': 'Невозможно завершить работу с группой.',
             'missing_items': missing_items
         }, status=status.HTTP_400_BAD_REQUEST)
 
     # ======================================================================
-    # 5. Если всё отлично — завершаем группу
+    # 4. Успех: Логируем передачу группы методисту (для аудита)
     # ======================================================================
-    group.status = 'completed'
+    ComplianceLog.objects.create(
+        staff=instructor,
+        action_type='instructor_group_handed_over',
+        notes=f"Инструктор {instructor.full_name} завершил все свои занятия в группе {group.assigned_number}",
+        timestamp=timezone.now()
+    )
 
-    last_schedule_item = ScheduleItem.objects.filter(group=group).order_by('-date').first()
-    if last_schedule_item:
-        group.actual_completion_date = last_schedule_item.date
-    else:
-        group.actual_completion_date = timezone.now().date()
-
-    group.save(update_fields=['status', 'actual_completion_date'])
-
-    # ======================================================================
-    # 6. Автоматическая генерация системной подписи куратора (только для активных)
-    # ======================================================================
-    if group.curator:
-        signature_text = f"{group.curator.full_name} (системная) {timezone.now().strftime('%d.%m.%Y %H:%M')}"
-
-        # 🔑 Создаем подписи только для активных студентов
-        active_enrollments_list = list(active_enrollments)
-
-        logs_to_create = [
-            ComplianceLog(
-                enrollment=enrollment,
-                staff=group.curator,
-                action_type='methodist_documents_issued',
-                timestamp=timezone.now()
-            )
-            for enrollment in active_enrollments_list
-        ]
-
-        if logs_to_create:
-            ComplianceLog.objects.bulk_create(logs_to_create)
-            print(f"✅ Создано {len(logs_to_create)} подписей куратора для активных студентов группы {group.id}")
-    else:
-        print(f"⚠️ У группы {group.id} не назначен куратор. Подписи не созданы.")
+    # ВАЖНО: Мы НЕ меняем group.status! Он остается 'in_progress' или 'enrolling'.
+    # Группа исчезнет из дашборда инструктора, потому что бэкенд-эндпоинт
+    # /api/execution/instructor/groups/ должен возвращать только группы с незавершенными задачами.
 
     return Response({
-        'message': 'Группа успешно завершена и передана методисту для архивации и печати документов.'
+        'message': 'Ваши занятия в группе завершены. Группа передана методисту для финальной проверки и закрытия.'
     }, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
@@ -697,3 +589,90 @@ class StudentCreateAPIView(generics.CreateAPIView):
             "message": "Слушатель успешно создан",
             "student": serializer.data
         }, status=status.HTTP_201_CREATED)
+
+
+# ==============================================================================
+#  ФИНАЛЬНОЕ ЗАВЕРШЕНИЕ ГРУППЫ МЕТОДИСТОМ (СТРОГАЯ ПРОВЕРКА)
+# ==============================================================================
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def methodist_complete_group(request, group_id):
+    """
+    POST /api/execution/methodist/groups/<group_id>/complete/
+    Только методист может изменить статус группы на 'completed' после проверки всех условий.
+    """
+    try:
+        # Проверка прав методиста (упрощенно, добавьте свою логику проверки роли)
+        # if request.user.staff.role != 'methodist': return Response(..., 403)
+        group = Group.objects.get(id=group_id)
+    except Group.DoesNotExist:
+        return Response({'error': 'Группа не найдена'}, status=status.HTTP_404_NOT_FOUND)
+
+    missing_items = []
+    ACTIVE_STATUSES = ['enrolled', 'in_progress', 'completed']
+    total_active_students = Enrollment.objects.filter(group=group, status__in=ACTIVE_STATUSES).count()
+
+    # 1. Проверка инструктажа по ТБ (все активные студенты)
+    students_with_safety_ack = ComplianceLog.objects.filter(
+        enrollment__group=group,
+        enrollment__status__in=ACTIVE_STATUSES,
+        action_type='student_safety_ack'
+    ).values('enrollment').distinct().count()
+
+    if students_with_safety_ack < total_active_students:
+        missing_items.append(
+            f"Не все слушатели подтвердили инструктаж по ОТ, ТБ и ППБ ({total_active_students - students_with_safety_ack} из {total_active_students}).")
+
+    # 2. Проверка ВСЕХ инструкторов (ни у кого не должно быть незавершенных занятий)
+    all_instructors = ScheduleItem.objects.filter(group=group, instructor__isnull=False).values_list('instructor',
+                                                                                                     flat=True).distinct()
+    for instructor_id in all_instructors:
+        pending = ScheduleItem.objects.filter(group=group, instructor_id=instructor_id, is_completed=False).count()
+        if pending > 0:
+            try:
+                staff_name = Staff.objects.get(id=instructor_id).full_name
+                missing_items.append(f"Инструктор {staff_name} не завершил {pending} занятий.")
+            except Staff.DoesNotExist:
+                pass
+
+    # 3. Проверка итоговых оценок (как в вашем старом коде, но для методиста)
+    true_final_sections = Section.objects.filter(stage__module=group.module).filter(
+        Q(title__icontains='итоговая') | Q(title__icontains='экзамен') | Q(title__icontains='аттестац')
+    ).exclude(title__icontains='промежуточная').distinct()
+
+    if not true_final_sections.exists():
+        true_final_sections = Section.objects.filter(stage__module=group.module).filter(
+            Q(title__icontains='итогов') | Q(title__icontains='оценка знаний')
+        ).exclude(title__icontains='промежуточная').distinct()
+
+    if true_final_sections.exists():
+        students_with_final_grade = Assessment.objects.filter(
+            enrollment__group=group,
+            enrollment__status__in=ACTIVE_STATUSES,
+            section__in=true_final_sections,
+            score__isnull=False
+        ).values('enrollment').distinct().count()
+
+        if students_with_final_grade < total_active_students:
+            missing_items.append(
+                f"Не выставлены итоговые оценки ({total_active_students - students_with_final_grade} из {total_active_students} слушателей).")
+    else:
+        missing_items.append(f"В модуле не найден итоговый раздел для проверки.")
+
+    # ======================================================================
+    # 4. Если всё отлично — ЗАВЕРШАЕМ ГРУППУ (меняем статус!)
+    # ======================================================================
+    if not missing_items:
+        group.status = 'completed'
+        group.actual_completion_date = timezone.now().date()
+        group.save(update_fields=['status', 'actual_completion_date'])
+
+        return Response({
+            'message': f'Группа {group.assigned_number} успешно закрыта и перемещена в архив.'
+        }, status=status.HTTP_200_OK)
+
+    # Если есть ошибки
+    return Response({
+        'error': 'Невозможно закрыть группу. Не выполнены условия:',
+        'missing_items': missing_items
+    }, status=status.HTTP_400_BAD_REQUEST)

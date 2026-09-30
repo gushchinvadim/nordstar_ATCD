@@ -10,6 +10,10 @@ app_name = 'execution'
 urlpatterns = [
     # === ИЗМЕНЕНИЕ ПАРОЛЯ ===
     path('auth/change-password/', change_password, name='change_password'),
+
+    # === МЕТОДИСТ ===
+    path('methodist/groups/<int:group_id>/complete/', api_views.methodist_complete_group, name='methodist_complete_group'),
+    
     # === ИНСТРУКТОР ===
     path('instructor/schedule/', api_views.InstructorScheduleView.as_view(), name='instructor_schedule'),
     path('instructor/schedule/<int:pk>/log/', api_views.log_schedule_action, name='log_schedule_action'),

@@ -1,3 +1,4 @@
+// src/pages/methodist/EditGroup.jsx
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchGroupDetail, updateGroup, fetchModules, fetchStaff, fetchStudents, fetchLocations } from '../../api/groups';

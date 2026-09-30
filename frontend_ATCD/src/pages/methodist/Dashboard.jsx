@@ -1,3 +1,4 @@
+// src/pages/methodist/Dashboard.jsx
 import { useGroups } from './hooks/useGroups';
 import GroupFilters from './components/GroupFilters';
 import GroupCard from './components/GroupCard';

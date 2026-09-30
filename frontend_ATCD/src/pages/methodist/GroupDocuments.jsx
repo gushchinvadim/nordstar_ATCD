@@ -1,5 +1,7 @@
+// src/pages/methodist/GroupDocuments.jsx
 import { useState, useEffect } from 'react';
 import { fetchGroups, fetchDirections, generateSchedule } from '../../api/groups';
+import api from '../../api/config'; // <-- ДОБАВЛЕНО: для POST запроса завершения
 import GroupFilters from './components/GroupFilters';
 import styles from './GroupDocuments.module.css';
 
@@ -20,7 +22,8 @@ const GroupDocuments = () => {
             .catch(err => console.error('Ошибка загрузки направлений:', err));
     }, []);
 
-    useEffect(() => {
+    // Вынесли логику загрузки в отдельную функцию для повторного использования
+    const loadGroups = () => {
         setLoading(true);
         const params = new URLSearchParams();
         if (filters.status) params.append('status', filters.status);
@@ -32,6 +35,10 @@ const GroupDocuments = () => {
             .then(res => setGroups(res.data.results))
             .catch(err => console.error('Ошибка загрузки групп:', err))
             .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        loadGroups();
     }, [filters]);
 
     const updateFilter = (key, value) => setFilters(prev => ({ ...prev, [key]: value }));
@@ -46,6 +53,7 @@ const GroupDocuments = () => {
             const res = await generateSchedule(groupId);
             if (res.data.success) {
                 alert(`✅ Успех!\n${res.data.message}`);
+                loadGroups(); // Обновляем список после изменения
             } else {
                 alert(`❌ Ошибка:\n${res.data.error}`);
             }
@@ -54,12 +62,38 @@ const GroupDocuments = () => {
         }
     };
 
+    // 🔑 НОВАЯ ФУНКЦИЯ: Финальное завершение группы методистом
+    const handleFinalizeGroup = async (groupId, groupName) => {
+        const isConfirmed = window.confirm(
+            `🏁 ФИНАЛЬНОЕ ЗАВЕРШЕНИЕ ГРУППЫ\n\n` +
+            `Вы уверены, что хотите закрыть группу "${groupName}"?\n\n` +
+            `Система проверит:\n` +
+            `• Все ли студенты ознакомились с инструктажем\n` +
+            `• Все ли инструкторы завершили занятия\n` +
+            `• Выставлены ли все итоговые оценки\n\n` +
+            `После этого группа перейдет в статус "Завершена" и исчезнет из активных списков.`
+        );
+        if (!isConfirmed) return;
+
+        try {
+            const res = await api.post(`/api/execution/methodist/groups/${groupId}/complete/`);
+            alert(`✅ Успех!\n${res.data.message}`);
+            loadGroups(); // Перезагружаем список, группа исчезнет из "in_progress" или изменит бейдж
+        } catch (err) {
+            if (err.response?.status === 400 && err.response?.data?.missing_items) {
+                alert('❌ Невозможно завершить группу:\n\n• ' + err.response.data.missing_items.join('\n• '));
+            } else {
+                alert(err.response?.data?.error || 'Ошибка сети при попытке завершить группу.');
+            }
+        }
+    };
+
     const backendUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
     return (
         <div className={styles.container}>
-            <h1>Документы группы</h1>
-            <p className={styles.subtitle}>Выберите группу для работы с документами и расписанием</p>
+            <h1>Документы и управление группами</h1>
+            <p className={styles.subtitle}>Выберите группу для работы с документами, расписанием или финального закрытия</p>
 
             <GroupFilters
                 filters={filters}
@@ -117,6 +151,18 @@ const GroupDocuments = () => {
                                 >
                                     📖 Журнал
                                 </button>
+                                
+                                {/* 🔑 КНОПКА ФИНАЛЬНОГО ЗАВЕРШЕНИЯ (только для in_progress) */}
+                                {group.status === 'in_progress' && (
+                                    <button
+                                        className={`${styles.btn} ${styles.btnSuccess}`}
+                                        onClick={() => handleFinalizeGroup(group.id, group.assigned_number)}
+                                        title="Финальная проверка и закрытие группы"
+                                    >
+                                        🏁 Завершить
+                                    </button>
+                                )}
+                                
                                 <button
                                     className={`${styles.btn} ${styles.btnOutline}`}
                                     onClick={() => window.open(`${backendUrl}/admin/execution/group/${group.id}/change/`, '_blank')}

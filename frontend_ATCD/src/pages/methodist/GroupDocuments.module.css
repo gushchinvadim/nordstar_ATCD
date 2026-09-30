@@ -171,6 +171,22 @@
 .status_draft { background: #e2e8f0; color: #718096; }
 .status_archived { background: #fed7d7; color: #822727; }
 
+/* Добавьте это в конец файла GroupDocuments.module.css */
+
+.btnSuccess {
+    background-color: #27ae60;
+    color: white;
+    border: none;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.btnSuccess:hover {
+    background-color: #219150;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(39, 174, 96, 0.3);
+}
+
 /* АДАПТИВНОСТЬ ДЛЯ МОБИЛЬНЫХ */
 @media (max-width: 600px) {
     .grid {

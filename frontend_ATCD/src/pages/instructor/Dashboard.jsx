@@ -314,23 +314,23 @@ const InstructorDashboard = () => {
                                     })()}
                                 </div>
 
-                                {/* 6. ЗАВЕРШЕНИЕ ГРУППЫ */}
+                                {/* 6. ЗАВЕРШЕНИЕ МОЕЙ РАБОТЫ С ГРУППОЙ */}
                                 <div className={styles.signatureSection} style={{ borderTop: '2px solid #e0e0e0', marginTop: '20px', paddingTop: '20px' }}>
-                                    <h4>6. Завершение работы с группой</h4>
+                                    <h4>6. Завершение моих занятий</h4>
                                     <p className={styles.hintText}>
-                                        Нажмите эту кнопку, когда все занятия проведены, инструктажи сделаны и оценки выставлены. 
-                                        Группа исчезнет из вашего списка и будет передана методисту для архивации.
+                                        Нажмите эту кнопку, когда вы провели все свои занятия и выставили оценки. 
+                                        Группа останется в статусе "Обучение" для методиста и студентов, но исчезнет из вашего списка.
                                     </p>
                                     
                                     <button className={styles.btnCompleteGroup} onClick={() => handleCompleteGroup(group.group_id)}>
-                                        ✅ Завершить всех сдавших и передать методисту
+                                        ✅ Подтвердить завершение моих задач и передать методисту
                                     </button>
 
                                     {/* ВСПЛЫВАЮЩИЙ БАННЕР ОШИБОК ВАЛИДАЦИИ */}
                                     {completionError && completionError.groupId === group.group_id && (
                                         <div className={styles.errorBanner}>
                                             <div className={styles.errorBannerHeader}>
-                                                <span>⚠️ Невозможно завершить группу</span>
+                                                <span>⚠️ Невозможно завершить работу</span>
                                                 <button onClick={closeErrorBanner} className={styles.closeBtn}>×</button>
                                             </div>
                                             <ul className={styles.errorList}>
@@ -338,9 +338,6 @@ const InstructorDashboard = () => {
                                                     <li key={idx}>{item}</li>
                                                 ))}
                                             </ul>
-                                            <p className={styles.errorHint}>
-                                                Пожалуйста, устраните эти замечания или обратитесь к методисту.
-                                            </p>
                                         </div>
                                     )}
                                 </div>
