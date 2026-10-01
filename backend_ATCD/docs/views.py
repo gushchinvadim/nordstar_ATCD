@@ -981,7 +981,7 @@ def journal_view(request, group_id):
         for row in page.get('rows', []):
             item_id = row.get('schedule_item_id')
             row['instructor_signature'] = lesson_signatures.get(item_id)
-    # ======================================================================
+
 
     # ======================================================================
     # 4. ПРОМЕЖУТОЧНЫЕ ОЦЕНКИ: оценки, даты, подписи инструктора и студента
@@ -1081,31 +1081,11 @@ def journal_view(request, group_id):
         # Подпись студента об ознакомлении
         student_data['student_grade_ack_signature'] = student_grade_ack_dict.get(eid)
 
-        # Подпись куратора
+        # Подпись куратора (🔑 ИЗМЕНЕНО: используем curator_cert_signature для совместимости с шаблоном)
         curator_data = curator_signatures_dict.get(eid, {})
-        student_data['curator_signature'] = curator_data.get('signature')
+        student_data['curator_signature'] = curator_data.get('signature') # Можно оставить для других журналов
+        student_data['curator_cert_signature'] = curator_data.get('signature') # 🔑 ДОБАВЛЕНО для журнала документов
         student_data['curator_signature_date'] = curator_data.get('timestamp')
-    # ======================================================================
-
-    # Прикрепляем данные к каждому студенту (ОДИН ЦИКЛ для всего)
-    for student_data in enriched_students:
-        eid = student_data['enrollment'].id
-
-        # Данные о промежуточной оценке
-        grade_data = intermediate_grades_dict.get(eid, {})
-        student_data['intermediate_score'] = grade_data.get('score')
-        student_data['intermediate_grade_type'] = grade_data.get('grade_type', 'numeric')
-        student_data['intermediate_date'] = grade_data.get('date')
-        student_data['intermediate_instructor_signature'] = grade_data.get('instructor_signature')
-
-        # Подпись студента об ознакомлении
-        student_data['student_grade_ack_signature'] = student_grade_ack_dict.get(eid)
-
-        # Подпись куратора
-        curator_data = curator_signatures_dict.get(eid, {})
-        student_data['curator_signature'] = curator_data.get('signature')
-        student_data['curator_signature_date'] = curator_data.get('timestamp')
-    # ======================================================================
 
     # ======================================================================
     # 5. ИТОГОВЫЕ ОЦЕНКИ (ЭКЗАМЕН): оценки, даты, подписи
@@ -1188,7 +1168,7 @@ def journal_view(request, group_id):
         student_data['final_date'] = final_grade_data.get('date')
         student_data['final_instructor_signature'] = final_grade_data.get('instructor_signature')
         student_data['final_student_ack_signature'] = final_student_ack_dict.get(eid)
-    # ======================================================================
+
     # ======================================================================
     # 6. ЖУРНАЛ УЧЁТА ДОКУМЕНТОВ: сертификаты и ЗНТ
     # ======================================================================

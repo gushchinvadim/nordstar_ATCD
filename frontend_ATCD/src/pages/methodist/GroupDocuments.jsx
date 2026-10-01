@@ -154,13 +154,13 @@ const GroupDocuments = () => {
                                 
                                 {/* 🔑 КНОПКА ФИНАЛЬНОГО ЗАВЕРШЕНИЯ (только для in_progress) */}
                                 {group.status === 'in_progress' && (
-                                    <button
-                                        className={`${styles.btn} ${styles.btnSuccess}`}
-                                        onClick={() => handleFinalizeGroup(group.id, group.assigned_number)}
-                                        title="Финальная проверка и закрытие группы"
-                                    >
-                                        🏁 Завершить
-                                    </button>
+                                <button
+                                    className={`${styles.btn} ${styles.btnSuccess}`}
+                                    onClick={() => handleFinalizeGroup(group.id, group.assigned_number)}
+                                    title="Завершить группу и выдать документы (создать подписи куратора)"
+                                >
+                                    🎬 Завершить группу и выдать документы
+                                </button>
                                 )}
                                 
                                 <button

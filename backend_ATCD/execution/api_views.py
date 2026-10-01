@@ -592,7 +592,7 @@ class StudentCreateAPIView(generics.CreateAPIView):
 
 
 # ==============================================================================
-#  ФИНАЛЬНОЕ ЗАВЕРШЕНИЕ ГРУППЫ МЕТОДИСТОМ (СТРОГАЯ ПРОВЕРКА)
+#  ФИНАЛЬНОЕ ЗАВЕРШЕНИЕ ГРУППЫ МЕТОДИСТОМ (СТРОГАЯ ПРОВЕРКА + ПОДПИСИ)
 # ==============================================================================
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -600,10 +600,9 @@ def methodist_complete_group(request, group_id):
     """
     POST /api/execution/methodist/groups/<group_id>/complete/
     Только методист может изменить статус группы на 'completed' после проверки всех условий.
+    Создаёт подписи куратора (Специалист 1 категории) о выдаче документов.
     """
     try:
-        # Проверка прав методиста (упрощенно, добавьте свою логику проверки роли)
-        # if request.user.staff.role != 'methodist': return Response(..., 403)
         group = Group.objects.get(id=group_id)
     except Group.DoesNotExist:
         return Response({'error': 'Группа не найдена'}, status=status.HTTP_404_NOT_FOUND)
@@ -635,7 +634,7 @@ def methodist_complete_group(request, group_id):
             except Staff.DoesNotExist:
                 pass
 
-    # 3. Проверка итоговых оценок (как в вашем старом коде, но для методиста)
+    # 3. Проверка итоговых оценок
     true_final_sections = Section.objects.filter(stage__module=group.module).filter(
         Q(title__icontains='итоговая') | Q(title__icontains='экзамен') | Q(title__icontains='аттестац')
     ).exclude(title__icontains='промежуточная').distinct()
@@ -660,15 +659,49 @@ def methodist_complete_group(request, group_id):
         missing_items.append(f"В модуле не найден итоговый раздел для проверки.")
 
     # ======================================================================
-    # 4. Если всё отлично — ЗАВЕРШАЕМ ГРУППУ (меняем статус!)
+    # 4. Если всё отлично — ЗАВЕРШАЕМ ГРУППУ + СОЗДАЁМ ПОДПИСИ КУРАТОРА
     # ======================================================================
     if not missing_items:
         group.status = 'completed'
         group.actual_completion_date = timezone.now().date()
         group.save(update_fields=['status', 'actual_completion_date'])
 
+        # ======================================================================
+        # 🔑 НОВОЕ: Создаем подпись куратора (Специалист 1 категории) о выдаче документов
+        # ======================================================================
+        if group.curator:
+            # Получаем активных студентов группы
+            active_enrollments = Enrollment.objects.filter(group=group, status__in=ACTIVE_STATUSES)
+
+            logs_to_create = [
+                ComplianceLog(
+                    enrollment=enrollment,
+                    staff=group.curator,
+                    action_type='methodist_documents_issued',
+                    timestamp=timezone.now(),
+                    notes=f"Документы выданы при завершении группы {group.assigned_number}"
+                )
+                for enrollment in active_enrollments
+            ]
+
+            if logs_to_create:
+                ComplianceLog.objects.bulk_create(logs_to_create)
+                print(
+                    f"✅ Создано {len(logs_to_create)} подписей куратора {group.curator.full_name} для группы {group.id}")
+        else:
+            print(f"⚠️ У группы {group.id} не назначен куратор (Специалист 1 категории). Подписи не созданы.")
+            missing_items.append(
+                "У группы не назначен куратор (Специалист 1 категории). Невозможно создать подписи о выдаче документов.")
+            # Откатываем статус группы, если нет куратора
+            group.status = 'in_progress'
+            group.save(update_fields=['status'])
+            return Response({
+                'error': 'Невозможно завершить группу. Не назначен куратор (Специалист 1 категории).',
+                'missing_items': missing_items
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         return Response({
-            'message': f'Группа {group.assigned_number} успешно закрыта и перемещена в архив.'
+            'message': f'Группа {group.assigned_number} успешно закрыта. Созданы подписи куратора о выдаче документов для {len(logs_to_create) if logs_to_create else 0} слушателей.'
         }, status=status.HTTP_200_OK)
 
     # Если есть ошибки
