@@ -284,9 +284,14 @@ def instructor_groups_view(request):
     except ObjectDoesNotExist:
         return Response({'error': 'Профиль сотрудника не найден'}, status=status.HTTP_403_FORBIDDEN)
 
-    # Находим все группы, где этот инструктор ведет занятия, ИСКЛЮЧАЯ завершенные
+    # Находим все группы, где этот инструктор ведет занятия
+    # Показываем ТОЛЬКО активные группы (enrolling, in_progress)
+    # Скрываем: completed (завершена), archived (в архиве), cancelled (отменена)
     group_ids = ScheduleItem.objects.filter(instructor=staff).values_list('group_id', flat=True).distinct()
-    groups = Group.objects.filter(id__in=group_ids).exclude(status='completed').select_related('module')
+    groups = Group.objects.filter(
+        id__in=group_ids,
+        status__in=['enrolling', 'in_progress']  # 🔑 Только активные статусы
+    ).select_related('module')
 
     result = []
     for group in groups:

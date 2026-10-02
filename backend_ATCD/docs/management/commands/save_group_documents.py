@@ -1,3 +1,4 @@
+# docs/management/commands/save_group_documents.py
 from django.core.management.base import BaseCommand
 from execution.models import Group
 from docs.services.document_storage import DocumentStorageService

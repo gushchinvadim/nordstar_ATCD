@@ -678,6 +678,8 @@ class DocumentStorageService:
         Полная копия логики из docs.views, адаптированная для сервиса.
         """
         group = self.group
+        print(f"\n🔍 ОБОГАЩЕНИЕ КОНТЕКСТА ДЛЯ PDF - Группа {group.id}")
+        print(f"  - Куратор группы: {group.curator.full_name if group.curator else 'НЕ НАЗНАЧЕН'}")
 
         # --- Блок 1: Инструктажи ---
         enriched_students = []
@@ -766,31 +768,41 @@ class DocumentStorageService:
             log.assessment and log.assessment.section_id == (intermediate_section.id if intermediate_section else None)
         }
 
-        # --- Блок 4.1: Подписи кураторов ---
+        # --- Блок 4.1: Подписи кураторов (для промежуточных оценок) ---
         curator_signatures_dict = {}
         if group.curator:
             curator_logs = ComplianceLog.objects.filter(
-                enrollment__group=group, staff=group.curator, action_type='methodist_documents_issued'  # ← НОВОЕ
+                enrollment__group=group,
+                staff=group.curator,
+                action_type='methodist_documents_issued'
             ).select_related('enrollment')
+
+            print(f"  - Найдено записей methodist_documents_issued от куратора: {curator_logs.count()}")
+
             for log in curator_logs:
-                if log.enrollment_id not in curator_signatures_dict or log.timestamp > \
-                        curator_signatures_dict[log.enrollment_id]['timestamp']:
-                    curator_signatures_dict[log.enrollment_id] = {
+                eid = log.enrollment_id
+                if eid not in curator_signatures_dict or log.timestamp > curator_signatures_dict[eid]['timestamp']:
+                    curator_signatures_dict[eid] = {
                         'signature': log.signature_string,
                         'timestamp': log.timestamp
                     }
+        else:
+            print("  ⚠️ Куратор не назначен!")
 
         # Прикрепляем данные к студентам
         for student_data in enriched_students:
             eid = student_data['enrollment'].id
             grade_data = intermediate_grades_dict.get(eid, {})
+            curator_data = curator_signatures_dict.get(eid, {})
+
             student_data.update({
                 'intermediate_score': grade_data.get('score'),
                 'intermediate_grade_type': grade_data.get('grade_type', 'numeric'),
                 'intermediate_date': grade_data.get('date'),
                 'intermediate_instructor_signature': grade_data.get('instructor_signature'),
                 'student_grade_ack_signature': student_grade_ack_dict.get(eid),
-                'curator_signature': curator_signatures_dict.get(eid, {}).get('signature'),
+                'curator_signature': curator_data.get('signature'),  # Для промежуточных оценок
+                'curator_signature_date': curator_data.get('timestamp'),
             })
 
         # --- Блок 5: Итоговые оценки ---
@@ -833,6 +845,8 @@ class DocumentStorageService:
             })
 
         # --- Блок 6: Журнал учёта документов ---
+        print(f"\n📄 БЛОК 6: ПОИСК ПОДПИСЕЙ ДЛЯ ЖУРНАЛА ДОКУМЕНТОВ")
+
         all_certificate_ids = []
         enrollment_to_certificates = {}
 
@@ -840,6 +854,8 @@ class DocumentStorageService:
             cert_ids = list(enrollment.certificates.values_list('id', flat=True))
             enrollment_to_certificates[enrollment.id] = cert_ids
             all_certificate_ids.extend(cert_ids)
+
+        print(f"  - Всего сертификатов в группе: {len(all_certificate_ids)}")
 
         student_cert_signatures = {
             log.certificate_id: log.signature_string
@@ -853,21 +869,47 @@ class DocumentStorageService:
             for log in ComplianceLog.objects.filter(enrollment__group=group, action_type='znt_received')
         }
 
+        print(f"  - Подписей студентов о получении сертификатов: {len(student_cert_signatures)}")
+        print(f"  - Подписей студентов о получении ЗНТ: {len(student_znt_signatures)}")
+
+        # 🔑 ПОДПИСЬ КУРАТОРА-ОФОРМИТЕЛЯ (КЛЮЧЕВОЙ БЛОК)
         curator_cert_signatures = {}
         if group.curator:
-            for log in ComplianceLog.objects.filter(
-                    enrollment__group=group, staff=group.curator, action_type='methodist_documents_issued'  # ← НОВОЕ
-            ).select_related('enrollment'):
-                if log.enrollment_id not in curator_cert_signatures:
-                    curator_cert_signatures[log.enrollment_id] = log.signature_string
+            curator_logs = ComplianceLog.objects.filter(
+                enrollment__group=group,
+                staff=group.curator,
+                action_type='methodist_documents_issued'
+            ).select_related('enrollment')
 
+            print(f"  - Найдено записей methodist_documents_issued от куратора: {curator_logs.count()}")
+
+            for log in curator_logs:
+                eid = log.enrollment_id
+                if eid not in curator_cert_signatures:
+                    curator_cert_signatures[eid] = log.signature_string
+                    print(f"    ✓ Добавлена подпись для enrollment_id={eid}: {log.signature_string[:50]}...")
+        else:
+            print("  ⚠️ Куратор не назначен!")
+
+        print(f"  - Итого подписей куратора-оформителя: {len(curator_cert_signatures)}")
+
+        # Прикрепляем данные к каждому студенту
         for student_data in enriched_students:
             eid = student_data['enrollment'].id
+
             student_data['certificate_signatures'] = {
                 cert_id: student_cert_signatures.get(cert_id)
                 for cert_id in enrollment_to_certificates.get(eid, [])
             }
             student_data['znt_signature'] = student_znt_signatures.get(eid)
-            student_data['curator_cert_signature'] = curator_cert_signatures.get(eid)
+
+            # 🔑 КРИТИЧЕСКИ ВАЖНО: Присваиваем curator_cert_signature
+            curator_sig = curator_cert_signatures.get(eid)
+            student_data['curator_cert_signature'] = curator_sig
+
+            if curator_sig:
+                print(f"  ✓ Студент {eid}: curator_cert_signature = {curator_sig[:50]}...")
+            else:
+                print(f"  ✗ Студент {eid}: curator_cert_signature = None")
 
         return context

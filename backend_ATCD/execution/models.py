@@ -325,6 +325,8 @@ class ComplianceLog(models.Model):
         ('instructor_briefing_done', 'Инструктор провел инструктаж для студента'),
         ('lesson_completed', 'Инструктор подтвердил проведение занятия'),
         ('grades_submitted', 'Инструктор сохранил/выставил оценки'),
+
+        # Методист
         ('methodist_corrected', 'Методист внес исправления в журнал'),
         ('methodist_documents_issued', 'Методист выдал документы (сертификаты/ЗНТ)'),  # <-- НОВОЕ
 
