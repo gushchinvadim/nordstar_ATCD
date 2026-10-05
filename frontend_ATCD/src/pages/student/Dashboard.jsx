@@ -64,28 +64,60 @@ const StudentDashboard = () => {
         return false;
     };
 
-        // 🔑 НОВАЯ ФУНКЦИЯ: Безопасное открытие документов через JWT
-    const openDocument = async (url) => {
-        try {
-            // 1. Запрашиваем HTML через ваш api-клиент (он сам добавит Bearer токен!)
-            const response = await api.get(url, { responseType: 'text' });
-            
-            // 2. Создаем Blob из полученного HTML
-            const blob = new Blob([response.data], { type: 'text/html' });
-            
-            // 3. Создаем временную URL для этого Blob
-            const blobUrl = URL.createObjectURL(blob);
-            
-            // 4. Открываем в новой вкладке
-            window.open(blobUrl, '_blank');
-            
-            // 5. (Опционально) Очищаем память через некоторое время
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-        } catch (err) {
-            console.error("Ошибка открытия документа:", err);
-            alert('Не удалось открыть документ. Возможно, сессия истекла.');
+const openDocument = async (url) => {
+    if (!url) {
+        alert('Ссылка на документ не доступна');
+        return;
+    }
+
+    // 1. 🔑 КРИТИЧЕСКИ ВАЖНО: Открываем пустое окно СРАЗУ ЖЕ, до любого await!
+    // Это обманывает блокировщик всплывающих окон Safari
+    const newWindow = window.open('about:blank', '_blank');
+    
+    if (!newWindow) {
+        alert('Браузер заблокировал открытие вкладки. Пожалуйста, разрешите всплывающие окна для этого сайта в настройках Safari.');
+        return;
+    }
+
+    // Показываем пользователю, что что-то происходит
+    newWindow.document.write(`
+        <html>
+            <head><title>Загрузка...</title></head>
+            <body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;">
+                <h2>⏳ Загрузка документа, пожалуйста, подождите...</h2>
+            </body>
+        </html>
+    `);
+
+    try {
+        // 2. Теперь делаем асинхронный запрос
+        const response = await api.get(url, { 
+            responseType: 'text',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            }
+        });
+        
+        // 3. Создаем Blob и перенаправляем уже открытое окно
+        const blob = new Blob([response.data], { type: 'text/html' });
+        const blobUrl = URL.createObjectURL(blob);
+        
+        newWindow.location.href = blobUrl;
+
+        // 4. Очищаем память через 1 минуту (достаточно долго, чтобы документ отобразился)
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+
+    } catch (err) {
+        console.error("❌ Ошибка открытия документа:", err);
+        newWindow.close(); // Закрываем окно загрузки при ошибке
+        
+        if (err.response?.status === 401) {
+            alert('Сессия истекла. Пожалуйста, выйдите и войдите в систему заново.');
+        } else {
+            alert('Не удалось загрузить документ. Попробуйте позже.');
         }
-    };
+    }
+};
 
     return (
         <div className={styles.container}>

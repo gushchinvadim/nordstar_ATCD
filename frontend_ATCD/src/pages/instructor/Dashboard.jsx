@@ -81,19 +81,52 @@ const openDocument = async (url) => {
         alert('Ссылка на документ не доступна');
         return;
     }
+
+    // 1. 🔑 КРИТИЧЕСКИ ВАЖНО: Открываем пустое окно СРАЗУ ЖЕ, до любого await!
+    // Это обманывает блокировщик всплывающих окон Safari
+    const newWindow = window.open('about:blank', '_blank');
     
+    if (!newWindow) {
+        alert('Браузер заблокировал открытие вкладки. Пожалуйста, разрешите всплывающие окна для этого сайта в настройках Safari.');
+        return;
+    }
+
+    // Показываем пользователю, что что-то происходит
+    newWindow.document.write(`
+        <html>
+            <head><title>Загрузка...</title></head>
+            <body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;">
+                <h2>⏳ Загрузка документа, пожалуйста, подождите...</h2>
+            </body>
+        </html>
+    `);
+
     try {
-        const response = await api.get(url, { responseType: 'text' });
+        // 2. Теперь делаем асинхронный запрос
+        const response = await api.get(url, { 
+            responseType: 'text',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            }
+        });
+        
+        // 3. Создаем Blob и перенаправляем уже открытое окно
         const blob = new Blob([response.data], { type: 'text/html' });
         const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank');
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+        
+        newWindow.location.href = blobUrl;
+
+        // 4. Очищаем память через 1 минуту (достаточно долго, чтобы документ отобразился)
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+
     } catch (err) {
-        console.error("Ошибка открытия документа:", err);
-        if (err.response?.status === 403) {
-            alert('Сессия истекла. Пожалуйста, войдите в систему заново.');
+        console.error("❌ Ошибка открытия документа:", err);
+        newWindow.close(); // Закрываем окно загрузки при ошибке
+        
+        if (err.response?.status === 401) {
+            alert('Сессия истекла. Пожалуйста, выйдите и войдите в систему заново.');
         } else {
-            alert('Не удалось открыть документ. Попробуйте позже.');
+            alert('Не удалось загрузить документ. Попробуйте позже.');
         }
     }
 };
