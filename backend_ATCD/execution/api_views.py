@@ -486,11 +486,19 @@ def instructor_complete_group(request, group_id):
     # ======================================================================
     # 4. Успех: Логируем передачу группы методисту (для аудита)
     # ======================================================================
+    # Получаем IP-адрес
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip_address = x_forwarded_for.split(',')[0].strip()
+    else:
+        ip_address = request.META.get('REMOTE_ADDR')
+
     ComplianceLog.objects.create(
         staff=instructor,
         action_type='instructor_group_handed_over',
         notes=f"Инструктор {instructor.full_name} завершил все свои занятия в группе {group.assigned_number}",
-        timestamp=timezone.now()
+        timestamp=timezone.now(),
+        ip_address=ip_address,  # ← ДОБАВЛЕНО
     )
 
     # ВАЖНО: Мы НЕ меняем group.status! Он остается 'in_progress' или 'enrolling'.
@@ -675,6 +683,13 @@ def methodist_complete_group(request, group_id):
         # 🔑 НОВОЕ: Создаем подпись куратора (Специалист 1 категории) о выдаче документов
         # ======================================================================
         if group.curator:
+            # Получаем IP-адрес из запроса
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                ip_address = x_forwarded_for.split(',')[0].strip()
+            else:
+                ip_address = request.META.get('REMOTE_ADDR')
+
             # Получаем активных студентов группы
             active_enrollments = Enrollment.objects.filter(group=group, status__in=ACTIVE_STATUSES)
 
@@ -684,6 +699,7 @@ def methodist_complete_group(request, group_id):
                     staff=group.curator,
                     action_type='methodist_documents_issued',
                     timestamp=timezone.now(),
+                    ip_address=ip_address,  # ← ДОБАВЛЕНО
                     notes=f"Документы выданы при завершении группы {group.assigned_number}"
                 )
                 for enrollment in active_enrollments
@@ -693,6 +709,7 @@ def methodist_complete_group(request, group_id):
                 ComplianceLog.objects.bulk_create(logs_to_create)
                 print(
                     f"✅ Создано {len(logs_to_create)} подписей куратора {group.curator.full_name} для группы {group.id}")
+                print(f"   IP-адрес: {ip_address}")
         else:
             print(f"⚠️ У группы {group.id} не назначен куратор (Специалист 1 категории). Подписи не созданы.")
             missing_items.append(
