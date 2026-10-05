@@ -187,6 +187,18 @@
     box-shadow: 0 4px 8px rgba(39, 174, 96, 0.3);
 }
 
+.btnInfo {
+    background-color: #17a2b8;
+    color: white;
+    border: none;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+.btnInfo:hover {
+    background-color: #138496;
+    transform: translateY(-1px);
+}
+
 /* АДАПТИВНОСТЬ ДЛЯ МОБИЛЬНЫХ */
 @media (max-width: 600px) {
     .grid {

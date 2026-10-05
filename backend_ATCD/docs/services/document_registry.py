@@ -1,4 +1,4 @@
-    # docs/services/document_registry.py
+# docs/services/document_registry.py
 
 from execution.models import ScheduleItem, Enrollment
 
@@ -13,7 +13,7 @@ class DocumentRegistry:
             'view_name': 'docs:enrollment_order',
             'save_method': 'save_enrollment_order',
             'status': 'active',
-            'visible_if': None,  # Всегда виден
+            'visible_if': None,
         },
         'schedule': {
             'name': 'Расписание занятий',
@@ -37,7 +37,7 @@ class DocumentRegistry:
             'view_name': 'docs:dismissal_ok',
             'save_method': 'save_dismissal_ok',
             'status': 'active',
-            'visible_if': '_has_completed_students',  # Показываем только если есть завершившие
+            'visible_if': '_has_completed_students',
         },
         'dismissal_ot': {
             'name': 'Приказ об отчислении (ОТ)',
@@ -45,10 +45,8 @@ class DocumentRegistry:
             'view_name': 'docs:dismissal_ot_list',
             'save_method': 'save_dismissal_ot',
             'status': 'active',
-            'visible_if': '_has_dismissed_students',  # Показываем только если есть отчисленные
+            'visible_if': '_has_dismissed_students',
         },
-
-        # === АСП: видны только если есть занятия ===
         'land_training_task': {
             'name': 'Задание на тренировку АСП Суша',
             'icon': '🔥',
@@ -65,47 +63,50 @@ class DocumentRegistry:
             'status': 'active',
             'visible_if': '_has_asp_water',
         },
-
-        # === Сертификаты (универсальный, шаблон берется из модели Module) ===
         'certificate': {
             'name': 'Сертификат',
             'icon': '🎓',
-            'view_name': 'docs:certificate_batch',  # Обновите view_name если нужно
+            'view_name': 'docs:certificate_batch',
             'save_method': 'save_certificate',
             'status': 'active',
-            'visible_if': '_has_completed_students',  # Показываем только если есть завершившие
+            'visible_if': '_has_completed_students',
         },
-
-        # --- ЗАГОТОВКИ для госотчетности ---
-        'rauc_data': {
-            'name': 'Данные для РАУЦ',
-            'icon': '',
-            'view_name': None,
-            'save_method': None,  # Пока не реализовано
-            'status': 'coming_soon',
-            'visible_if': None,
-        },
-        'fis_frdo': {
-            'name': 'Данные для ФИС ФРДО',
-            'icon': '🇺',
-            'view_name': None,
-            'save_method': None,  # Пока не реализовано
-            'status': 'coming_soon',
-            'visible_if': None,
-        },
-
         'dismissal_reference': {
             'name': 'Справка об обучении (при отчислении)',
-            'icon': '',
+            'icon': '📜',
             'view_name': 'docs:dismissal_reference',
             'save_method': 'save_dismissal_reference',
             'status': 'active',
             'visible_if': '_has_dismissed_students',
         },
+
+        # 🔑 НОВОЕ: Выписка аудита ПЭП
+        'audit_log': {
+            'name': 'Выписка аудита ПЭП (для надзорных органов)',
+            'icon': '️🛡️',
+            'view_name': 'docs:audit_log',  # ← ДОБАВЛЕНО
+            'save_method': 'save_audit_log',
+            'status': 'active',
+            'visible_if': None,
+        },
+        # --- ЗАГОТОВКИ для госотчетности ---
+        'rauc_data': {
+            'name': 'Данные для РАУЦ',
+            'icon': '📊',
+            'view_name': None,
+            'save_method': None,
+            'status': 'coming_soon',
+            'visible_if': None,
+        },
+        'fis_frdo': {
+            'name': 'Данные для ФИС ФРДО',
+            'icon': '🇷🇺',
+            'view_name': None,
+            'save_method': None,
+            'status': 'coming_soon',
+            'visible_if': None,
+        },
     }
-
-
-
 
     @classmethod
     def get_all_documents(cls):
@@ -120,17 +121,14 @@ class DocumentRegistry:
         """Возвращает документы, релевантные для конкретной группы"""
         result = {}
         for doc_key, doc_info in cls.DOCUMENTS.items():
-            # Пропускаем неактивные
             if doc_info['status'] != 'active':
                 continue
 
-            # Проверяем условие видимости
             condition_method = doc_info.get('visible_if')
             if condition_method:
-                # Вызываем метод проверки (например, _has_asp_land)
                 checker = getattr(cls, condition_method, None)
                 if checker and not checker(group):
-                    continue  # Документ не показываем
+                    continue
 
             result[doc_key] = doc_info
 
@@ -140,32 +138,16 @@ class DocumentRegistry:
 
     @staticmethod
     def _has_asp_land(group):
-        """Проверяет, есть ли в группе занятия АСП Суша"""
-        return ScheduleItem.objects.filter(
-            group=group,
-            session_type='asp-l'
-        ).exists()
+        return ScheduleItem.objects.filter(group=group, session_type='asp-l').exists()
 
     @staticmethod
     def _has_asp_water(group):
-        """Проверяет, есть ли в группе занятия АСП Вода"""
-        return ScheduleItem.objects.filter(
-            group=group,
-            session_type='asp-w'
-        ).exists()
+        return ScheduleItem.objects.filter(group=group, session_type='asp-w').exists()
 
     @staticmethod
     def _has_completed_students(group):
-        """Проверяет, есть ли в группе завершившие студенты"""
-        return Enrollment.objects.filter(
-            group=group,
-            status='completed'
-        ).exists()
+        return Enrollment.objects.filter(group=group, status='completed').exists()
 
     @staticmethod
     def _has_dismissed_students(group):
-        """Проверяет, есть ли в группе отчисленные студенты"""
-        return Enrollment.objects.filter(
-            group=group,
-            status='dismissed'
-        ).exists()
+        return Enrollment.objects.filter(group=group, status='dismissed').exists()

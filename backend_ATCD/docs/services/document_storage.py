@@ -2,7 +2,7 @@
 import os
 import re
 from datetime import date
-
+from django.utils import timezone
 from django.conf import settings
 from django.db.models import Q
 from django.template.loader import render_to_string
@@ -913,3 +913,68 @@ class DocumentStorageService:
                 print(f"  ✗ Студент {eid}: curator_cert_signature = None")
 
         return context
+
+    def save_audit_log(self):
+        """Сохраняет выписку аудита электронных подписей (ПЭП) группы для надзорных органов"""
+        from django.conf import settings
+        import os
+
+        # Получаем все логи
+        logs = ComplianceLog.objects.filter(
+            Q(enrollment__group=self.group) | Q(group=self.group)
+        ).select_related('enrollment__student', 'staff', 'schedule_item').order_by('timestamp')
+
+        audit_data = []
+        for idx, log in enumerate(logs, 1):
+            if log.staff:
+                actor_name = log.staff.full_name
+                actor_role = "Сотрудник"
+            elif log.student:
+                actor_name = f"{log.student.surname} {log.student.name} {log.student.patronymic or ''}".strip()
+                actor_role = "Слушатель"
+            else:
+                actor_name = "Система"
+                actor_role = "Автоматически"
+
+            audit_data.append({
+                'index': idx,
+                'actor_name': actor_name,
+                'actor_role': actor_role,
+                'action_type_display': log.get_action_type_display(),
+                'signature_string': log.signature_string,
+                'timestamp': log.timestamp,
+                'ip_address': log.ip_address or '—',
+                'notes': log.notes or '',
+            })
+
+        # 🔑 ПОИСК ЛОГОТИПА
+        logo_path = None
+        if hasattr(settings, 'STATIC_ROOT') and settings.STATIC_ROOT:
+            candidate = os.path.join(settings.STATIC_ROOT, 'images', 'logo-nordstar.png')
+            if os.path.exists(candidate):
+                logo_path = candidate
+
+        if not logo_path and hasattr(settings, 'STATICFILES_DIRS'):
+            for static_dir in settings.STATICFILES_DIRS:
+                candidate = os.path.join(static_dir, 'images', 'logo-nordstar.png')
+                if os.path.exists(candidate):
+                    logo_path = candidate
+                    break
+
+        if not logo_path:
+            candidate = os.path.join(settings.BASE_DIR, 'static', 'images', 'logo-nordstar.png')
+            if os.path.exists(candidate):
+                logo_path = candidate
+
+        context = {
+            'group': self.group,
+            'audit_data': audit_data,
+            'generated_at': timezone.now(),
+            'logo_path': f'file://{logo_path}' if logo_path else None,  # Для PDF
+            'STATIC_URL': settings.STATIC_URL,  # Для HTML-просмотра
+        }
+
+        raw_filename = f"Аудит_ПЭП_{self.group.assigned_number}.html"
+        filename = sanitize_filename(raw_filename)
+
+        return self.save_both('docs/audit/audit_log.html', context, ['audit'], filename)

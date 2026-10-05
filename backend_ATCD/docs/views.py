@@ -15,6 +15,9 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.decorators.http import require_POST, require_GET
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from weasyprint import HTML
 from execution.models import Group, Enrollment, ScheduleItem, Assessment, IndividualStudyPlan, ComplianceLog
 from execution.services.iup_service import IUPService
@@ -1324,14 +1327,21 @@ def send_enrollment_order_email(request, group_id):
         return JsonResponse({'error': f'Ошибка отправки почты: {str(e)}'}, status=500)
 
 
-@staff_member_required
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def save_document_view(request, group_id):
     """AJAX: Сохранение документа в папку группы (только PDF)"""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
 
-    data = json.loads(request.body)
-    doc_type = data.get('document_type')
+    # Дополнительная проверка на права сотрудника (так как мы убрали @staff_member_required)
+    if not getattr(request.user, 'is_staff', False):
+        return Response({'error': 'Доступ запрещен. Требуются права сотрудника.'}, status=403)
+
+    # В DRF request.data уже автоматически парсит JSON, json.loads не нужен
+    doc_type = request.data.get('document_type')
+
+    if not doc_type:
+        return Response({'error': 'document_type is required'}, status=400)
 
     group = get_object_or_404(Group, id=group_id)
     service = DocumentStorageService(group)
@@ -1346,23 +1356,24 @@ def save_document_view(request, group_id):
             'water_training_task': service.save_water_training_task,
             'dismissal_ok': service.save_dismissal_ok,
             'dismissal_ot': service.save_dismissal_ot,
-            'dismissal_reference': service.save_dismissal_reference,  # ← ДОБАВЛЕНО
+            'dismissal_reference': service.save_dismissal_reference,
             'certificate': service.save_certificate,
+            'audit_log': service.save_audit_log,  # <-- Убедитесь, что эта строка есть!
         }
 
         if doc_type not in save_methods:
-            return JsonResponse({'error': f'Unknown document type: {doc_type}'}, status=400)
+            return Response({'error': f'Unknown document type: {doc_type}'}, status=400)
 
         # Вызываем соответствующий метод
         pdf_path = save_methods[doc_type]()
 
-        return JsonResponse({
+        return Response({
             'success': True,
-            'pdf_path': os.path.relpath(pdf_path, settings.MEDIA_ROOT),
+            'pdf_path': pdf_path,  # Можно оставить как есть, или сделать относительный путь
         })
 
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        return Response({'error': str(e)}, status=500)
 
 @staff_member_required
 def enrollment_order_view(request, group_id):
@@ -1691,7 +1702,7 @@ def group_documents_dashboard(request, group_id):
     year = str(group.start_date.year) if group.start_date else str(date.today().year)
     module_code = re.sub(r'[^\w\-]', '_', group.module.code) if group.module else 'unknown_module'
 
-    # БЕЗОПАСНЫЙ НОМЕР ДЛЯ ПУТИ (заменяем / на _)
+    # БЕЗОПАСНЫЙ НОМЕР ДЛЯ ПУТИ (заменяем / и другие спецсимволы на _)
     safe_group_number = re.sub(r'[^\w\.\-]', '_', group.assigned_number)
 
     group_folder_name = f"documents/{year}/groups/{module_code}/{safe_group_number}"
@@ -1717,17 +1728,18 @@ def group_documents_dashboard(request, group_id):
                             'full_path': full_relative_path,
                         })
 
-    # 2. Правила сопоставления
+    # 2. Правила сопоставления (МАППИНГ)
     doc_identifiers = {
         'enrollment_order': ['зачисл', 'enrollment', '-сз', '_сз', '-з.pdf'],
         'dismissal_ok': ['_ок', '-ок', '_ok', '-ok', 'оконч'],
         'dismissal_ot': ['_от', '-от', '_ot', '-ot', 'отчисл'],
-        'dismissal_reference': ['справк', 'reference'],  # ← ДОБАВЛЕНО
+        'dismissal_reference': ['справк', 'reference'],
         'journal': ['журнал', 'journal'],
         'schedule': ['распис', 'schedule'],
         'land_training_task': ['суша', 'land', 'asp-l', 'суш'],
         'water_training_task': ['вода', 'water', 'asp-w', 'вод'],
         'certificate': ['удостовер', 'сертификат', 'модуль', 'certificate', 'cert'],
+        'audit_log': ['аудит', 'audit', 'пэп', 'pep'],  # 🔑 ДОБАВЛЕНО: для распознавания файла аудита
     }
 
     # 3. Сопоставляем файлы с типами документов
@@ -1751,71 +1763,61 @@ def group_documents_dashboard(request, group_id):
             'status': doc_info['status'],
             'is_saved': is_saved,
             'saved_file_path': saved_file_path,
-            'view_url': reverse(doc_info['view_name'], args=[group_id]) if doc_info['view_name'] else None,
+            'view_url': reverse(doc_info['view_name'], args=[group_id]) if doc_info.get('view_name') else None,
         })
 
-    # === ПРОВЕРКА НАЛИЧИЯ ФАЙЛОВ РАУЦ ===
+    # === ПРОВЕРКА НАЛИЧИЯ ФАЙЛОВ ОТЧЕТОВ (РАУЦ и ФРДО) ===
     reports_folder = os.path.join(expected_base, 'reports')
+
     rauc_excel_saved = False
     rauc_xml_saved = False
     rauc_excel_path = None
     rauc_xml_path = None
-
-    if os.path.exists(reports_folder):
-        for file in os.listdir(reports_folder):
-            if file.startswith('РАУЦ_') and file.endswith('.xlsx'):
-                rauc_excel_saved = True
-                # Формируем относительный путь
-                rel_path = os.path.relpath(
-                    os.path.join(reports_folder, file),
-                    settings.MEDIA_ROOT
-                ).replace('\\', '/')
-                rauc_excel_path = rel_path
-            elif file.startswith('РАУЦ_') and file.endswith('.xml'):
-                rauc_xml_saved = True
-                rel_path = os.path.relpath(
-                    os.path.join(reports_folder, file),
-                    settings.MEDIA_ROOT
-                ).replace('\\', '/')
-                rauc_xml_path = rel_path
-    # ==========================================
-
-    context = {
-        'group': group,
-        'documents': documents_list,
-        'rauc_excel_saved': rauc_excel_saved,  # ← ДОБАВЛЕНО
-        'rauc_xml_saved': rauc_xml_saved,      # ← ДОБАВЛЕНО
-        'rauc_excel_path': rauc_excel_path,    # ← ДОБАВЛЕНО
-        'rauc_xml_path': rauc_xml_path,        # ← ДОБАВЛЕНО
-    }
-
-    # === ПРОВЕРКА НАЛИЧИЯ ФАЙЛОВ ФРДО ===
     frdo_excel_saved = False
     frdo_excel_path = None
 
     if os.path.exists(reports_folder):
         for file in os.listdir(reports_folder):
-            if file.startswith('ФРДО_') and file.endswith('.xlsx'):
+            if file.startswith('РАУЦ_') and file.endswith('.xlsx'):
+                rauc_excel_saved = True
+                rauc_excel_path = os.path.relpath(os.path.join(reports_folder, file), settings.MEDIA_ROOT).replace('\\',
+                                                                                                                   '/')
+            elif file.startswith('РАУЦ_') and file.endswith('.xml'):
+                rauc_xml_saved = True
+                rauc_xml_path = os.path.relpath(os.path.join(reports_folder, file), settings.MEDIA_ROOT).replace('\\',
+                                                                                                                 '/')
+            elif file.startswith('ФРДО_') and file.endswith('.xlsx'):
                 frdo_excel_saved = True
-                rel_path = os.path.relpath(
-                    os.path.join(reports_folder, file),
-                    settings.MEDIA_ROOT
-                ).replace('\\', '/')
-                frdo_excel_path = rel_path
+                frdo_excel_path = os.path.relpath(os.path.join(reports_folder, file), settings.MEDIA_ROOT).replace('\\',
+                                                                                                                   '/')
     # ==========================================
 
+    # === ПРОВЕРКА НАЛИЧИЯ ИУП (для корректной работы шаблона) ===
+    # Если у вас есть модель IndividualStudyPlan, раскомментируйте и настройте этот блок:
+    # from execution.models import IndividualStudyPlan
+    # iup_documents = IndividualStudyPlan.objects.filter(group=group).select_related('student').order_by('-created_at')
+    iup_documents = []  # Заглушка, если модель еще не подключена здесь, чтобы шаблон не падал
+
+    # 4. Формируем единый контекст
     context = {
         'group': group,
         'documents': documents_list,
+        'iup_documents': iup_documents,  # Передаем в шаблон
+
+        # РАУЦ
         'rauc_excel_saved': rauc_excel_saved,
         'rauc_xml_saved': rauc_xml_saved,
         'rauc_excel_path': rauc_excel_path,
         'rauc_xml_path': rauc_xml_path,
+
+        # ФРДО
         'frdo_excel_saved': frdo_excel_saved,
         'frdo_excel_path': frdo_excel_path,
-        'frontend_url': getattr(settings, 'FRONTEND_URL', 'http://localhost:5173'),
 
+        # Прочее
+        'frontend_url': getattr(settings, 'FRONTEND_URL', 'http://localhost:5173'),
     }
+
     return render(request, 'docs/dashboard/documents_dashboard.html', context)
 
     # === ПОЛУЧЕНИЕ СПИСКА ИУП ДЛЯ ГРУППЫ ===
@@ -2485,3 +2487,49 @@ def download_help_pdf(request):
     response = HttpResponse(pdf_file, content_type='application/pdf')
     response['Content-Disposition'] = 'attachment; filename="ATCD_Быстрый_старт.pdf"'
     return response
+
+
+@staff_member_required
+def audit_log_view(request, group_id):
+    """Просмотр HTML версии выписки аудита ПЭП"""
+    from django.conf import settings
+    import os
+
+    group = get_object_or_404(Group, id=group_id)
+
+    logs = ComplianceLog.objects.filter(
+        Q(enrollment__group=group) | Q(group=group)
+    ).select_related('enrollment__student', 'staff', 'schedule_item').order_by('timestamp')
+
+    audit_data = []
+    for idx, log in enumerate(logs, 1):
+        if log.staff:
+            actor_name = log.staff.full_name
+            actor_role = "Сотрудник"
+        elif log.student:
+            actor_name = f"{log.student.surname} {log.student.name} {log.student.patronymic or ''}".strip()
+            actor_role = "Слушатель"
+        else:
+            actor_name = "Система"
+            actor_role = "Автоматически"
+
+        audit_data.append({
+            'index': idx,
+            'actor_name': actor_name,
+            'actor_role': actor_role,
+            'action_type_display': log.get_action_type_display(),
+            'signature_string': log.signature_string,
+            'timestamp': log.timestamp,
+            'ip_address': log.ip_address or '—',
+            'notes': log.notes or '',
+        })
+
+    context = {
+        'group': group,
+        'audit_data': audit_data,
+        'generated_at': timezone.now(),
+        'logo_path': None,  # Не нужен для HTML
+        'STATIC_URL': settings.STATIC_URL,  # Для HTML-просмотра
+    }
+
+    return render(request, 'docs/audit/audit_log.html', context)

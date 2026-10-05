@@ -139,6 +139,36 @@ const GroupDocuments = () => {
                                 >
                                     📋 Документы
                                 </button>
+                                {/* 🔑 НОВАЯ КНОПКА: Аудит ПЭП */}
+                                <button
+                                    className={`${styles.btn} ${styles.btnInfo}`} 
+                                    onClick={async () => {
+                                        if (!window.confirm('Сгенерировать и сохранить выписку аудита ПЭП для надзорных органов?')) return;
+                                        
+                                        try {
+                                            // ✅ ТОЧНЫЙ ПУТЬ согласно docs/urls.py и главному urls.py
+                                            const endpoint = `/docs/save-document/${group.id}/`;
+                                            
+                                            // Используем ваш настроенный api-клиент (он сам добавит CSRF-токен и base URL)
+                                            const res = await api.post(endpoint, { 
+                                                document_type: 'audit_log' 
+                                            });
+                                            
+                                            if (res.data.success) {
+                                                alert(`✅ Аудит ПЭП успешно сохранен!\nПуть: ${res.data.pdf_path}`);
+                                            } else {
+                                                alert(`❌ Ошибка: ${res.data.error}`);
+                                            }
+                                        } catch (err) {
+                                            console.error("Ошибка сохранения аудита:", err);
+                                            const errorMsg = err.response?.data?.error || err.message || 'Ошибка сети при сохранении аудита.';
+                                            alert(`❌ ${errorMsg}`);
+                                        }
+                                    }}
+                                    title="Скачать выписку всех электронных подписей в группе"
+                                >
+                                    🛡️ Аудит ПЭП
+                                </button>
                                 <button
                                     className={`${styles.btn} ${styles.btnWarning}`}
                                     onClick={() => handleGenerateSchedule(group.id, group.assigned_number)}

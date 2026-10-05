@@ -39,6 +39,7 @@ urlpatterns = [
     path('instructing/', views.instructing, name='instructing'),
     path('help/', views.help_view, name='help'),
     path('help/pdf/', views.download_help_pdf, name='download_help_pdf'),
+    path('audit-log/<int:group_id>/', views.audit_log_view, name='audit_log'),
 ]
 
 # Раздача медиа-файлов в режиме DEBUG
