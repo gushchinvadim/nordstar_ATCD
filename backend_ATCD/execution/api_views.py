@@ -296,7 +296,7 @@ def instructor_groups_view(request):
     result = []
     for group in groups:
         # 1. Документ расписания и ознакомление инструктора
-        schedule_doc_url = request.build_absolute_uri(f"/docs/schedule/{group.id}/")
+        schedule_doc_url = request.build_absolute_uri(f"/api/execution/instructor/schedule/{group.id}/")
 
         schedule_ack = ComplianceLog.objects.filter(
             staff=staff,

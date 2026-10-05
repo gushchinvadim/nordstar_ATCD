@@ -76,6 +76,28 @@ const InstructorDashboard = () => {
         }
     };
 
+const openDocument = async (url) => {
+    if (!url) {
+        alert('Ссылка на документ не доступна');
+        return;
+    }
+    
+    try {
+        const response = await api.get(url, { responseType: 'text' });
+        const blob = new Blob([response.data], { type: 'text/html' });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+    } catch (err) {
+        console.error("Ошибка открытия документа:", err);
+        if (err.response?.status === 403) {
+            alert('Сессия истекла. Пожалуйста, войдите в систему заново.');
+        } else {
+            alert('Не удалось открыть документ. Попробуйте позже.');
+        }
+    }
+};
+
     // === НОВАЯ ЛОГИКА: Завершение группы с валидацией ===
     const handleCompleteGroup = async (groupId) => {
         setCompletionError(null); // Сброс предыдущих ошибок
@@ -144,9 +166,12 @@ const InstructorDashboard = () => {
                                 {/* 1. Расписание */}
                                 <div className={styles.signatureSection}>
                                     <h4>1. Ознакомление с учебным расписанием</h4>
-                                    <a href={group.schedule_doc.url} target="_blank" rel="noopener noreferrer" className={styles.docLink}>
+                                    <button 
+                                        className={styles.docLinkButton}
+                                        onClick={() => openDocument(group.schedule_doc?.url)} >
                                         📄 Открыть документ с расписанием
-                                    </a>
+                                    </button>
+                                    
                                     {group.schedule_doc.has_ack ? (
                                         <div className={styles.confirmed}>
                                             ✅ Ознакомлен {new Date(group.schedule_doc.ack_date).toLocaleString('ru-RU')}

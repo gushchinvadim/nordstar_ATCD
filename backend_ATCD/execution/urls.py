@@ -1,8 +1,6 @@
 # execution/urls.py
 from django.urls import path
-from . import api_views
-from . import student_views
-from . import director_views
+from . import api_views, instructor_views, student_views, director_views
 from .api_views import change_password, StudentCreateAPIView
 
 app_name = 'execution'
@@ -22,12 +20,16 @@ urlpatterns = [
     path('instructor/groups/', api_views.instructor_groups_view, name='instructor_groups'),
     path('instructor/groups/<int:group_id>/complete/', api_views.instructor_complete_group, name='instructor_complete_group'),
     path('instructor/log/', api_views.instructor_log_action, name='instructor_log_action'),
+    path('instructor/schedule/<int:group_id>/', instructor_views.instructor_schedule_view, name='instructor_schedule'),
+    path('instructor/instructing/', instructor_views.instructor_instructing_view, name='instructor_instructing'),
+    path('instructor/journal/<int:group_id>/', instructor_views.instructor_journal_view, name='instructor_journal'),
 
-    # === СТУДЕНТ ===
+        # === СТУДЕНТ ===
     path('student/modules/', student_views.student_modules, name='student_modules'),
     path('student/confirm/', student_views.student_confirm_action, name='student_confirm_action'),
     path('students/', StudentCreateAPIView.as_view(), name='student-create'),
-
+    path('student/schedule/<int:group_id>/', student_views.student_schedule_view, name='student_schedule'),
+    path('student/instructing/', student_views.student_instructing_view, name='student_instructing'),
 
     # === ДИРЕКТОР ===
     path('director/groups/', director_views.director_groups, name='director_groups'),

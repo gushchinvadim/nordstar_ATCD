@@ -335,6 +335,54 @@
     font-style: italic;
 }
 
+/* Кнопка открытия документа */
+.docLinkButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+    text-decoration: none;
+    margin: 8px 0;
+}
+
+.docLinkButton:hover {
+    background: linear-gradient(135deg, #2980b9 0%, #1f6391 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.4);
+}
+
+.docLinkButton:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+}
+
+.docLinkButton:disabled {
+    background: #bdc3c7;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Иконка внутри кнопки */
+.docLinkButton .icon {
+    font-size: 16px;
+}
+
+/* Состояние загрузки */
+.docLinkButton.loading {
+    opacity: 0.7;
+    cursor: wait;
+}
+
 /* Адаптивность для мобильных устройств */
 @media (max-width: 768px) {
     .container {

@@ -64,6 +64,29 @@ const StudentDashboard = () => {
         return false;
     };
 
+        // 🔑 НОВАЯ ФУНКЦИЯ: Безопасное открытие документов через JWT
+    const openDocument = async (url) => {
+        try {
+            // 1. Запрашиваем HTML через ваш api-клиент (он сам добавит Bearer токен!)
+            const response = await api.get(url, { responseType: 'text' });
+            
+            // 2. Создаем Blob из полученного HTML
+            const blob = new Blob([response.data], { type: 'text/html' });
+            
+            // 3. Создаем временную URL для этого Blob
+            const blobUrl = URL.createObjectURL(blob);
+            
+            // 4. Открываем в новой вкладке
+            window.open(blobUrl, '_blank');
+            
+            // 5. (Опционально) Очищаем память через некоторое время
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+        } catch (err) {
+            console.error("Ошибка открытия документа:", err);
+            alert('Не удалось открыть документ. Возможно, сессия истекла.');
+        }
+    };
+
     return (
         <div className={styles.container}>
             <h1 className={styles.mainTitle}>Личный кабинет слушателя</h1>
@@ -93,35 +116,65 @@ const StudentDashboard = () => {
                         {expandedModule === module.module_id && (
                             <div className={styles.signaturesBlock}>
                                 
-                                {/* 1. Ознакомление с расписанием */}
-                                <div className={styles.signatureSection}>
-                                    <h4>1. Ознакомление с учебным расписанием</h4>
-                                    <a href={module.schedule_doc?.url || '#'} target="_blank" rel="noopener noreferrer" className={styles.docLink}>
-                                        📄 Открыть документ с расписанием
-                                    </a>
-                                    {module.schedule_doc?.has_ack ? (
-                                        <div className={styles.confirmed}>✅ Ознакомлен {new Date(module.schedule_doc.ack_date).toLocaleString('ru-RU')}</div>
-                                    ) : (
-                                        <button className={styles.actionButton} onClick={() => handleConfirm('student_schedule_ack', { enrollment_id: module.enrollment_id })}>
-                                            ✅ Я ознакомлен с расписанием и согласен с ним
-                                        </button>
-                                    )}
+                        {/* 1. Ознакомление с расписанием */}
+                        <div className={styles.signatureSection}>
+                            <h4>1. Ознакомление с учебным расписанием</h4>
+                            
+                            {module.schedule_doc?.url ? (
+                                <button 
+                                    className={styles.docLinkButton}
+                                    onClick={() => openDocument(module.schedule_doc.url)}
+                                >
+                                    <span className={styles.icon}></span>
+                                    Открыть документ с расписанием
+                                </button>
+                            ) : (
+                                <p className={styles.pending}>Расписание ещё не загружено</p>
+                            )}
+                            
+                            {module.schedule_doc?.has_ack ? (
+                                <div className={styles.confirmed}>
+                                    ✅ Ознакомлен {new Date(module.schedule_doc.ack_date).toLocaleString('ru-RU')}
                                 </div>
+                            ) : (
+                                <button 
+                                    className={styles.actionButton} 
+                                    onClick={() => handleConfirm('student_schedule_ack', { enrollment_id: module.enrollment_id })}
+                                >
+                                    ✅ Я ознакомлен с расписанием и согласен с ним
+                                </button>
+                            )}
+                        </div>
 
-                                {/* 2. Инструктаж по ТБ */}
-                                <div className={styles.signatureSection}>
-                                    <h4>2. Инструктаж по ОТ, ТБ, ППБ + согласие на обработку ПД + ознакомление с порядком</h4>
-                                    <a href={module.instructing_doc?.url || '#'} target="_blank" rel="noopener noreferrer" className={styles.docLink}>
-                                        📄 Открыть документ с инструктажем
-                                    </a>
-                                    {module.instructing_doc?.has_ack ? (
-                                        <div className={styles.confirmed}>✅ Ознакомлен {new Date(module.instructing_doc.ack_date).toLocaleString('ru-RU')}</div>
-                                    ) : (
-                                        <button className={styles.actionButton} onClick={() => handleConfirm('student_safety_ack', { enrollment_id: module.enrollment_id })}>
-                                            ✅ Ознакомлен и согласен
-                                        </button>
-                                    )}
+                        {/* 2. Инструктаж по ТБ */}
+                        <div className={styles.signatureSection}>
+                            <h4>2. Инструктаж по ОТ, ТБ, ППБ + согласие на обработку ПД + ознакомление с порядком</h4>
+                            
+                            {module.instructing_doc?.url ? (
+                                <button 
+                                    className={styles.docLinkButton}
+                                    onClick={() => openDocument(module.instructing_doc.url)}
+                                >
+                                    <span className={styles.icon}>📄</span>
+                                    Открыть документ с инструктажем
+                                </button>
+                            ) : (
+                                <p className={styles.pending}>Инструктаж ещё не загружен</p>
+                            )}
+                            
+                            {module.instructing_doc?.has_ack ? (
+                                <div className={styles.confirmed}>
+                                    ✅ Ознакомлен {new Date(module.instructing_doc.ack_date).toLocaleString('ru-RU')}
                                 </div>
+                            ) : (
+                                <button 
+                                    className={styles.actionButton} 
+                                    onClick={() => handleConfirm('student_safety_ack', { enrollment_id: module.enrollment_id })}
+                                >
+                                    ✅ Ознакомлен и согласен
+                                </button>
+                            )}
+                        </div>
 
                                 {/* 3. Отметка о посещаемости */}
                                 <div className={styles.signatureSection}>
