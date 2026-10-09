@@ -1,9 +1,10 @@
+# docs/utils.py
 import base64
 import os
 from datetime import date
 
 from django.conf import settings
-from execution.models import ScheduleItem
+from execution.models import ScheduleItem, ComplianceLog
 from training.models import Section
 
 def get_logo_base64():
@@ -61,3 +62,44 @@ def get_exam_date_for_enrollment(enrollment):
 
     # ПРИОРИТЕТ 4: Сегодня
     return date.today()
+
+
+def get_instructor_final_signature(group, instructor):
+    """
+    Получает финальную подпись инструктора для группы.
+
+    Приоритет поиска:
+    1. grades_submitted — выставление оценок (итоговая аттестация)
+    2. instructor_group_handed_over — передача группы методисту
+    3. lesson_completed — любое завершённое занятие (последнее по времени)
+
+    Returns:
+        signature_string или None
+    """
+    if not instructor:
+        return None
+
+    # Приоритет 1: подпись при выставлении оценок
+    log = ComplianceLog.objects.filter(
+        staff=instructor,
+        enrollment__group=group,
+        action_type='grades_submitted'
+    ).order_by('-timestamp').first()
+
+    # Приоритет 2: подпись при передаче группы методисту
+    if not log:
+        log = ComplianceLog.objects.filter(
+            staff=instructor,
+            enrollment__group=group,
+            action_type='instructor_group_handed_over'
+        ).order_by('-timestamp').first()
+
+    # Приоритет 3: последнее завершённое занятие (любой тип)
+    if not log:
+        log = ComplianceLog.objects.filter(
+            staff=instructor,
+            enrollment__group=group,
+            action_type='lesson_completed'
+        ).order_by('-timestamp').first()
+
+    return log.signature_string if log else None

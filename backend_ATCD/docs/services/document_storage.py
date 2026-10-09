@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.template.loader import render_to_string
 from weasyprint import HTML
 
-from docs.utils import get_logo_base64
+from docs.utils import get_logo_base64, get_instructor_final_signature
 from execution.models import Enrollment, Certificate, ScheduleItem, ComplianceLog, Assessment
 from people.models import Staff
 from references.models import License
@@ -164,15 +164,8 @@ class DocumentStorageService:
         instructor_name = instructor.full_name if instructor else ""
 
         # Подпись инструктора
-        instructor_signature = None
-        asp_item = asp_land_items.first()
-        if asp_item:
-            log = ComplianceLog.objects.filter(
-                schedule_item=asp_item,
-                action_type='lesson_completed'
-            ).select_related('staff').first()
-            if log:
-                instructor_signature = log.signature_string
+        # Получаем финальную подпись инструктора (с момента выставления оценок)
+        instructor_signature = get_instructor_final_signature(self.group, instructor)
 
         # Итоговые оценки
         final_section = Section.objects.filter(
@@ -244,15 +237,8 @@ class DocumentStorageService:
         instructor_name = instructor.full_name if instructor else ""
 
         # Подпись инструктора (lesson_completed)
-        instructor_signature = None
-        asp_item = asp_water_items.first()
-        if asp_item:
-            log = ComplianceLog.objects.filter(
-                schedule_item=asp_item,
-                action_type='lesson_completed'
-            ).select_related('staff').first()
-            if log:
-                instructor_signature = log.signature_string
+        # Получаем финальную подпись инструктора (с момента выставления оценок)
+        instructor_signature = get_instructor_final_signature(self.group, instructor)
 
         # Итоговые оценки для ЗНТ
         final_section = Section.objects.filter(

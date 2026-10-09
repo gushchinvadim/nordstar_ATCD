@@ -2,6 +2,7 @@
 import base64
 import io
 import json
+import logging
 import re
 import zipfile
 from collections import defaultdict
@@ -12,7 +13,7 @@ from django.db import models
 from django.db.models import Q
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import render, get_object_or_404, redirect
-from django.template.loader import render_to_string
+from django.template.loader import render_to_string, get_template
 from django.urls import reverse
 from django.views.decorators.http import require_POST, require_GET
 from rest_framework.decorators import api_view, permission_classes
@@ -33,9 +34,12 @@ from django.contrib import messages
 from execution.models import Group, Enrollment
 from docs.services.document_registry import DocumentRegistry
 from docs.services.document_storage import DocumentStorageService
-from .utils import get_logo_base64, get_exam_date_for_enrollment
+from .utils import get_logo_base64, get_exam_date_for_enrollment, get_instructor_final_signature
 from django.utils import timezone
+from django.core.cache import cache
 
+
+logger = logging.getLogger(__name__)
 
 @staff_member_required
 def group_grades_view(request, group_id):
@@ -427,15 +431,8 @@ def land_training_task_view(request, group_id):
     # ======================================================================
     # НОВОЕ: Получаем подпись инструктора АСП (lesson_completed)
     # ======================================================================
-    instructor_signature = None
-    if asp_item:
-        log = ComplianceLog.objects.filter(
-            schedule_item=asp_item,
-            action_type='lesson_completed'
-        ).select_related('staff').first()
-
-        if log:
-            instructor_signature = log.signature_string
+    # Получаем финальную подпись инструктора (с момента выставления оценок)
+    instructor_signature = get_instructor_final_signature(group, instructor)
     # ======================================================================
 
     # Получаем тип ВС
@@ -527,15 +524,8 @@ def water_training_task_view(request, group_id):
     instructor_name = instructor.full_name if instructor else None
 
     # Получаем подпись инструктора АСП (lesson_completed)
-    instructor_signature = None
-    if asp_item:
-        log = ComplianceLog.objects.filter(
-            schedule_item=asp_item,
-            action_type='lesson_completed'
-        ).select_related('staff').first()
-
-        if log:
-            instructor_signature = log.signature_string
+    # Получаем финальную подпись инструктора (с момента выставления оценок)
+    instructor_signature = get_instructor_final_signature(group, instructor)
 
     # Получаем тип ВС
     aircraft_type = group.module.aircraft_type if group.module else None
@@ -2475,17 +2465,68 @@ def help_view(request):
     return render(request, 'docs/help/quick_start.html')
 
 
-@staff_member_required
+
 def download_help_pdf(request):
-    """Генерация PDF версии инструкции"""
-    from weasyprint import HTML
-    from django.http import HttpResponse
+    """Генерация PDF версии инструкции (публичный доступ + кэширование + rate limit)"""
 
-    html_content = render_to_string('docs/help/quick_start.html')
-    pdf_file = HTML(string=html_content).write_pdf()
+    # === 1. Определяем пути ===
+    cache_dir = os.path.join(settings.MEDIA_ROOT, 'cache', 'help_docs')
+    os.makedirs(cache_dir, exist_ok=True)
+    cached_pdf_path = os.path.join(cache_dir, 'ATCD_Quick_Start.pdf')  # Латиница для надёжности
 
+    # === 2. Получаем путь к шаблу безопасным способом ===
+    try:
+        template = get_template('docs/help/quick_start.html')
+        template_path = template.origin.name
+        template_mtime = os.path.getmtime(template_path)
+    except (AttributeError, OSError) as e:
+        # Если не удалось получить путь к шаблону — всегда перегенерируем
+        logger.warning(f"Не удалось получить mtime шаблона: {e}. Перегенерируем PDF.")
+        template_mtime = None
+
+    # === 3. Проверяем, нужна ли перегенерация ===
+    need_regenerate = True
+    if os.path.exists(cached_pdf_path) and template_mtime is not None:
+        cache_mtime = os.path.getmtime(cached_pdf_path)
+        if template_mtime <= cache_mtime:
+            need_regenerate = False
+
+    # === 4. Rate limit ТОЛЬКО для тяжёлой операции (перегенерация) ===
+    if need_regenerate:
+        client_ip = request.META.get('HTTP_X_FORWARDED_FOR') or request.META.get('REMOTE_ADDR', 'unknown')
+        # Берём только первый IP, если их несколько (X-Forwarded-For может содержать цепочку)
+        client_ip = client_ip.split(',')[0].strip()
+
+        cache_key = f'help_pdf_regenerate_{client_ip}'
+        request_count = cache.get(cache_key, 0)
+
+        if request_count >= 3:  # 3 перегенерации в минуту — более чем достаточно
+            logger.warning(f"Rate limit превышен для IP {client_ip}")
+            return JsonResponse(
+                {'error': 'Слишком много запросов. Попробуйте позже.'},
+                status=429
+            )
+
+        cache.set(cache_key, request_count + 1, 60)
+
+    # === 5. Генерация или чтение из кэша ===
+    if need_regenerate:
+        from weasyprint import HTML
+
+        logger.info("🔄 Перегенерация PDF инструкции")
+        html_content = render_to_string('docs/help/quick_start.html')
+        pdf_file = HTML(string=html_content).write_pdf()
+
+        with open(cached_pdf_path, 'wb') as f:
+            f.write(pdf_file)
+    else:
+        with open(cached_pdf_path, 'rb') as f:
+            pdf_file = f.read()
+
+    # === 6. Отдаём файл ===
     response = HttpResponse(pdf_file, content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="ATCD_Быстрый_старт.pdf"'
+    # Используем latin-имя для максимальной совместимости браузеров
+    response['Content-Disposition'] = 'attachment; filename="ATCD_Quick_Start.pdf"'
     return response
 
 
