@@ -69,6 +69,10 @@
         font-size: 9pt;
     }
 
+    h3 {
+        font-size: 12pt;
+    }
+
     .footer-colontitle {
         width: calc(100% - 20mm);
         border-collapse: collapse;
@@ -106,7 +110,7 @@
 
     .page-title {
         text-align: center;
-        font-size: 14pt;
+        font-size: 12pt;
         font-weight: bold;
         margin: 10px 0 15px 0;
         text-transform: uppercase;
@@ -1055,7 +1059,7 @@
     </table>
 </div>
 
-<!-- ==================== ЗК.АУЦ.21: ЖУРНАЛ УЧЁТА ДОКУМЕНТОВ ==================== -->
+<!-- ==================== СТРАНИЦА 1: ЖУРНАЛ УЧЁТА ДОКУМЕНТОВ ==================== -->
 <div class="a4-page registry-start">
     <table class="header-colontitle">
         <tr>
@@ -1072,7 +1076,7 @@
     <div class="page-content">
         <p style="text-align: center; margin: 15px 0; font-size: 11pt;">Авиационный учебный центр<br>Акционерного общества «Авиакомпания «НордСтар»</p>
 
-        <h3 style="text-align: center; margin: 10px 0;">ЖУРНАЛ УЧЁТА ДОКУМЕНТОВ, ПОДТВЕРЖДАЮЩИХ ПРОХОЖДЕНИЕ ОБУЧЕНИЯ</h3>
+        <h3 style="text-align: center; margin: 10px 0; font-size: 12pt;">ЖУРНАЛ УЧЁТА ДОКУМЕНТОВ, ПОДТВЕРЖДАЮЩИХ ПРОХОЖДЕНИЕ ОБУЧЕНИЯ</h3>
 
         <table class="journal-table">
             <thead>
@@ -1087,66 +1091,91 @@
                     <th style="width: 10%;">Подпись</th>
                 </tr>
             </thead>
-<tbody>
-    {% for item in students %}
-        {% if item.enrollment.certificates.all %}
-            {% for certificate in item.enrollment.certificates.all %}
-            <tr>
-                <td style="text-align: center;">{{ item.enrollment.number_in_group }}</td>
-                <td style="text-align: center;">{{ certificate.get_certificate_type_display }}</td>
-                <td>{{ certificate.number|default:"Б/Н" }}</td>
-                <td style="text-align: center;">{{ item.enrollment.completed_at|date:"d.m.Y"|default:"—" }}</td>
-                <td class="text-left" style="text-align: left;">
-                    {{ item.enrollment.student.surname }} {{ item.enrollment.student.name }} {{ item.enrollment.student.patronymic|default:"" }}
-                </td>
-                <td>
-                    {% with cert_sig=item.certificate_signatures|dict_get:certificate.id %}
-                        {% if cert_sig %}
-                            <div style="font-size: 6.5pt; font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; word-break: break-word;">
-                                {{ cert_sig }}
-                            </div>
-                        {% else %}
-                            <div style="color: #999; font-size: 7px;">Подпись</div>
-                        {% endif %}
-                    {% endwith %}
-                </td>
-                <td class="text-left" style="text-align: left;">
-                    {% if group.curator %}{{ group.curator.full_name }}{% else %}—{% endif %}
-                </td>
-                <td>
-                    {% if item.curator_cert_signature %}
-                        <div style="font-size: 6.5pt; font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; word-break: break-word;">
-                            {{ item.curator_cert_signature }}
-                        </div>
+            <tbody>
+                {% for item in students %}
+                    {% if item.enrollment.certificates.all %}
+                        {% for certificate in item.enrollment.certificates.all %}
+                        <tr>
+                            <td style="text-align: center;">{{ item.enrollment.number_in_group }}</td>
+                            <td style="text-align: center;">{{ certificate.get_certificate_type_display }}</td>
+                            <td>{{ certificate.number|default:"Б/Н" }}</td>
+                            <td style="text-align: center;">{{ item.enrollment.completed_at|date:"d.m.Y"|default:"—" }}</td>
+                            <td class="text-left" style="text-align: left;">
+                                {{ item.enrollment.student.surname }} {{ item.enrollment.student.name }} {{ item.enrollment.student.patronymic|default:"" }}
+                            </td>
+                            <td>
+                                {% with cert_sig=item.certificate_signatures|dict_get:certificate.id %}
+                                    {% if cert_sig %}
+                                        <div style="font-size: 6.5pt; font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; word-break: break-word;">
+                                            {{ cert_sig }}
+                                        </div>
+                                    {% else %}
+                                        <div style="color: #999; font-size: 7px;">Подпись</div>
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td class="text-left" style="text-align: left;">
+                                {% if group.curator %}{{ group.curator.full_name }}{% else %}—{% endif %}
+                            </td>
+                            <td>
+                                {% if item.curator_cert_signature %}
+                                    <div style="font-size: 6.5pt; font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; word-break: break-word;">
+                                        {{ item.curator_cert_signature }}
+                                    </div>
+                                {% else %}
+                                    <div style="color: #999; font-size: 7px;">Подпись</div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
                     {% else %}
-                        <div style="color: #999; font-size: 7px;">Подпись</div>
+                        <tr>
+                            <td style="text-align: center;">{{ item.enrollment.number_in_group }}</td>
+                            <td style="text-align: center;">—</td>
+                            <td>—</td>
+                            <td style="text-align: center;">—</td>
+                            <td class="text-left" style="text-align: left;">
+                                {{ item.enrollment.student.surname }} {{ item.enrollment.student.name }} {{ item.enrollment.student.patronymic|default:"" }}
+                            </td>
+                            <td></td>
+                            <td class="text-left" style="text-align: left;">—</td>
+                            <td></td>
+                        </tr>
                     {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        {% else %}
-            <tr>
-                <td style="text-align: center;">{{ item.enrollment.number_in_group }}</td>
-                <td style="text-align: center;">—</td>
-                <td>—</td>
-                <td style="text-align: center;">—</td>
-                <td class="text-left" style="text-align: left;">
-                    {{ item.enrollment.student.surname }} {{ item.enrollment.student.name }} {{ item.enrollment.student.patronymic|default:"" }}
-                </td>
-                <td></td>
-                <td class="text-left" style="text-align: left;">—</td>
-                <td></td>
-            </tr>
-        {% endif %}
-    {% endfor %}
-</tbody>
+                {% endfor %}
+            </tbody>
         </table>
+    </div>
 
+    <p class="footer-note">Перед использованием проверьте актуальность документа на Корпоративном портале (https://gate.nordstar.ru) в разделе: Центр документов / Шаблоны</p>
+    <table class="footer-colontitle">
+        <tr>
+            <td style="width: 15%;"><b>№ группы</b></td>
+            <td style="width: 60%;">{{ group.assigned_number }}</td>
+            <td style="width: 25%; text-align: right;">{{ group.module.code }}</td>
+        </tr>
+    </table>
+</div>
 
+<!-- ==================== СТРАНИЦА 2: ЗАДАНИЯ НА ТРЕНИРОВКУ (ТОЛЬКО ЕСЛИ ЕСТЬ ДАННЫЕ) ==================== -->
+{% if has_asp_training %}
+<div class="a4-page registry-start" style="page-break-before: always; break-before: page;">
+    <table class="header-colontitle">
+        <tr>
+            <td style="width: 20%;">
+                {% if logo_base64 %}
+                <img src="data:image/png;base64,{{ logo_base64 }}" class="logo-img">
+                {% endif %}
+            </td>
+            <td style="width: 60%; text-align: center; font-weight: 400; font-size: 11pt;">ЖУРНАЛ УЧЁТА ДОКУМЕНТОВ, ПОДТВЕРЖДАЮЩИХ ПРОХОЖДЕНИЕ ОБУЧЕНИЯ (Продолжение)</td>
+            <td style="width: 20%; text-align: right; font-size: 9pt;">ЗК.АУЦ.21<br>Страница <span class="page-num"></span> из {{ zk21_pages }}</td>
+        </tr>
+    </table>
 
-        <!-- ==================== ДИНАМИЧЕСКИЙ БЛОК: ЗАДАНИЯ НА ТРЕНИРОВКУ ==================== -->
-        {% if has_asp_training %}
-        <h3 style="text-align: center; margin: 15px 0 10px 0; text-transform: uppercase;">ЗАДАНИЯ НА ТРЕНИРОВКУ</h3>
+    <div class="page-content">
+        <p style="text-align: center; margin: 15px 0; font-size: 11pt;">Авиационный учебный центр<br>Акционерного общества «Авиакомпания «НордСтар»</p>
+
+        <h3 style="text-align: center; margin: 10px 0; font-size: 12pt; text-transform: uppercase;">ЗАДАНИЯ НА ТРЕНИРОВКУ</h3>
 
         <table class="journal-table">
             <thead>
@@ -1161,62 +1190,44 @@
                     <th style="width: 10%;">Подпись</th>
                 </tr>
             </thead>
-<tbody>
-    {% for item in students %}
-        {% if item.enrollment.certificates.all %}
-            {% for certificate in item.enrollment.certificates.all %}
-            <tr>
-                <td style="text-align: center;">{{ item.enrollment.number_in_group }}</td>
-                <td style="text-align: center;">Задание на тренировку</td>
-                <td>Б/Н</td>
-                <td style="text-align: center;">{{ item.enrollment.completed_at|date:"d.m.Y"|default:"—" }}</td>
-                <td class="text-left" style="text-align: left;">
-                    {{ item.enrollment.student.surname }} {{ item.enrollment.student.name }} {{ item.enrollment.student.patronymic|default:"" }}
-                </td>
-                <td>
-                    {% if item.znt_signature %}
-                        <div style="font-size: 6.5pt; font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; word-break: break-word;">
-                            {{ item.znt_signature }}
-                        </div>
-                    {% else %}
-                        <div style="color: #999; font-size: 7px;">Подпись</div>
-                    {% endif %}
-                </td>
-                <td class="text-left" style="text-align: left;">
-                    {% if group.curator %}{{ group.curator.full_name }}{% else %}—{% endif %}
-                </td>
-                <td>
-                    {% if item.curator_cert_signature %}
-                        <div style="font-size: 6.5pt; font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; word-break: break-word;">
-                            {{ item.curator_cert_signature }}
-                        </div>
-                    {% else %}
-                        <div style="color: #999; font-size: 7px;">Подпись</div>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        {% else %}
-            <tr>
-                <td style="text-align: center;">{{ item.enrollment.number_in_group }}</td>
-                <td style="text-align: center;">—</td>
-                <td>—</td>
-                <td style="text-align: center;">—</td>
-                <td class="text-left" style="text-align: left;">
-                    {{ item.enrollment.student.surname }} {{ item.enrollment.student.name }} {{ item.enrollment.student.patronymic|default:"" }}
-                </td>
-                <td></td>
-                <td class="text-left" style="text-align: left;">—</td>
-                <td></td>
-            </tr>
-        {% endif %}
-    {% endfor %}
-</tbody>
+            <tbody>
+                {# ИСПРАВЛЕНО: Убран вложенный цикл по certificates, чтобы не дублировать строки ЗНТ #}
+                {% for item in students %}
+                <tr>
+                    <td style="text-align: center;">{{ item.enrollment.number_in_group }}</td>
+                    <td style="text-align: center;">Задание на тренировку</td>
+                    <td>Б/Н</td>
+                    <td style="text-align: center;">{{ item.enrollment.completed_at|date:"d.m.Y"|default:"—" }}</td>
+                    <td class="text-left" style="text-align: left;">
+                        {{ item.enrollment.student.surname }} {{ item.enrollment.student.name }} {{ item.enrollment.student.patronymic|default:"" }}
+                    </td>
+                    <td>
+                        {% if item.znt_signature %}
+                            <div style="font-size: 6.5pt; font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; word-break: break-word;">
+                                {{ item.znt_signature }}
+                            </div>
+                        {% else %}
+                            <div style="color: #999; font-size: 7px;">Подпись</div>
+                        {% endif %}
+                    </td>
+                    <td class="text-left" style="text-align: left;">
+                        {% if group.curator %}{{ group.curator.full_name }}{% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if item.curator_cert_signature %}
+                            <div style="font-size: 6.5pt; font-weight: bold; color: #0066cc; font-style: italic; border-bottom: 1px dotted #999; word-break: break-word;">
+                                {{ item.curator_cert_signature }}
+                            </div>
+                        {% else %}
+                            <div style="color: #999; font-size: 7px;">Подпись</div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
-        {% endif %}
-        <!-- ================================================================================ -->
-
     </div>
+
     <p class="footer-note">Перед использованием проверьте актуальность документа на Корпоративном портале (https://gate.nordstar.ru) в разделе: Центр документов / Шаблоны</p>
     <table class="footer-colontitle">
         <tr>
@@ -1226,6 +1237,8 @@
         </tr>
     </table>
 </div>
+{% endif %}
+<!-- ================================================================================ -->
 
 <div class="no-print">
     <button class="print-btn" onclick="window.print()">🖨 Распечатать журнал</button>
