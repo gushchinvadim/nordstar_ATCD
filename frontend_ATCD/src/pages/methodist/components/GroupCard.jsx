@@ -1,10 +1,11 @@
 import styles from './GroupCard.module.css';
+import { useNavigate } from 'react-router-dom';
 
 const GroupCard = ({ group }) => {
-    // ГИБРИДНЫЙ ПОДХОД: при клике переходим на существующую Django-страницу
-    // Берем URL бэкенда из .env (например, http://127.0.0.1:8000)
-const backendUrl = import.meta.env.VITE_API_URL; 
-const djangoDashboardUrl = `${backendUrl}/docs/dashboard/${group.id}/`;
+    // ✅ ПРАВИЛЬНО: хук внутри компонента
+    const navigate = useNavigate();
+    const backendUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'; 
+    const djangoDashboardUrl = `${backendUrl}/docs/dashboard/${group.id}/`;
 
     return (
         <div className={styles.card}>
@@ -32,7 +33,12 @@ const djangoDashboardUrl = `${backendUrl}/docs/dashboard/${group.id}/`;
                 )}
             </div>
 
-            <a href={djangoDashboardUrl} className={styles.btnOpen}>
+            {/* Если вы хотите, чтобы эта карточка тоже вела на новый фронтенд, раскомментируйте кнопку ниже и закомментируйте <a> */}
+            {/* <button className={styles.btnOpen} onClick={() => navigate(`/groups/${group.id}/grades`)}>
+                📖 Журнал оценок →
+            </button> */}
+
+            <a href={djangoDashboardUrl} className={styles.btnOpen} target="_blank" rel="noopener noreferrer">
                 Открыть документы группы →
             </a>
         </div>

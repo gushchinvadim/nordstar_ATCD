@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import ChangePasswordModal from './ChangePasswordModal'; // <-- НОВЫЙ ИМПОРТ
+import ChangePasswordModal from './ChangePasswordModal'; 
 import styles from './Header.module.css';
 
 const Header = () => {
@@ -15,7 +15,7 @@ const Header = () => {
 
     const roleConfig = {
         director: { label: '👔 Директор', path: '/director/dashboard' },
-        methodist: { label: '📋 Методист', path: '/methodist' },
+        methodist: { label: '📋 Методист', path: '/groups' },
         instructor: { label: '‍🏫 Инструктор', path: '/instructor/dashboard' },
         student: { label: '🎓 Слушатель', path: '/student/dashboard' }
     };

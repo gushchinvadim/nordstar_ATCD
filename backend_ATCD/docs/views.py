@@ -791,11 +791,11 @@ def _split_attendance_into_pages(attendance_by_stage, max_dates_per_page=14):
 
 def get_journal_context(group):
     """Собирает контекст для журнала (используется и для просмотра, и для сохранения)"""
+    from execution.models import Enrollment, ScheduleItem, Section
+    # Убедитесь, что get_logo_base64 импортирована, если она не в этом же файле
+    # from docs.utils import get_logo_base64
 
-    students = Enrollment.objects.filter(
-        group=group
-    ).order_by('number_in_group')
-
+    students = Enrollment.objects.filter(group=group).order_by('number_in_group')
     attendance_by_stage = _build_attendance_by_stage(group)
 
     # АВТОВЫБОР ОРИЕНТАЦИИ
@@ -807,6 +807,25 @@ def get_journal_context(group):
         attendance_pages = _split_attendance_into_pages(attendance_by_stage, max_dates_per_page=10)
     else:
         attendance_pages = [attendance_by_stage] if attendance_by_stage else []
+
+        # ======================================================================
+        # 🔧 ГАРАНТИРОВАННОЕ ДОБАВЛЕНИЕ schedule_item_id (если потерялся при разбивке)
+        # ======================================================================
+    for page in attendance_pages:
+        for stage in page:
+            for date_info in stage.get('dates', []):
+                if 'schedule_item_id' not in date_info:
+                    # Ищем занятие по дате и названию раздела
+                    clean_title = date_info.get('section_title', '').split('\n')[0].strip()
+                    si = ScheduleItem.objects.filter(
+                        group=group,
+                        date=date_info.get('date'),
+                        section__title__icontains=clean_title
+                    ).first()
+
+                    if si:
+                        date_info['schedule_item_id'] = si.id
+    # ======================================================================
 
     # Тематический план
     rows_per_page = 10 if use_landscape else 7
@@ -832,7 +851,6 @@ def get_journal_context(group):
         if exam_schedule and exam_schedule.instructor:
             exam_instructor = exam_schedule.instructor
 
-
     # === ПРОВЕРКА НАЛИЧИЯ ЗАДАНИЙ НА ТРЕНИРОВКУ (АСП) ===
     has_asp_training = ScheduleItem.objects.filter(
         group=group,
@@ -845,8 +863,9 @@ def get_journal_context(group):
 
     zk18_pages = 2 + attendance_count + num_plan_pages + 1
     zk13_pages = 1
-    zk21_pages = 1
 
+    # Исправлено: если есть АСП, страниц журнала документов будет 2 (Сертификаты + ЗНТ)
+    zk21_pages = 2 if has_asp_training else 1
 
     return {
         'group': group,
@@ -855,14 +874,12 @@ def get_journal_context(group):
         'attendance_pages': attendance_pages,
         'thematic_plan_pages': thematic_plan_pages,
         'module_total_hours': module_total_hours,
-        # 'num_plan_pages': num_plan_pages,
-        # 'total_pages': total_pages,
         'total_columns_students': 4,
         'total_columns_attendance': 2 + sum(len(s['dates']) for s in attendance_by_stage),
         'attendance_pages_count': len(attendance_pages),
         'logo_base64': get_logo_base64(),
         'use_landscape': use_landscape,
-        'exam_instructor': exam_instructor,  # ← ДОБАВИТЬ
+        'exam_instructor': exam_instructor,
 
         # НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ШАБЛОНА:
         'zk18_pages': zk18_pages,
@@ -870,8 +887,6 @@ def get_journal_context(group):
         'zk21_pages': zk21_pages,
         'has_asp_training': has_asp_training,
     }
-
-
 @staff_member_required
 def journal_view(request, group_id):
     """Отображение журнала подготовки группы с электронными подписями (ЭП)"""

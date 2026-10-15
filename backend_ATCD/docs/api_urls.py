@@ -21,6 +21,9 @@ urlpatterns = [
     path('group/<int:group_id>/edit/', api_views.group_detail_edit, name='api_group_detail_edit'),
     path('group/<int:group_id>/update/', api_views.update_group, name='api_update_group'),
     path('group/<int:group_id>/generate-schedule/', api_views.generate_group_schedule, name='api_generate_schedule'),
+    path('groups/<int:group_id>/grades/', api_views.group_grades_api, name='group_grades_api'),
+path('groups/<int:group_id>/complete-all/', api_views.complete_all_passed, name='complete_all_passed'),
+path('groups/<int:group_id>/dismiss-failed/', api_views.dismiss_failed, name='dismiss_failed'),
 
     # === НОВОЕ: СПРАВКА ДЛЯ ЛЕНДИНГА ===
     path('help/content/', api_views.get_help_content, name='api_help_content'),

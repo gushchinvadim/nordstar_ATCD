@@ -1,3 +1,4 @@
+// src/pages/methodist/components/GroupFilters.jsx
 import styles from './GroupFilters.module.css';
 
 const GroupFilters = ({ filters, directions, onFilterChange }) => {
@@ -6,6 +7,7 @@ const GroupFilters = ({ filters, directions, onFilterChange }) => {
 
     return (
         <div className={styles.container}>
+
             <div className={styles.filterGroup}>
                 <label>Направление:</label>
                 <select
@@ -13,8 +15,9 @@ const GroupFilters = ({ filters, directions, onFilterChange }) => {
                     onChange={(e) => onFilterChange('direction', e.target.value)}
                 >
                     <option value="all">Все направления</option>
-                    {directions.map(dir => (
-                        <option key={dir.code} value={dir.code}>
+                    {/* ✅ ИСПРАВЛЕНО: добавлен index для гарантии уникальности ключа */}
+                    {directions.map((dir, index) => (
+                        <option key={`${dir.code}-${index}`} value={dir.code}>
                             {dir.title}
                         </option>
                     ))}

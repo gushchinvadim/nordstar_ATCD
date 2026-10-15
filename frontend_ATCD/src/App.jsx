@@ -17,6 +17,7 @@ import Dashboard from './pages/methodist/Dashboard';
 import CreateGroup from './pages/methodist/CreateGroup';
 import GroupDocuments from './pages/methodist/GroupDocuments';
 import EditGroup from './pages/methodist/EditGroup';
+import GroupGrades from './pages/methodist/GroupGrades';
 
 // Инструктор
 import InstructorDashboard from './pages/instructor/Dashboard';
@@ -46,17 +47,21 @@ function App() {
                         
                         {/* === МЕТОДИСТ === */}
                         <Route element={<Layout />}>
-                            <Route path="/methodist" element={<Dashboard />} /> {/* <-- ИЗМЕНИТЬ ЗДЕСЬ */}
+                            <Route path="/methodist" element={<Dashboard />} /> 
                             <Route path="/groups" element={<GroupDocuments />} />
                             <Route path="/create-group" element={<CreateGroup />} />
                             <Route path="/groups/:groupId/edit" element={<EditGroup />} />
                             <Route path="/create-student" element={<CreateStudent />} />
+                            
+                            {/* ✅ ПЕРЕМЕСТИТЬ СЮДА: Журнал оценок для методиста */}
+                            <Route path="/groups/:groupId/grades" element={<GroupGrades />} />
                         </Route>
 
                         {/* === ИНСТРУКТОР === */}
                         <Route element={<InstructorLayout />}>
                             <Route path="/instructor/dashboard" element={<InstructorDashboard />} />
                             <Route path="/instructor/grades/:groupId" element={<InstructorGrades />} />
+                            {/* Если инструктору тоже нужен доступ к этому же компоненту, можно оставить дубликат или вынести маршрут выше, в ProtectedRoute */}
                         </Route>
 
                         {/* === ДИРЕКТОР === */}

@@ -410,7 +410,7 @@ const CreateGroup = () => {
                     <button type="submit" className={styles.submitBtn} disabled={loading}>
                         {loading ? 'Создание...' : 'Создать группу'}
                     </button>
-                    <button type="button" onClick={() => navigate('/methodist')} className={styles.cancelBtn}>
+                    <button type="button" onClick={() => navigate('/groups')} className={styles.cancelBtn}>
                         Отмена
                     </button>
                 </div>

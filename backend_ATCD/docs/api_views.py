@@ -1,14 +1,17 @@
 # docs/api_views.py
+from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.db.models import Q, Count
-
+from django.utils import timezone
+from datetime import datetime
 from core.services.schedule_generator import generate_schedule_for_group
-from execution.models import Group, Enrollment, ScheduleItem
+from execution.models import Group, Enrollment, ScheduleItem, Assessment, ComplianceLog
 from people.models import Staff, Student
 from references.models import Location
-from training.models import Course, Module
+from training.models import Course, Module, Section
+from rest_framework import status
 
 
 @api_view(['GET'])
@@ -668,3 +671,220 @@ def get_help_content(request):
         }
     ]
     return Response(help_data)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def group_grades_api(request, group_id):
+    """API для получения и массового сохранения оценок группы"""
+    group = get_object_or_404(Group, id=group_id)
+
+    # === GET: Получение данных для таблицы ===
+    if request.method == 'GET':
+        students = Enrollment.objects.filter(
+            group=group,
+            status__in=['enrolled', 'in_progress', 'completed', 'dismissed']
+        ).select_related('student').order_by('number_in_group')
+
+        sections = Section.objects.filter(
+            stage__module=group.module,
+            grade_type__in=['numeric', 'binary']
+        ).order_by('stage__order', 'order')
+
+        instructors = Staff.objects.filter(
+            scheduleitem__group=group
+        ).distinct().order_by('full_name')
+
+        schedule_dates = {
+            item['section_id']: item['date']
+            for item in ScheduleItem.objects.filter(group=group, section__in=sections).values('section_id', 'date')
+        }
+
+        students_data = []
+        for enrollment in students:
+            assessments_dict = {a.section_id: a for a in
+                                enrollment.assessments.filter(attempt_number=1).select_related('instructor')}
+
+            assessments_list = []
+            for section in sections:
+                assessment = assessments_dict.get(section.id)
+                instructor = assessment.instructor if assessment else None
+
+                if not instructor:
+                    si = ScheduleItem.objects.filter(group=group, section=section).select_related('instructor').first()
+                    if si and si.instructor:
+                        instructor = si.instructor
+
+                assessments_list.append({
+                    'section_id': section.id,
+                    'section_title': section.title,
+                    'grade_type': section.grade_type,
+                    'score': int(assessment.score) if assessment and assessment.score is not None else None,
+                    'date': assessment.assessment_date.isoformat() if assessment and assessment.assessment_date else (
+                        schedule_dates.get(section.id).isoformat() if schedule_dates.get(section.id) else None),
+                    'instructor_id': instructor.id if instructor else None,
+                })
+
+            students_data.append({
+                'enrollment_id': enrollment.id,
+                'number_in_group': enrollment.number_in_group,
+                'student_name': f"{enrollment.student.surname} {enrollment.student.name} {enrollment.student.patronymic or ''}".strip(),
+                'status': enrollment.status,
+                'status_display': enrollment.get_status_display(),
+                'assessments': assessments_list
+            })
+
+        return Response({
+            'group_info': {
+                'id': group.id,
+                'assigned_number': group.assigned_number,
+                'module_code': group.module.code,
+                'module_title': group.module.title,
+            },
+            'instructors': [{'id': inst.id, 'name': inst.full_name} for inst in instructors],
+            'students': students_data
+        })
+
+    # === POST: Массовое сохранение оценок ===
+    if request.method == 'POST':
+        updates = request.data.get('updates', [])
+        saved_count = 0
+        errors = []
+
+        schedule_dates_cache = {}  # Кэш для оптимизации
+
+        for update in updates:
+            enrollment_id = update.get('enrollment_id')
+            section_id = update.get('section_id')
+            score = update.get('score')
+            date_str = update.get('date')
+            instructor_id = update.get('instructor_id')
+
+            if score is None or score == '':
+                continue
+
+            enrollment = Enrollment.objects.get(id=enrollment_id)
+            section = Section.objects.get(id=section_id)
+
+            # === ВАЛИДАЦИЯ ВРЕМЕНИ (из старого кода) ===
+            cache_key = f"schedule_{group.id}_{section.id}"
+            if cache_key not in schedule_dates_cache:
+                schedule_dates_cache[cache_key] = ScheduleItem.objects.filter(group=group, section=section).first()
+
+            schedule_item = schedule_dates_cache[cache_key]
+            if schedule_item and schedule_item.date:
+                schedule_dt = datetime.combine(schedule_item.date, schedule_item.start_time or datetime.min.time())
+                if timezone.is_naive(schedule_dt):
+                    schedule_dt = timezone.make_aware(schedule_dt)
+
+                if schedule_dt > timezone.now():
+                    errors.append(f'Нельзя выставить оценку по "{section.title}". Время занятия еще не наступило.')
+                    continue  # Пропускаем эту оценку, но сохраняем остальные
+            # ==========================================
+
+            assessment_date = None
+            if date_str:
+                try:
+                    assessment_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                except ValueError:
+                    pass
+
+            if not assessment_date:
+                assessment_date = schedule_dates_cache.get(f"schedule_{group.id}_{section.id}")
+                if hasattr(assessment_date, 'date'):
+                    assessment_date = assessment_date.date()
+                else:
+                    assessment_date = timezone.localdate()
+
+            instructor = Staff.objects.get(id=instructor_id) if instructor_id else None
+            if not instructor and schedule_item:
+                instructor = schedule_item.instructor
+
+            assessment, created = Assessment.objects.get_or_create(
+                enrollment=enrollment, section=section, attempt_number=1,
+                defaults={'score': score, 'assessment_type': 'test', 'assessment_date': assessment_date,
+                          'instructor': instructor}
+            )
+
+            if not created:
+                assessment.score = score
+                assessment.assessment_date = assessment_date
+                assessment.instructor = instructor
+                assessment.save()
+
+            saved_count += 1
+
+            # === ЛОГИРОВАНИЕ (ComplianceLog) ===
+            if request.user.is_authenticated and hasattr(request.user, 'staff'):
+                if not ComplianceLog.objects.filter(enrollment=enrollment, staff=request.user.staff,
+                                                    action_type='grades_submitted', assessment=assessment).exists():
+                    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+                    ip = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else request.META.get('REMOTE_ADDR')
+
+                    ComplianceLog.objects.create(
+                        enrollment=enrollment,
+                        staff=request.user.staff,
+                        action_type='grades_submitted',
+                        assessment=assessment,
+                        ip_address=ip,
+                        notes='Оценки внесены через фронтенд-журнал группы'
+                    )
+
+        if errors:
+            return Response({'success': True, 'saved_count': saved_count, 'warnings': errors},
+                            status=status.HTTP_200_OK)
+
+        return Response(
+            {'success': True, 'saved_count': saved_count, 'message': f'Успешно сохранено {saved_count} оценок'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def complete_all_passed(request, group_id):
+    """Завершает всех студентов, сдавших все разделы"""
+    group = get_object_or_404(Group, id=group_id)
+
+    students = Enrollment.objects.filter(group=group, status__in=['enrolled', 'in_progress'])
+    sections = Section.objects.filter(stage__module=group.module)
+
+    completed_count = 0
+    for enrollment in students:
+        # Проверяем, сдал ли студент все разделы
+        assessments = Assessment.objects.filter(enrollment=enrollment, section__in=sections)
+        passed_sections = assessments.filter(score__gte=1).values_list('section_id', flat=True)
+
+        if len(passed_sections) >= sections.count():
+            enrollment.status = 'completed'
+            enrollment.completed_at = timezone.now()
+            enrollment.save()
+            completed_count += 1
+
+    return Response({
+        'success': True,
+        'message': f'Завершено студентов: {completed_count}'
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def dismiss_failed(request, group_id):
+    """Отчисляет всех студентов, не сдавших разделы"""
+    group = get_object_or_404(Group, id=group_id)
+
+    students = Enrollment.objects.filter(group=group, status__in=['enrolled', 'in_progress'])
+    sections = Section.objects.filter(stage__module=group.module)
+
+    dismissed_count = 0
+    for enrollment in students:
+        assessments = Assessment.objects.filter(enrollment=enrollment, section__in=sections)
+        passed_sections = assessments.filter(score__gte=1).values_list('section_id', flat=True)
+
+        if len(passed_sections) < sections.count():
+            enrollment.status = 'dismissed'
+            enrollment.save()
+            dismissed_count += 1
+
+    return Response({
+        'success': True,
+        'message': f'Отчислено студентов: {dismissed_count}'
+    })

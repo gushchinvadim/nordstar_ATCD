@@ -1,7 +1,7 @@
-// src/pages/methodist/GroupDocuments.jsx
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { fetchGroups, fetchDirections, generateSchedule } from '../../api/groups';
-import api from '../../api/config'; // <-- ДОБАВЛЕНО: для POST запроса завершения
+import api from '../../api/config';
 import GroupFilters from './components/GroupFilters';
 import styles from './GroupDocuments.module.css';
 
@@ -15,6 +15,10 @@ const GroupDocuments = () => {
         year: new Date().getFullYear().toString(),
         search: '',
     });
+    
+    // ✅ Хуки и переменные объявляем здесь, один раз
+    const navigate = useNavigate();
+    const backendUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
     useEffect(() => {
         fetchDirections()
@@ -22,7 +26,6 @@ const GroupDocuments = () => {
             .catch(err => console.error('Ошибка загрузки направлений:', err));
     }, []);
 
-    // Вынесли логику загрузки в отдельную функцию для повторного использования
     const loadGroups = () => {
         setLoading(true);
         const params = new URLSearchParams();
@@ -53,7 +56,7 @@ const GroupDocuments = () => {
             const res = await generateSchedule(groupId);
             if (res.data.success) {
                 alert(`✅ Успех!\n${res.data.message}`);
-                loadGroups(); // Обновляем список после изменения
+                loadGroups();
             } else {
                 alert(`❌ Ошибка:\n${res.data.error}`);
             }
@@ -62,7 +65,6 @@ const GroupDocuments = () => {
         }
     };
 
-    // 🔑 НОВАЯ ФУНКЦИЯ: Финальное завершение группы методистом
     const handleFinalizeGroup = async (groupId, groupName) => {
         const isConfirmed = window.confirm(
             `🏁 ФИНАЛЬНОЕ ЗАВЕРШЕНИЕ ГРУППЫ\n\n` +
@@ -78,7 +80,7 @@ const GroupDocuments = () => {
         try {
             const res = await api.post(`/api/execution/methodist/groups/${groupId}/complete/`);
             alert(`✅ Успех!\n${res.data.message}`);
-            loadGroups(); // Перезагружаем список, группа исчезнет из "in_progress" или изменит бейдж
+            loadGroups();
         } catch (err) {
             if (err.response?.status === 400 && err.response?.data?.missing_items) {
                 alert('❌ Невозможно завершить группу:\n\n• ' + err.response.data.missing_items.join('\n• '));
@@ -88,7 +90,7 @@ const GroupDocuments = () => {
         }
     };
 
-    const backendUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+    // ❌ ЗДЕСЬ БЫЛО ПОВТОРНОЕ ОБЪЯВЛЕНИЕ const backendUrl, Я ЕГО УДАЛИЛ
 
     return (
         <div className={styles.container}>
@@ -109,7 +111,6 @@ const GroupDocuments = () => {
                 <div className={styles.grid}>
                     {groups.map(group => (
                         <div key={group.id} className={styles.card}>
-                            {/* Шапка карточки */}
                             <div className={styles.cardHeader}>
                                 <h3 className={styles.groupNumber}>{group.assigned_number}</h3>
                                 <span className={`${styles.badge} ${styles[`status_${group.status}`]}`}>
@@ -117,7 +118,6 @@ const GroupDocuments = () => {
                                 </span>
                             </div>
 
-                            {/* Тело карточки */}
                             <div className={styles.cardBody}>
                                 <div className={styles.moduleTitle}>{group.module_title}</div>
                                 <div className={styles.infoRow}>
@@ -131,7 +131,6 @@ const GroupDocuments = () => {
                                 </div>
                             </div>
 
-                            {/* Подвал карточки с кнопками */}
                             <div className={styles.cardActions}>
                                 <button
                                     className={`${styles.btn} ${styles.btnPrimary}`}
@@ -139,17 +138,14 @@ const GroupDocuments = () => {
                                 >
                                     📋 Документы
                                 </button>
-                                {/* 🔑 НОВАЯ КНОПКА: Аудит ПЭП */}
+                                
                                 <button
                                     className={`${styles.btn} ${styles.btnInfo}`} 
                                     onClick={async () => {
                                         if (!window.confirm('Сгенерировать и сохранить выписку аудита ПЭП для надзорных органов?')) return;
                                         
                                         try {
-                                            // ✅ ТОЧНЫЙ ПУТЬ согласно docs/urls.py и главному urls.py
                                             const endpoint = `/docs/save-document/${group.id}/`;
-                                            
-                                            // Используем ваш настроенный api-клиент (он сам добавит CSRF-токен и base URL)
                                             const res = await api.post(endpoint, { 
                                                 document_type: 'audit_log' 
                                             });
@@ -169,28 +165,29 @@ const GroupDocuments = () => {
                                 >
                                     🛡️ Аудит ПЭП
                                 </button>
+                                
                                 <button
                                     className={`${styles.btn} ${styles.btnWarning}`}
                                     onClick={() => handleGenerateSchedule(group.id, group.assigned_number)}
                                 >
                                     ⚙️ Расписание
                                 </button>
-                                <button
-                                    className={`${styles.btn} ${styles.btnSecondary}`}
-                                    onClick={() => window.open(`${backendUrl}/docs/grades/${group.id}/`, '_blank')}
-                                >
-                                    📖 Журнал
-                                </button>
-                                
-                                {/* 🔑 КНОПКА ФИНАЛЬНОГО ЗАВЕРШЕНИЯ (только для in_progress) */}
+<button
+    className={`${styles.btn} ${styles.btnSecondary}`}
+    onClick={() => window.open(`/groups/${group.id}/grades`, '_blank')}
+    title="Открыть журнал оценок в новой вкладке"
+>
+    📖 Журнал
+</button>
+
                                 {group.status === 'in_progress' && (
-                                <button
-                                    className={`${styles.btn} ${styles.btnSuccess}`}
-                                    onClick={() => handleFinalizeGroup(group.id, group.assigned_number)}
-                                    title="Завершить группу и выдать документы (создать подписи куратора)"
-                                >
-                                    🎬 Завершить группу и выдать документы
-                                </button>
+                                    <button
+                                        className={`${styles.btn} ${styles.btnSuccess}`}
+                                        onClick={() => handleFinalizeGroup(group.id, group.assigned_number)}
+                                        title="Завершить группу и выдать документы (создать подписи куратора)"
+                                    >
+                                        🎬 Завершить группу и выдать документы
+                                    </button>
                                 )}
                                 
                                 <button

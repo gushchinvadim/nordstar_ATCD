@@ -94,7 +94,7 @@
             padding-bottom: 10mm;
         }
 
-            h3 {
+        h3 {
             font-size: 12pt;
         }
 
@@ -563,7 +563,6 @@
                     {% for stage_data in attendance_page %}
                         {% for date_info in stage_data.dates %}
                         <td class="attendance-cell">
-                            {# Получаем подпись по ID занятия #}
                             {% with sig=item.attendance_signatures|dict_get:date_info.schedule_item_id %}
                                 {% if sig %}
                                     <div class="signature-block">
