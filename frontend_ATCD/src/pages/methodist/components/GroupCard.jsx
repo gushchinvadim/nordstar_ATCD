@@ -25,12 +25,9 @@ const GroupCard = ({ group }) => {
                 <div className={styles.metaInfo}>
                     <span>📅 {group.start_date} – {group.end_date}</span>
                     <span>👥 Студентов: {group.students_count}</span>
+                    
                 </div>
-                {group.curator && (
-                    <div className={styles.metaInfo}>
-                        <span>👤 Куратор: {group.curator}</span>
-                    </div>
-                )}
+
             </div>
 
             {/* Если вы хотите, чтобы эта карточка тоже вела на новый фронтенд, раскомментируйте кнопку ниже и закомментируйте <a> */}

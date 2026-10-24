@@ -24,6 +24,7 @@ def groups_list(request):
     - status: фильтр по статусу (по умолчанию: in_progress,completed)
     - direction: фильтр по направлению (frdo_template_type)
     - year: фильтр по году начала
+    - curator: фильтр по ID куратора (если не 'all')
     - search: поиск по номеру группы или названию модуля
     - page: номер страницы (по умолчанию: 1)
     - page_size: размер страницы (по умолчанию: 15)
@@ -57,6 +58,11 @@ def groups_list(request):
             queryset = queryset.filter(start_date__year=int(year))
         except ValueError:
             pass
+
+    # Фильтр по куратору
+    curator_id = request.query_params.get('curator')
+    if curator_id and curator_id != 'all':
+        queryset = queryset.filter(curator_id=curator_id)
 
     # Поиск по номеру группы или названию модуля
     search = request.query_params.get('search')
@@ -118,6 +124,7 @@ def groups_list(request):
         'total_pages': (total + page_size - 1) // page_size,
         'results': data,
     })
+
 
 
 @api_view(['GET'])
@@ -888,3 +895,22 @@ def dismiss_failed(request, group_id):
         'success': True,
         'message': f'Отчислено студентов: {dismissed_count}'
     })
+
+
+from django.db.models import Q  # Убедись, что Q импортирован, если понадобится
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def active_curators_list(request):
+    """Возвращает только тех сотрудников, которые являются кураторами хотя бы одной группы"""
+    # 1. Находим все уникальные ID кураторов, которые привязаны к существующим группам
+    curator_ids = Group.objects.exclude(curator__isnull=True).values_list('curator_id', flat=True).distinct()
+
+    # 2. Получаем данные только этих сотрудников, сортируем по ФИО
+    staff = Staff.objects.filter(id__in=curator_ids).order_by('full_name')
+
+    # 3. Формируем чистый ответ для фронтенда
+    data = [{'id': s.id, 'full_name': s.full_name} for s in staff]
+
+    return Response(data)

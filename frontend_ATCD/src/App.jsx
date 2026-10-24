@@ -1,5 +1,5 @@
 // src/App.jsx
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate  } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -45,15 +45,14 @@ function App() {
                     {/* 2. Защищенные маршруты (требуют авторизации) */}
                     <Route element={<ProtectedRoute />}>
                         
-                        {/* === МЕТОДИСТ === */}
+                    {/* === МЕТОДИСТ === */}
                         <Route element={<Layout />}>
-                            <Route path="/methodist" element={<Dashboard />} /> 
+                            {/* 🔥 МГНОВЕННЫЙ РЕДИРЕКТ со старой панели на список групп */}
+                            <Route path="/methodist" element={<Navigate to="/groups" replace />} />
                             <Route path="/groups" element={<GroupDocuments />} />
                             <Route path="/create-group" element={<CreateGroup />} />
                             <Route path="/groups/:groupId/edit" element={<EditGroup />} />
                             <Route path="/create-student" element={<CreateStudent />} />
-                            
-                            {/* ✅ ПЕРЕМЕСТИТЬ СЮДА: Журнал оценок для методиста */}
                             <Route path="/groups/:groupId/grades" element={<GroupGrades />} />
                         </Route>
 

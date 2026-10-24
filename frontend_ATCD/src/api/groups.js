@@ -8,12 +8,17 @@ export const fetchGroups = (filters = {}) => {
     if (filters.direction && filters.direction !== 'all') {
         params.append('direction', filters.direction);
     }
-    if (filters.year) params.append('year', filters.year);
+    if (filters.year) params.append('year', filters.year);      
     if (filters.search) params.append('search', filters.search);
+    
+    // 🔥 ДОБАВЛЕНО: Передаем куратора, если он выбран и не равен 'all'
+    if (filters.curator && filters.curator !== 'all') {
+        params.append('curator', filters.curator);
+    }
+    
     if (filters.page) params.append('page', filters.page);
     if (filters.pageSize) params.append('page_size', filters.pageSize);
     
-    // ИЗМЕНЕНО: убрали /docs
     return api.get(`/api/docs/groups/?${params.toString()}`);
 };
 

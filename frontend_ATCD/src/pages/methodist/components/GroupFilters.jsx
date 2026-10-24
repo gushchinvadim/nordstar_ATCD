@@ -1,12 +1,27 @@
 // src/pages/methodist/components/GroupFilters.jsx
 import styles from './GroupFilters.module.css';
 
-const GroupFilters = ({ filters, directions, onFilterChange }) => {
+const GroupFilters = ({ filters, directions, curators = [], onFilterChange }) => {
     const currentYear = new Date().getFullYear();
     const years = [currentYear, currentYear - 1, currentYear - 2];
 
     return (
         <div className={styles.container}>
+            {/* 🔥 НОВОЕ: Фильтр по Куратору */}
+            <div className={styles.filterGroup}>
+                <label>Куратор:</label>
+                <select
+                    value={filters.curator || 'all'}
+                    onChange={(e) => onFilterChange('curator', e.target.value)}
+                >
+                    <option value="all">Все кураторы</option>
+                    {curators.map(curator => (
+                        <option key={curator.id} value={curator.id}>
+                            {curator.full_name}
+                        </option>
+                    ))}
+                </select>
+            </div>
 
             <div className={styles.filterGroup}>
                 <label>Направление:</label>
@@ -15,7 +30,6 @@ const GroupFilters = ({ filters, directions, onFilterChange }) => {
                     onChange={(e) => onFilterChange('direction', e.target.value)}
                 >
                     <option value="all">Все направления</option>
-                    {/* ✅ ИСПРАВЛЕНО: добавлен index для гарантии уникальности ключа */}
                     {directions.map((dir, index) => (
                         <option key={`${dir.code}-${index}`} value={dir.code}>
                             {dir.title}

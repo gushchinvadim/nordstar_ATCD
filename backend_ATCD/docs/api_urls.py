@@ -13,6 +13,8 @@ urlpatterns = [
     path('staff/', api_views.staff_list, name='api_staff_list'),
     path('students/', api_views.students_list, name='api_students_list'),
     path('locations/', api_views.locations_list, name='api_locations_list'),
+    path('active-curators/', api_views.active_curators_list, name='api_active_curators'),  # <-- ДОБАВИТЬ ЭТО
+
 
     # === УПРАВЛЕНИЕ ГРУППАМИ ===
     path('groups/', api_views.groups_list, name='api_groups_list'),
