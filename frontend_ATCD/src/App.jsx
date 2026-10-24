@@ -1,13 +1,16 @@
 // src/App.jsx
-import { BrowserRouter, Routes, Route, Navigate  } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
+// 🔥 Импортируем страницу технических работ
+import MaintenancePage from './pages/MaintenancePage';
 
 // Общая страница
 import Landing from './pages/Landing'; 
 import LoginPage from './pages/LoginPage';
 import QuickStart from './pages/QuickStart';
+
 // Layouts
 import Layout from './components/Layout';
 import InstructorLayout from './components/InstructorLayout';
@@ -23,7 +26,7 @@ import GroupGrades from './pages/methodist/GroupGrades';
 import InstructorDashboard from './pages/instructor/Dashboard';
 import InstructorGrades from './pages/instructor/Grades';
 
-// Студент (НОВОЕ)
+// Студент
 import StudentDashboard from './pages/student/Dashboard';
 import StudentLayout from './components/StudentLayout';
 import CreateStudent from './pages/methodist/CreateStudent';
@@ -33,6 +36,15 @@ import DirectorLayout from './components/DirectorLayout';
 import DirectorDashboard from './pages/director/Dashboard';
 
 function App() {
+    // 🔥 Читаем флаг из .env. Сравниваем именно со строкой 'true'
+    const isMaintenance = import.meta.env.VITE_IS_MAINTENANCE === 'true';
+
+    // 🔥 Если режим обслуживания включен, показываем ТОЛЬКО заглушку
+    if (isMaintenance) {
+        return <MaintenancePage />;
+    }
+
+    // 🔥 Иначе показываем обычное приложение
     return (
         <AuthProvider>
             <BrowserRouter>
@@ -40,14 +52,13 @@ function App() {
                     {/* 1. Публичный маршрут: ГЛАВНАЯ СТРАНИЦА (Лендинг) */}
                     <Route path="/" element={<Landing />} /> 
                     <Route path="/login" element={<LoginPage />} />
-                     <Route path="/quick-start" element={<QuickStart />} /> 
+                    <Route path="/quick-start" element={<QuickStart />} /> 
                     
                     {/* 2. Защищенные маршруты (требуют авторизации) */}
                     <Route element={<ProtectedRoute />}>
                         
-                    {/* === МЕТОДИСТ === */}
+                        {/* === МЕТОДИСТ === */}
                         <Route element={<Layout />}>
-                            {/* 🔥 МГНОВЕННЫЙ РЕДИРЕКТ со старой панели на список групп */}
                             <Route path="/methodist" element={<Navigate to="/groups" replace />} />
                             <Route path="/groups" element={<GroupDocuments />} />
                             <Route path="/create-group" element={<CreateGroup />} />
@@ -60,7 +71,6 @@ function App() {
                         <Route element={<InstructorLayout />}>
                             <Route path="/instructor/dashboard" element={<InstructorDashboard />} />
                             <Route path="/instructor/grades/:groupId" element={<InstructorGrades />} />
-                            {/* Если инструктору тоже нужен доступ к этому же компоненту, можно оставить дубликат или вынести маршрут выше, в ProtectedRoute */}
                         </Route>
 
                         {/* === ДИРЕКТОР === */}
@@ -79,4 +89,5 @@ function App() {
         </AuthProvider>
     );
 }
+
 export default App;
