@@ -1,6 +1,6 @@
 // src/pages/student/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
-import styles from './Dashboard.module.css';
+import styles from '../../styles/LearningDashboard.module.css';
 import api from '../../api/config';
 
 const StudentDashboard = () => {

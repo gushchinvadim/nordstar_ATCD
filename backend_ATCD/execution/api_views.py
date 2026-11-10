@@ -3,6 +3,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from datetime import datetime
@@ -607,33 +608,47 @@ class StudentCreateAPIView(generics.CreateAPIView):
 # ==============================================================================
 #  ФИНАЛЬНОЕ ЗАВЕРШЕНИЕ ГРУППЫ МЕТОДИСТОМ (СТРОГАЯ ПРОВЕРКА + ПОДПИСИ)
 # ==============================================================================
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def methodist_complete_group(request, group_id):
     """
     POST /api/execution/methodist/groups/<group_id>/complete/
     Только методист может изменить статус группы на 'completed' после проверки всех условий.
-    Создаёт подписи куратора (Специалист 1 категории) о выдаче документов.
+    ИГНОРИРУЕТ отчисленных студентов при проверках.
     """
     try:
-        group = Group.objects.get(id=group_id)
+        group = Group.objects.select_for_update().get(id=group_id)
     except Group.DoesNotExist:
         return Response({'error': 'Группа не найдена'}, status=status.HTTP_404_NOT_FOUND)
 
     missing_items = []
+    # 🔥 ИСПРАВЛЕНИЕ: 'dismissed' намеренно исключен из активных статусов
     ACTIVE_STATUSES = ['enrolled', 'in_progress', 'completed']
-    total_active_students = Enrollment.objects.filter(group=group, status__in=ACTIVE_STATUSES).count()
 
-    # 1. Проверка инструктажа по ТБ (все активные студенты)
+    active_enrollments = Enrollment.objects.filter(group=group, status__in=ACTIVE_STATUSES)
+    total_active_students = active_enrollments.count()
+
+    # 🔥 КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Если активных студентов нет (все отчислены),
+    # разрешаем закрытие группы сразу, без проверок подписей и оценок!
+    if total_active_students == 0:
+        group.status = 'completed'
+        group.actual_completion_date = timezone.now().date()
+        group.save(update_fields=['status', 'actual_completion_date'])
+        return Response({
+            'message': f'Группа {group.assigned_number} успешно закрыта (все студенты отчислены).'
+        }, status=status.HTTP_200_OK)
+
+    # 1. Проверка инструктажа по ТБ (ТОЛЬКО для активных студентов)
     students_with_safety_ack = ComplianceLog.objects.filter(
-        enrollment__group=group,
-        enrollment__status__in=ACTIVE_STATUSES,
+        enrollment__in=active_enrollments,
         action_type='student_safety_ack'
     ).values('enrollment').distinct().count()
 
     if students_with_safety_ack < total_active_students:
         missing_items.append(
-            f"Не все слушатели подтвердили инструктаж по ОТ, ТБ и ППБ ({total_active_students - students_with_safety_ack} из {total_active_students}).")
+            f"Не все активные слушатели подтвердили инструктаж по ОТ, ТБ и ППБ ({total_active_students - students_with_safety_ack} из {total_active_students}).")
 
     # 2. Проверка ВСЕХ инструкторов (ни у кого не должно быть незавершенных занятий)
     all_instructors = ScheduleItem.objects.filter(group=group, instructor__isnull=False).values_list('instructor',
@@ -647,7 +662,7 @@ def methodist_complete_group(request, group_id):
             except Staff.DoesNotExist:
                 pass
 
-    # 3. Проверка итоговых оценок
+    # 3. Проверка итоговых оценок (ТОЛЬКО для активных студентов)
     true_final_sections = Section.objects.filter(stage__module=group.module).filter(
         Q(title__icontains='итоговая') | Q(title__icontains='экзамен') | Q(title__icontains='аттестац')
     ).exclude(title__icontains='промежуточная').distinct()
@@ -659,75 +674,51 @@ def methodist_complete_group(request, group_id):
 
     if true_final_sections.exists():
         students_with_final_grade = Assessment.objects.filter(
-            enrollment__group=group,
-            enrollment__status__in=ACTIVE_STATUSES,
+            enrollment__in=active_enrollments,
             section__in=true_final_sections,
             score__isnull=False
         ).values('enrollment').distinct().count()
 
         if students_with_final_grade < total_active_students:
             missing_items.append(
-                f"Не выставлены итоговые оценки ({total_active_students - students_with_final_grade} из {total_active_students} слушателей).")
+                f"Не выставлены итоговые оценки ({total_active_students - students_with_final_grade} из {total_active_students} активных слушателей).")
     else:
-        missing_items.append(f"В модуле не найден итоговый раздел для проверки.")
+        missing_items.append("В модуле не найден итоговый раздел для проверки.")
 
-    # ======================================================================
-    # 4. Если всё отлично — ЗАВЕРШАЕМ ГРУППУ + СОЗДАЁМ ПОДПИСИ КУРАТОРА
-    # ======================================================================
-    if not missing_items:
-        group.status = 'completed'
-        group.actual_completion_date = timezone.now().date()
-        group.save(update_fields=['status', 'actual_completion_date'])
-
-        # ======================================================================
-        # 🔑 НОВОЕ: Создаем подпись куратора (Специалист 1 категории) о выдаче документов
-        # ======================================================================
-        if group.curator:
-            # Получаем IP-адрес из запроса
-            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-            if x_forwarded_for:
-                ip_address = x_forwarded_for.split(',')[0].strip()
-            else:
-                ip_address = request.META.get('REMOTE_ADDR')
-
-            # Получаем активных студентов группы
-            active_enrollments = Enrollment.objects.filter(group=group, status__in=ACTIVE_STATUSES)
-
-            logs_to_create = [
-                ComplianceLog(
-                    enrollment=enrollment,
-                    staff=group.curator,
-                    action_type='methodist_documents_issued',
-                    timestamp=timezone.now(),
-                    ip_address=ip_address,  # ← ДОБАВЛЕНО
-                    notes=f"Документы выданы при завершении группы {group.assigned_number}"
-                )
-                for enrollment in active_enrollments
-            ]
-
-            if logs_to_create:
-                ComplianceLog.objects.bulk_create(logs_to_create)
-                print(
-                    f"✅ Создано {len(logs_to_create)} подписей куратора {group.curator.full_name} для группы {group.id}")
-                print(f"   IP-адрес: {ip_address}")
-        else:
-            print(f"⚠️ У группы {group.id} не назначен куратор (Специалист 1 категории). Подписи не созданы.")
-            missing_items.append(
-                "У группы не назначен куратор (Специалист 1 категории). Невозможно создать подписи о выдаче документов.")
-            # Откатываем статус группы, если нет куратора
-            group.status = 'in_progress'
-            group.save(update_fields=['status'])
-            return Response({
-                'error': 'Невозможно завершить группу. Не назначен куратор (Специалист 1 категории).',
-                'missing_items': missing_items
-            }, status=status.HTTP_400_BAD_REQUEST)
-
+    if not missing_items and not group.curator_id:
         return Response({
-            'message': f'Группа {group.assigned_number} успешно закрыта. Созданы подписи куратора о выдаче документов для {len(logs_to_create) if logs_to_create else 0} слушателей.'
-        }, status=status.HTTP_200_OK)
+            'error': 'Невозможно завершить группу.',
+            'missing_items': ['У группы не назначен куратор (Специалист 1 категории).'],
+        }, status=status.HTTP_400_BAD_REQUEST)
 
-    # Если есть ошибки
+    if missing_items:
+        return Response({
+            'error': 'Невозможно закрыть группу. Не выполнены условия:',
+            'missing_items': missing_items,
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    group.status = 'completed'
+    group.actual_completion_date = timezone.now().date()
+    group.save(update_fields=['status', 'actual_completion_date'])
+
+    forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    ip_address = forwarded_for.split(',')[0].strip() if forwarded_for else request.META.get('REMOTE_ADDR')
+    issued = ComplianceLog.objects.filter(
+        enrollment__in=active_enrollments,
+        staff_id=group.curator_id,
+        action_type='methodist_documents_issued',
+    ).values_list('enrollment_id', flat=True)
+    ComplianceLog.objects.bulk_create([
+        ComplianceLog(
+            enrollment=enrollment,
+            staff_id=group.curator_id,
+            action_type='methodist_documents_issued',
+            ip_address=ip_address,
+            notes=f"Документы выданы при завершении группы {group.assigned_number}",
+        )
+        for enrollment in active_enrollments.exclude(pk__in=issued)
+    ])
+
     return Response({
-        'error': 'Невозможно закрыть группу. Не выполнены условия:',
-        'missing_items': missing_items
-    }, status=status.HTTP_400_BAD_REQUEST)
+        'message': f'Группа {group.assigned_number} успешно закрыта. Созданы подписи куратора о выдаче документов.'
+    }, status=status.HTTP_200_OK)

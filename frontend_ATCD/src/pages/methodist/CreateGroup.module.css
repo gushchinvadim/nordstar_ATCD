@@ -264,3 +264,10 @@
         padding: 14px;
     }
 }
+@media (max-width: 760px) {
+    .container :is(input, select, button) {
+        min-height: 44px;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+}

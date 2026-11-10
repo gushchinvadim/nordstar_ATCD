@@ -112,22 +112,22 @@ const InstructorGrades = () => {
 
             <h1 className={styles.title}>Журнал оценок группы</h1>
 
-            <div className={styles.tableWrapper}>
-                <table className={styles.gradesTable}>
-                    <thead>
-                        <tr>
-                            <th>№</th>
-                            <th>ФИО слушателя</th>
+            <div className={styles.tableWrapper} role="region" aria-label="Таблица оценок" tabIndex={0}>
+                <table role="table" className={styles.gradesTable}>
+                    <thead role="rowgroup">
+                        <tr role="row">
+                            <th role="columnheader">№</th>
+                            <th role="columnheader">ФИО слушателя</th>
                             {editableSections.map(sectionId => (
-                                <th key={sectionId}>Раздел {sectionId}</th>
+                                <th role="columnheader" key={sectionId}>Раздел {sectionId}</th>
                             ))}
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody role="rowgroup">
                         {students.map(student => (
-                            <tr key={student.id}>
-                                <td>{student.number_in_group}</td>
-                                <td>{student.student_name}</td>
+                            <tr role="row" key={student.id}>
+                                <td role="cell" data-label="№">{student.number_in_group}</td>
+                                <td role="cell" data-label="Слушатель">{student.student_name}</td>
                                 {editableSections.map(sectionId => {
                                     const assessment = student.assessments.find(a => a.section === sectionId);
                                     // Если оценка уже есть в БД, показываем её, иначе пусто
@@ -136,10 +136,10 @@ const InstructorGrades = () => {
                                     const isPassed = assessment?.passed;
                                     
                                     return (
-                                        <td key={sectionId} className={styles.editableCell}>
+                                        <td role="cell" data-label={`Раздел ${sectionId}`} data-wide="" key={sectionId} className={styles.editableCell}>
                                             <input
                                                 type="number"
-                                                value={score}
+                                                aria-label={`Оценка, раздел ${sectionId}`} value={score}
                                                 onChange={(e) => handleScoreChange(student.id, sectionId, e.target.value)}
                                                 className={`${styles.scoreInput} ${isPassed ? styles.passed : ''}`}
                                                 min="2"
@@ -148,7 +148,7 @@ const InstructorGrades = () => {
                                             />
                                             <input
                                                 type="text"
-                                                value={notes}
+                                                aria-label={`Комментарий, раздел ${sectionId}`} value={notes}
                                                 onChange={(e) => handleNotesChange(student.id, sectionId, e.target.value)}
                                                 className={styles.notesInput}
                                                 placeholder="Комментарий"

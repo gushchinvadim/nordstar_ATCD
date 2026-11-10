@@ -2,18 +2,18 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchGroups, fetchDirections, generateSchedule } from '../../api/groups';
-import api from '../../api/config'; // Твой настроенный axios
+import api from '../../api/config';
 import GroupFilters from './components/GroupFilters';
 import styles from './GroupDocuments.module.css';
 
 const GroupDocuments = () => {
     const [groups, setGroups] = useState([]);
     const [directions, setDirections] = useState([]);
-    const [curators, setCurators] = useState([]); // 🔥 НОВОЕ: список кураторов
+    const [curators, setCurators] = useState([]); 
     const [loading, setLoading] = useState(true);
     
     const [filters, setFilters] = useState({
-        curator: 'all', // 🔥 НОВОЕ
+        curator: 'all', 
         status: 'in_progress,completed',
         direction: 'all',
         year: new Date().getFullYear().toString(),
@@ -21,31 +21,26 @@ const GroupDocuments = () => {
     });
     
     const navigate = useNavigate();
-    const backendUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
-useEffect(() => {
-    // 1. Загружаем направления
-    fetchDirections()
-        .then(res => setDirections(res.data))
-        .catch(err => console.error('Ошибка загрузки направлений:', err));
+    useEffect(() => {
+        // 1. Загружаем направления
+        fetchDirections()
+            .then(res => setDirections(res.data))
+            .catch(err => console.error('Ошибка загрузки направлений:', err));
 
-    // 2. 🔥 Загружаем ТОЛЬКО активных кураторов (тех, у кого есть группы)
-    api.get('/api/docs/active-curators/') 
-        .then(res => {
-            setCurators(res.data); // Массив [{id: 1, full_name: "Иванов И.И."}, ...]
-        })
-        .catch(err => console.error('Ошибка загрузки кураторов:', err));
-}, []);
+        // 2. Загружаем ТОЛЬКО активных кураторов
+        api.get('/api/docs/active-curators/') 
+            .then(res => setCurators(res.data))
+            .catch(err => console.error('Ошибка загрузки кураторов:', err));
+    }, []);
 
     const loadGroups = () => {
         setLoading(true);
         const params = new URLSearchParams();
         
-        // Фильтр по куратору
         if (filters.curator && filters.curator !== 'all') {
             params.append('curator', filters.curator);
         }
-        // Остальные фильтры
         if (filters.status) params.append('status', filters.status);
         if (filters.direction && filters.direction !== 'all') params.append('direction', filters.direction);
         if (filters.year) params.append('year', filters.year);
@@ -62,7 +57,6 @@ useEffect(() => {
     }, [filters]);
 
     const updateFilter = (key, value) => setFilters(prev => ({ ...prev, [key]: value }));
-
 
     const handleGenerateSchedule = async (groupId, groupName) => {
         const isConfirmed = window.confirm(`⚠️ ВНИМАНИЕ!\n\nЭто действие УДАЛИТ текущее расписание группы "${groupName}" и создаст новое на основе модуля.\n\nПродолжить?`);
@@ -84,15 +78,16 @@ useEffect(() => {
         const isConfirmed = window.confirm(`🏁 ФИНАЛЬНОЕ ЗАВЕРШЕНИЕ ГРУППЫ\n\nВы уверены, что хотите закрыть группу "${groupName}"?\n\nСистема проверит:\n• Все ли студенты ознакомились с инструктажем\n• Все ли инструкторы завершили занятия\n• Выставлены ли все итоговые оценки\n\nПосле этого группа перейдет в статус "Завершена".`);
         if (!isConfirmed) return;
         try {
-            const res = await api.post(`/api/execution/methodist/groups/${groupId}/complete/`);
-            alert(`✅ Успех!\n${res.data.message}`);
-            loadGroups();
-        } catch (err) {
-            if (err.response?.status === 400 && err.response?.data?.missing_items) {
-                alert('❌ Невозможно завершить группу:\n\n• ' + err.response.data.missing_items.join('\n• '));
+            // 🔥 Используем наш единый API endpoint для завершения
+            const res = await api.post(`/api/docs/groups/${groupId}/complete-all/`);
+            if (res.data.success) {
+                alert(`✅ Успех!\n${res.data.message}`);
+                loadGroups();
             } else {
-                alert(err.response?.data?.error || 'Ошибка сети при попытке завершить группу.');
+                alert(`❌ Ошибка: ${res.data.error}`);
             }
+        } catch (err) {
+            alert(err.response?.data?.error || 'Ошибка сети при попытке завершить группу.');
         }
     };
 
@@ -104,7 +99,7 @@ useEffect(() => {
             <GroupFilters
                 filters={filters}
                 directions={directions}
-                curators={curators} // 🔥 НОВОЕ: передаем список кураторов
+                curators={curators} 
                 onFilterChange={updateFilter}
             />
 
@@ -118,7 +113,7 @@ useEffect(() => {
                         <div key={group.id} className={styles.card}>
                             <div className={styles.cardHeader}>
                                 <h3 className={styles.groupNumber}>{group.assigned_number}</h3>
-                                <span className={`${styles.badge} ${styles[`status_${group.status}`]}`}>
+                                <span className={`${styles.badge} ${styles[`status_${group.status}`] || ''}`}>
                                     {group.status_display}
                                 </span>
                             </div>
@@ -131,12 +126,9 @@ useEffect(() => {
                                 <div className={styles.infoRow}>
                                     <span>📅 {group.start_date} — {group.end_date}</span>
                                 </div>
-                                
                                 <div className={styles.infoRow}>
                                     <span>👥 Слушателей: <strong>{group.students_count}</strong></span>
                                 </div>
-
-                                {/* ✅ Отображение куратора в карточке (как ты и просил) */}
                                 {group.curator && (
                                     <div className={styles.infoRow}>
                                         <span>👤 Куратор: <strong>{group.curator}</strong></span>
@@ -145,40 +137,54 @@ useEffect(() => {
                             </div>
 
                             <div className={styles.cardActions}>
-                                <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => window.open(`${backendUrl}/docs/dashboard/${group.id}/`, '_blank')}>
-                                    📋 Документы
+                                <button 
+                                    className={`${styles.btn} ${styles.btnPrimary}`} 
+                                    onClick={() => navigate(`/groups/${group.id}/documents`)}
+                                >
+                                    Документы
                                 </button>
                                 
-                                <button className={`${styles.btn} ${styles.btnInfo}`} onClick={async () => {
-                                    if (!window.confirm('Сгенерировать и сохранить выписку аудита ПЭП?')) return;
-                                    try {
-                                        const res = await api.post(`/docs/save-document/${group.id}/`, { document_type: 'audit_log' });
-                                        if (res.data.success) alert(`✅ Аудит ПЭП сохранен!\nПуть: ${res.data.pdf_path}`);
-                                        else alert(`❌ Ошибка: ${res.data.error}`);
-                                    } catch (err) {
-                                        alert(`❌ ${err.response?.data?.error || 'Ошибка сети'}`);
-                                    }
-                                }} title="Скачать выписку всех электронных подписей в группе">
-                                    🛡️ Аудит ПЭП
+                                {/* 🔥 НОВАЯ КНОПКА: Редактирование группы (вместо Аудита ПЭП) */}
+                                <button 
+                                    className={`${styles.btn} ${styles.btnOutline}`} 
+                                    onClick={() => navigate(`/groups/${group.id}/edit`)}
+                                    title="Исправить данные группы, состав или список слушателей"
+                                >
+                                    Изменить
                                 </button>
                                 
-                                <button className={`${styles.btn} ${styles.btnWarning}`} onClick={() => handleGenerateSchedule(group.id, group.assigned_number)}>
-                                    ⚙️ Расписание
+                                <button 
+                                    className={`${styles.btn} ${styles.btnWarning}`} 
+                                    onClick={() => handleGenerateSchedule(group.id, group.assigned_number)}
+                                    title="Автоматически создать расписание на основе модуля"
+                                >
+                                    Авторасписание
                                 </button>
 
-                                <button className={`${styles.btn} ${styles.btnSecondary}`} onClick={() => navigate(`/groups/${group.id}/grades`)} title="Открыть журнал оценок">
-                                    📖 Журнал
+                                <button 
+                                    className={`${styles.btn} ${styles.btnSecondary}`} 
+                                    onClick={() => navigate(`/groups/${group.id}/grades`)} 
+                                    title="Открыть журнал оценок"
+                                >
+                                    Журнал
+                                </button>
+
+                                <button 
+                                    className={`${styles.btn} ${styles.btnInfo}`} 
+                                    onClick={() => navigate(`/groups/${group.id}/schedule`)}
+                                    title="Вручную изменить даты, время, аудитории и преподавателей"
+                                >
+                                    Расписание
                                 </button>
 
                                 {group.status === 'in_progress' && (
-                                    <button className={`${styles.btn} ${styles.btnSuccess}`} onClick={() => handleFinalizeGroup(group.id, group.assigned_number)}>
-                                        🎬 Завершить группу
+                                    <button 
+                                        className={`${styles.btn} ${styles.btnSuccess}`} 
+                                        onClick={() => handleFinalizeGroup(group.id, group.assigned_number)}
+                                    >
+                                        Завершить
                                     </button>
                                 )}
-                                
-                                <button className={`${styles.btn} ${styles.btnOutline}`} onClick={() => window.open(`${backendUrl}/admin/execution/group/${group.id}/change/`, '_blank')}>
-                                    ✏️ Изменить
-                                </button>
                             </div>
                         </div>
                     ))}

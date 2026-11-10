@@ -25,6 +25,7 @@ const Sidebar = () => {
                         key={item.path}
                         to={item.path}
                         className={`${styles.navItem} ${isActive(item.path) ? styles.active : ''}`}
+                        aria-label={item.label}
                         title={item.label}
                     >
                         <span className={styles.icon}>{item.icon}</span>

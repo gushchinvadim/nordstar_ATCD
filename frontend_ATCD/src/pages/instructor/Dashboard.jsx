@@ -1,6 +1,9 @@
 // src/pages/instructor/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
-import styles from './Dashboard.module.css';
+import sharedStyles from '../../styles/LearningDashboard.module.css';
+import instructorStyles from './Dashboard.module.css';
+
+const styles = { ...sharedStyles, ...instructorStyles };
 import api from '../../api/config';
 
 const InstructorDashboard = () => {

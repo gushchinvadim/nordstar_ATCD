@@ -8,9 +8,10 @@ const GroupFilters = ({ filters, directions, curators = [], onFilterChange }) =>
     return (
         <div className={styles.container}>
             {/* 🔥 НОВОЕ: Фильтр по Куратору */}
-            <div className={styles.filterGroup}>
-                <label>Куратор:</label>
+            <label className={styles.filterGroup}>
+                <span>Куратор:</span>
                 <select
+                    className={styles.field}
                     value={filters.curator || 'all'}
                     onChange={(e) => onFilterChange('curator', e.target.value)}
                 >
@@ -21,11 +22,12 @@ const GroupFilters = ({ filters, directions, curators = [], onFilterChange }) =>
                         </option>
                     ))}
                 </select>
-            </div>
+            </label>
 
-            <div className={styles.filterGroup}>
-                <label>Направление:</label>
+            <label className={styles.filterGroup}>
+                <span>Направление:</span>
                 <select
+                    className={styles.field}
                     value={filters.direction}
                     onChange={(e) => onFilterChange('direction', e.target.value)}
                 >
@@ -36,11 +38,12 @@ const GroupFilters = ({ filters, directions, curators = [], onFilterChange }) =>
                         </option>
                     ))}
                 </select>
-            </div>
+            </label>
 
-            <div className={styles.filterGroup}>
-                <label>Год начала:</label>
+            <label className={styles.filterGroup}>
+                <span>Год начала:</span>
                 <select
+                    className={styles.field}
                     value={filters.year}
                     onChange={(e) => onFilterChange('year', e.target.value)}
                 >
@@ -48,17 +51,18 @@ const GroupFilters = ({ filters, directions, curators = [], onFilterChange }) =>
                         <option key={year} value={year}>{year}</option>
                     ))}
                 </select>
-            </div>
+            </label>
 
-            <div className={styles.filterGroup}>
-                <label>Поиск:</label>
+            <label className={styles.filterGroup}>
+                <span>Поиск:</span>
                 <input
+                    className={styles.field}
                     type="text"
                     placeholder="Номер группы или модуль..."
                     value={filters.search}
                     onChange={(e) => onFilterChange('search', e.target.value)}
                 />
-            </div>
+            </label>
         </div>
     );
 };

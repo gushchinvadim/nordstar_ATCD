@@ -1,0 +1,25 @@
+:root {
+    --atcd-brand: #34345c;
+    --atcd-blue: #006eb2;
+    --atcd-sky: #64bee6;
+    --atcd-blue-hover: #00598f;
+    --atcd-canvas: #f3f6fa;
+    --atcd-surface: #fff;
+    --atcd-soft: #f7f9fc;
+    --atcd-line: #dce4ee;
+    --atcd-control-line: #9aaabd;
+    --atcd-text: #1f2c40;
+    --atcd-muted: #52647a;
+    --atcd-info-bg: #e6f3fc;
+    --atcd-success: #176044;
+    --atcd-success-hover: #124d37;
+    --atcd-success-bg: #e4f4eb;
+    --atcd-warning: #805111;
+    --atcd-warning-hover: #68400d;
+    --atcd-warning-bg: #fff1d9;
+    --atcd-danger: #9b2d3c;
+    --atcd-danger-bg: #fcecf0;
+    --atcd-radius: 12px;
+    --atcd-control-radius: 8px;
+    --atcd-shadow: 0 2px 8px rgb(31 44 64 / 6%);
+}

@@ -13,8 +13,7 @@ urlpatterns = [
     path('staff/', api_views.staff_list, name='api_staff_list'),
     path('students/', api_views.students_list, name='api_students_list'),
     path('locations/', api_views.locations_list, name='api_locations_list'),
-    path('active-curators/', api_views.active_curators_list, name='api_active_curators'),  # <-- ДОБАВИТЬ ЭТО
-
+    path('active-curators/', api_views.active_curators_list, name='api_active_curators'),
 
     # === УПРАВЛЕНИЕ ГРУППАМИ ===
     path('groups/', api_views.groups_list, name='api_groups_list'),
@@ -24,9 +23,32 @@ urlpatterns = [
     path('group/<int:group_id>/update/', api_views.update_group, name='api_update_group'),
     path('group/<int:group_id>/generate-schedule/', api_views.generate_group_schedule, name='api_generate_schedule'),
     path('groups/<int:group_id>/grades/', api_views.group_grades_api, name='group_grades_api'),
-path('groups/<int:group_id>/complete-all/', api_views.complete_all_passed, name='complete_all_passed'),
-path('groups/<int:group_id>/dismiss-failed/', api_views.dismiss_failed, name='dismiss_failed'),
+    path('groups/<int:group_id>/complete-all/', api_views.complete_all_passed, name='complete_all_passed'),
+    path('groups/<int:group_id>/dismiss-failed/', api_views.dismiss_failed, name='dismiss_failed'),
 
-    # === НОВОЕ: СПРАВКА ДЛЯ ЛЕНДИНГА ===
+    # === УПРАВЛЕНИЕ ДОКУМЕНТАМИ ГРУППЫ ===
+    path('groups/<int:group_id>/documents/', api_views.group_documents_api, name='api_group_documents'),
+    path('groups/<int:group_id>/save-document/', api_views.save_single_document_api, name='api_save_document'),
+    path('groups/<int:group_id>/generate-all/', api_views.generate_all_documents_api,
+         name='api_generate_all_documents'),
+    path('groups/<int:group_id>/save-rauc/<str:format_type>/', api_views.save_rauc_report_api, name='api_save_rauc'),
+    path('groups/<int:group_id>/save-frdo/', api_views.save_frdo_report_api, name='api_save_frdo'),
+    path('groups/<int:group_id>/view-pdf/<str:doc_key>/', api_views.view_document_pdf, name='api_view_document_pdf'),
+    path('groups/<int:group_id>/download-pdf/<str:doc_key>/', api_views.download_document_pdf,
+         name='api_download_document_pdf'),
+    path('groups/<int:group_id>/download-rauc/<str:format_type>/', api_views.download_rauc_report_api,
+         name='api_download_rauc'),
+    path('groups/<int:group_id>/download-frdo/', api_views.download_frdo_report_api, name='api_download_frdo'),
+
+    # === РЕДАКТИРОВАНИЕ РАСПИСАНИЯ (НОВОЕ) ===
+    path('groups/<int:group_id>/schedule/', api_views.group_schedule_list, name='api_group_schedule'),
+    path('groups/<int:group_id>/schedule/dropdowns/', api_views.schedule_dropdowns, name='api_schedule_dropdowns'),
+    path('schedule/item/<int:item_id>/update/', api_views.update_schedule_item, name='api_update_schedule_item'),
+# docs/api_urls.py - добавить в urlpatterns
+
+    path('schedule/item/<int:item_id>/delete/', api_views.delete_schedule_item, name='api_delete_schedule_item'),
+    path('groups/<int:group_id>/schedule/create/', api_views.create_schedule_item, name='api_create_schedule_item'),
+    
+    # === СПРАВКА ДЛЯ ЛЕНДИНГА ===
     path('help/content/', api_views.get_help_content, name='api_help_content'),
 ]

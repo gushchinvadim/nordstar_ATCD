@@ -1,0 +1,23 @@
+.container {
+    composes: panel from '../../../styles/Workspace.module.css';
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 168px), 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+    padding: 14px;
+}
+
+.filterGroup {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    color: var(--atcd-muted);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.field {
+    composes: field from '../../../styles/Workspace.module.css';
+    min-height: 38px;
+    font-weight: 400;
+}

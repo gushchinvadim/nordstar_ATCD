@@ -5,13 +5,13 @@ import Footer from './Footer';
 import Sidebar from './Sidebar';
 import styles from './Layout.module.css';
 
-const Layout = () => {
+const Layout = ({ sidebar = true, narrow = false }) => {
     return (
         <div className={styles.wrapper}>
             <Header />
             <div className={styles.main}>
-                <Sidebar />
-                <main className={styles.content}>
+                {sidebar && <Sidebar />}
+                <main className={`${styles.content} ${sidebar ? '' : styles.centered} ${narrow ? styles.narrow : ''}`}>
                     <Outlet />
                 </main>
             </div>

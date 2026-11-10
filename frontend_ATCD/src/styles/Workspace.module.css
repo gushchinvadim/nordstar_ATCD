@@ -1,0 +1,92 @@
+.page {
+    max-width: 1480px;
+    margin-inline: auto;
+    color: var(--atcd-text);
+}
+
+.page h1 {
+    margin: 0 0 8px;
+    color: var(--atcd-brand);
+    font-size: clamp(1.45rem, 2.3vw, 2rem);
+    line-height: 1.2;
+    font-weight: 720;
+    letter-spacing: -0.025em;
+    overflow-wrap: anywhere;
+}
+
+.panel {
+    min-width: 0;
+    background: var(--atcd-surface);
+    border: 1px solid var(--atcd-line);
+    border-radius: var(--atcd-radius);
+    box-shadow: var(--atcd-shadow);
+}
+
+.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 7px 12px;
+    border: 1px solid var(--atcd-control-line);
+    border-radius: var(--atcd-control-radius);
+    background: var(--atcd-surface);
+    color: var(--atcd-brand);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.3;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+    background: var(--atcd-info-bg);
+}
+
+.button:disabled {
+    opacity: 0.58;
+    cursor: not-allowed;
+}
+
+.primary {
+    composes: button;
+    background: var(--atcd-blue);
+    color: white;
+    border-color: transparent;
+}
+
+.primary:hover:not(:disabled) {
+    background: var(--atcd-blue-hover);
+}
+
+.field {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 7px 9px;
+    border: 1px solid var(--atcd-control-line);
+    border-radius: var(--atcd-control-radius);
+    background: var(--atcd-surface);
+    color: var(--atcd-text);
+    font: inherit;
+}
+
+.pill {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--atcd-info-bg);
+    color: var(--atcd-blue-hover);
+    font-size: 0.75rem;
+    font-weight: 650;
+    line-height: 1.4;
+}
+
+.empty {
+    composes: panel;
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--atcd-muted);
+}

@@ -1,21 +1,20 @@
 /* src/pages/director/Dashboard.module.css */
 .container {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 20px;
+    composes: page from "../../styles/Workspace.module.css";
+    min-width: 0;
 }
 
 .mainTitle {
     font-size: 1.8rem;
     margin-bottom: 10px;
-    color: #2c3e50;
+    color: var(--atcd-brand);
     text-align: center;
 }
 
 .subtitle {
     font-size: 1.2rem;
     margin-bottom: 30px;
-    color: #7f8c8d;
+    color: var(--atcd-muted);
     text-align: center;
 }
 
@@ -23,36 +22,34 @@
     text-align: center;
     padding: 40px;
     font-size: 1.2rem;
-    color: #7f8c8d;
+    color: var(--atcd-muted);
 }
 
 .error {
     text-align: center;
     padding: 40px;
     font-size: 1.2rem;
-    color: #e74c3c;
-    background: #ffebee;
-    border-radius: 8px;
+    color: var(--atcd-danger);
+    background: var(--atcd-danger-bg);
+    border-radius: var(--atcd-control-radius);
 }
 
 .groupCard {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    composes: panel from "../../styles/Workspace.module.css";
     margin-bottom: 20px;
     overflow: hidden;
 }
 
 .groupHeader {
-    padding: 20px;
-    background: #34495e;
-    color: white;
+    padding: 16px;
+    background: var(--atcd-surface);
+    color: var(--atcd-brand);
     cursor: pointer;
     transition: background 0.3s;
 }
 
 .groupHeader:hover {
-    background: #2c3e50;
+    background: var(--atcd-soft);
 }
 
 .groupInfo {
@@ -83,17 +80,7 @@
 }
 
 .expandButton {
-    background: rgba(255,255,255,0.2);
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9rem;
-}
-
-.expandButton:hover {
-    background: rgba(255,255,255,0.3);
+    composes: button from "../../styles/Workspace.module.css";
 }
 
 .scheduleBlock {
@@ -101,21 +88,21 @@
 }
 
 .approved {
-    background: #d5f4e6;
-    color: #27ae60;
+    background: var(--atcd-success-bg);
+    color: var(--atcd-success);
     padding: 15px;
-    border-radius: 8px;
+    border-radius: var(--atcd-control-radius);
     font-weight: bold;
     margin-bottom: 20px;
     text-align: center;
 }
 
 .approveButton {
-    background: #27ae60;
+    background: var(--atcd-success);
     color: white;
     border: none;
     padding: 15px 30px;
-    border-radius: 8px;
+    border-radius: var(--atcd-control-radius);
     font-size: 1.1rem;
     font-weight: bold;
     cursor: pointer;
@@ -125,7 +112,7 @@
 }
 
 .approveButton:hover {
-    background: #229954;
+    background: var(--atcd-success-hover);
 }
 
 .scheduleList {
@@ -135,10 +122,10 @@
 }
 
 .scheduleItem {
-    background: #f8f9fa;
+    background: var(--atcd-soft);
     padding: 15px;
-    border-radius: 8px;
-    border-left: 4px solid #3498db;
+    border-radius: var(--atcd-control-radius);
+    border-left: 4px solid var(--atcd-blue);
 }
 
 .scheduleInfo {
@@ -151,28 +138,29 @@
 
 .date {
     font-weight: bold;
-    color: #2c3e50;
+    color: var(--atcd-brand);
 }
 
 .time {
-    color: #7f8c8d;
+    color: var(--atcd-muted);
 }
 
 .section {
     font-weight: 500;
-    color: #34495e;
+    color: var(--atcd-text);
 }
 
 .subsection {
-    color: #7f8c8d;
+    color: var(--atcd-muted);
     font-size: 0.9rem;
 }
 
 .scheduleMeta {
     display: flex;
-    gap: 20px;
+    flex-wrap: wrap;
+    gap: 6px 16px;
     font-size: 0.9rem;
-    color: #7f8c8d;
+    color: var(--atcd-muted);
 }
 
 .instructor, .location {

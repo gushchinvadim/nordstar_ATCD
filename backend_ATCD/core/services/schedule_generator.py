@@ -1,6 +1,9 @@
 # core/services/schedule_generator.py
 import math
 from datetime import timedelta, time
+
+from django.db import transaction
+
 from execution.models import Group, ScheduleItem
 from training.models import Section
 
@@ -54,6 +57,7 @@ def calculate_sim_schedule(start_minute):
     return end_time, notes
 
 
+@transaction.atomic
 def generate_schedule_for_group(group):
     """Генерирует расписание для группы на основе её модуля"""
     if not group.module:

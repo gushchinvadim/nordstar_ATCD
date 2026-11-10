@@ -1,11 +1,14 @@
 // src/pages/methodist/CreateGroup.jsx
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { fetchModules, fetchStaff, fetchStudents, fetchLocations, createGroup } from '../../api/groups';
+import { useParams, useNavigate } from 'react-router-dom';
+import { fetchModules, fetchStaff, fetchStudents, fetchLocations } from '../../api/groups';
+import api from '../../api/config'; // Добавлено для PATCH запроса
 import styles from './CreateGroup.module.css';
 
 const CreateGroup = () => {
+    const { groupId } = useParams(); // Получаем ID, если мы в режиме редактирования
     const navigate = useNavigate();
+    const isEditMode = !!groupId; // Флаг: true, если редактируем
     
     // Справочники
     const [modules, setModules] = useState([]);
@@ -42,8 +45,9 @@ const CreateGroup = () => {
     
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [isFetching, setIsFetching] = useState(true);
 
-    // Загрузка справочников
+    // Загрузка справочников и данных группы (если редактирование)
     useEffect(() => {
         const loadData = async () => {
             try {
@@ -58,19 +62,42 @@ const CreateGroup = () => {
                 setStaff(staffRes.data);
                 setStudents(studentsRes.data);
                 setLocations(locationsRes.data);
+
+                // 🔥 ЕСЛИ РЕДАКТИРОВАНИЕ: загружаем данные группы
+                if (isEditMode) {
+                    const groupRes = await api.get(`/api/docs/group/${groupId}/edit/`);
+                    const data = groupRes.data;
+                    
+                    setSerialNumber(data.serial_number || '');
+                    setApplication(data.application || '');
+                    setModuleId(data.module_id || '');
+                    setStatus(data.status || 'enrolling');
+                    setLocationId(data.location_id || '');
+                    setStartDate(data.start_date || '');
+                    setStartFaceToFace(data.start_face_to_face || '');
+                    setEndDate(data.end_date || '');
+                    setIsSdo(data.is_sdo || false);
+                    setStartTimeDefault(data.start_time_default || '09:00');
+                    setMentorId(data.mentor_id || '');
+                    setCuratorId(data.curator_id || '');
+                    setDirectorId(data.director_id || '');
+                    setOrderInDate(data.order_in_date || '');
+                    setEnrollments(data.enrollments && data.enrollments.length > 0 ? data.enrollments : [{ student_id: '', number_in_group: 1, status: 'enrolled' }]);
+                }
             } catch (err) {
-                console.error('Ошибка загрузки справочников:', err);
-                setError('Не удалось загрузить справочники');
+                console.error('Ошибка загрузки данных:', err);
+                setError('Не удалось загрузить данные');
+            } finally {
+                setIsFetching(false);
             }
         };
         
         loadData();
-    }, []);
+    }, [groupId, isEditMode]);
 
-    // Автоматическая генерация номера группы
     const assignedNumber = serialNumber && application ? `${serialNumber}-${application}` : '';
-   const orderInNumber = assignedNumber ? `${assignedNumber}-З` : '';
-    // Добавление назначения
+    const orderInNumber = assignedNumber ? `${assignedNumber}-З` : '';
+
     const addEnrollment = () => {
         setEnrollments([
             ...enrollments,
@@ -78,20 +105,17 @@ const CreateGroup = () => {
         ]);
     };
 
-    // Удаление назначения
     const removeEnrollment = (index) => {
         const updated = enrollments.filter((_, i) => i !== index);
         setEnrollments(updated.map((e, i) => ({ ...e, number_in_group: i + 1 })));
     };
 
-    // Обновление назначения
     const updateEnrollment = (index, field, value) => {
         const updated = [...enrollments];
         updated[index][field] = value;
         setEnrollments(updated);
     };
 
-    // Отправка формы
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -112,16 +136,21 @@ const CreateGroup = () => {
             curator_id: curatorId || null,
             director_id: directorId || null,
             order_in_date: orderInDate || null,
-            enrollments: enrollments.filter(e => e.student_id), // Только заполненные
+            enrollments: enrollments.filter(e => e.student_id),
         };
         
         try {
-            const res = await createGroup(data);
+            // 🔥 Выбираем URL и метод в зависимости от режима
+            const url = isEditMode ? `/api/docs/group/${groupId}/update/` : '/api/docs/groups/create/';
+            const method = isEditMode ? 'patch' : 'post';
+            
+            const res = await api[method](url, data);
+            
             if (res.data.success) {
-                alert(`✅ Группа ${res.data.assigned_number} успешно создана!`);
-                navigate('/methodist'); // Возврат на дашборд
+                alert(`✅ Группа ${isEditMode ? 'успешно обновлена' : ` ${res.data.assigned_number} успешно создана`}!`);
+                navigate(isEditMode ? `/groups/${groupId}/documents` : '/groups');
             } else {
-                setError(res.data.error || 'Ошибка создания группы');
+                setError(res.data.error || 'Ошибка сохранения группы');
             }
         } catch (err) {
             setError(err.response?.data?.error || 'Ошибка сети');
@@ -130,9 +159,11 @@ const CreateGroup = () => {
         }
     };
 
+    if (isFetching) return <div className={styles.loading}>Загрузка формы...</div>;
+
     return (
         <div className={styles.container}>
-            <h1>Создание новой группы</h1>
+            <h1>{isEditMode ? '✏️ Редактирование группы' : '➕ Создание новой группы'}</h1>
             
             {error && <div className={styles.error}>{error}</div>}
             
@@ -140,87 +171,42 @@ const CreateGroup = () => {
                 {/* ОСНОВНАЯ ИНФОРМАЦИЯ */}
                 <section className={styles.section}>
                     <h2>Основная информация</h2>
-                    
                     <div className={styles.row}>
                         <div className={styles.field}>
                             <label>Номер группы по реестру *</label>
-                            <input
-                                type="text"
-                                value={serialNumber}
-                                onChange={(e) => setSerialNumber(e.target.value)}
-                                placeholder="001.2026"
-                                required
-                            />
+                            <input type="text" value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} placeholder="001.2026" required />
                         </div>
-                        
                         <div className={styles.field}>
                             <label>Номер заявки *</label>
-                            <input
-                                type="text"
-                                value={application}
-                                onChange={(e) => setApplication(e.target.value)}
-                                placeholder="СЗ/28-001"
-                                required
-                            />
+                            <input type="text" value={application} onChange={(e) => setApplication(e.target.value)} placeholder="СЗ/28-001" required />
                         </div>
                     </div>
-                    
                     <div className={styles.row}>
                         <div className={styles.field}>
                             <label>Номер группы (автоматически)</label>
-                            <input
-                                type="text"
-                                value={assignedNumber}
-                                readOnly
-                                className={styles.readonly}
-                            />
+                            <input type="text" value={assignedNumber} readOnly className={styles.readonly} />
                         </div>
-                        
                         <div className={styles.field}>
                             <label>Номер приказа о зачислении (автоматически)</label>
-                            <input
-                                type="text"
-                                value={orderInNumber}
-                                readOnly
-                                className={styles.readonly}
-                            />
+                            <input type="text" value={orderInNumber} readOnly className={styles.readonly} />
                         </div>
                     </div>
-                    
                     <div className={styles.row}>
                         <div className={styles.field}>
                             <label>Дата приказа о зачислении</label>
-                            <input
-                                type="date"
-                                value={orderInDate}
-                                onChange={(e) => setOrderInDate(e.target.value)}
-                            />
+                            <input type="date" value={orderInDate} onChange={(e) => setOrderInDate(e.target.value)} />
                         </div>
-                        
                         <div className={styles.field}>
                             <label>Модуль *</label>
-                            <select
-                                value={moduleId}
-                                onChange={(e) => setModuleId(e.target.value)}
-                                required
-                            >
+                            <select value={moduleId} onChange={(e) => setModuleId(e.target.value)} required>
                                 <option value="">— Выберите модуль —</option>
-                                {modules.map(m => (
-                                    <option key={m.id} value={m.id}>
-                                        {m.code} - {m.title}
-                                    </option>
-                                ))}
+                                {modules.map(m => (<option key={m.id} value={m.id}>{m.code} - {m.title}</option>))}
                             </select>
                         </div>
                     </div>
-                    
                     <div className={styles.field}>
                         <label>Статус *</label>
-                        <select
-                            value={status}
-                            onChange={(e) => setStatus(e.target.value)}
-                            required
-                        >
+                        <select value={status} onChange={(e) => setStatus(e.target.value)} required>
                             <option value="draft">Черновик</option>
                             <option value="enrolling">Набор</option>
                             <option value="in_progress">Обучение</option>
@@ -232,68 +218,35 @@ const CreateGroup = () => {
                 {/* ВРЕМЯ И МЕСТО */}
                 <section className={styles.section}>
                     <h2>Время и место</h2>
-                    
                     <div className={styles.field}>
                         <label>Место проведения</label>
-                        <select
-                            value={locationId}
-                            onChange={(e) => setLocationId(e.target.value)}
-                        >
+                        <select value={locationId} onChange={(e) => setLocationId(e.target.value)}>
                             <option value="">— Не выбрано —</option>
-                            {locations.map(loc => (
-                                <option key={loc.id} value={loc.id}>{loc.title}</option>
-                            ))}
+                            {locations.map(loc => (<option key={loc.id} value={loc.id}>{loc.title}</option>))}
                         </select>
                     </div>
-                    
                     <div className={styles.row}>
                         <div className={styles.field}>
                             <label>Дата начала СДО *</label>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                required
-                            />
+                            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
                         </div>
-                        
                         <div className={styles.field}>
                             <label>Дата начала очных занятий</label>
-                            <input
-                                type="date"
-                                value={startFaceToFace}
-                                onChange={(e) => setStartFaceToFace(e.target.value)}
-                            />
+                            <input type="date" value={startFaceToFace} onChange={(e) => setStartFaceToFace(e.target.value)} />
                         </div>
-                        
                         <div className={styles.field}>
                             <label>Плановая дата окончания</label>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
-                            />
+                            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                         </div>
                     </div>
-                    
                     <div className={styles.row}>
                         <div className={styles.checkbox}>
-                            <input
-                                type="checkbox"
-                                id="isSdo"
-                                checked={isSdo}
-                                onChange={(e) => setIsSdo(e.target.checked)}
-                            />
+                            <input type="checkbox" id="isSdo" checked={isSdo} onChange={(e) => setIsSdo(e.target.checked)} />
                             <label htmlFor="isSdo">Только СДО (без очных занятий)</label>
                         </div>
-                        
                         <div className={styles.field}>
                             <label>Время начала очных занятий</label>
-                            <input
-                                type="time"
-                                value={startTimeDefault}
-                                onChange={(e) => setStartTimeDefault(e.target.value)}
-                            />
+                            <input type="time" value={startTimeDefault} onChange={(e) => setStartTimeDefault(e.target.value)} />
                         </div>
                     </div>
                 </section>
@@ -301,43 +254,25 @@ const CreateGroup = () => {
                 {/* ПРЕПОДАВАТЕЛЬСКИЙ СОСТАВ */}
                 <section className={styles.section}>
                     <h2>Преподавательский состав</h2>
-                    
                     <div className={styles.field}>
                         <label>Наставник группы</label>
-                        <select
-                            value={mentorId}
-                            onChange={(e) => setMentorId(e.target.value)}
-                        >
+                        <select value={mentorId} onChange={(e) => setMentorId(e.target.value)}>
                             <option value="">— Не выбран —</option>
-                            {staff.map(s => (
-                                <option key={s.id} value={s.id}>{s.full_name}</option>
-                            ))}
+                            {staff.map(s => (<option key={s.id} value={s.id}>{s.full_name}</option>))}
                         </select>
                     </div>
-                    
                     <div className={styles.field}>
                         <label>Специалист 1 категории (Куратор)</label>
-                        <select
-                            value={curatorId}
-                            onChange={(e) => setCuratorId(e.target.value)}
-                        >
+                        <select value={curatorId} onChange={(e) => setCuratorId(e.target.value)}>
                             <option value="">— Не выбран —</option>
-                            {staff.map(s => (
-                                <option key={s.id} value={s.id}>{s.full_name}</option>
-                            ))}
+                            {staff.map(s => (<option key={s.id} value={s.id}>{s.full_name}</option>))}
                         </select>
                     </div>
-                    
                     <div className={styles.field}>
                         <label>Подписывающий руководитель</label>
-                        <select
-                            value={directorId}
-                            onChange={(e) => setDirectorId(e.target.value)}
-                        >
+                        <select value={directorId} onChange={(e) => setDirectorId(e.target.value)}>
                             <option value="">— Не выбран —</option>
-                            {staff.map(s => (
-                                <option key={s.id} value={s.id}>{s.full_name}</option>
-                            ))}
+                            {staff.map(s => (<option key={s.id} value={s.id}>{s.full_name}</option>))}
                         </select>
                     </div>
                 </section>
@@ -345,72 +280,42 @@ const CreateGroup = () => {
                 {/* НАЗНАЧЕНИЯ */}
                 <section className={styles.section}>
                     <h2>Назначения (Слушатели)</h2>
-                    
                     {enrollments.map((enrollment, index) => (
                         <div key={index} className={styles.enrollmentRow}>
                             <div className={styles.field}>
                                 <label>Слушатель *</label>
-                                <select
-                                    value={enrollment.student_id}
-                                    onChange={(e) => updateEnrollment(index, 'student_id', e.target.value)}
-                                    required
-                                >
+                                <select value={enrollment.student_id} onChange={(e) => updateEnrollment(index, 'student_id', e.target.value)} required>
                                     <option value="">— Выберите слушателя —</option>
-                                    {students.map(s => (
-                                        <option key={s.id} value={s.id}>
-                                            {s.full_name} ({s.profession})
-                                        </option>
-                                    ))}
+                                    {students.map(s => (<option key={s.id} value={s.id}>{s.full_name} ({s.profession})</option>))}
                                 </select>
                             </div>
-                            
                             <div className={styles.fieldSmall}>
                                 <label>№ в группе</label>
-                                <input
-                                    type="number"
-                                    value={enrollment.number_in_group}
-                                    onChange={(e) => updateEnrollment(index, 'number_in_group', parseInt(e.target.value))}
-                                    min="1"
-                                    required
-                                />
+                                <input type="number" value={enrollment.number_in_group} onChange={(e) => updateEnrollment(index, 'number_in_group', parseInt(e.target.value))} min="1" required />
                             </div>
-                            
                             <div className={styles.field}>
                                 <label>Статус</label>
-                                <select
-                                    value={enrollment.status}
-                                    onChange={(e) => updateEnrollment(index, 'status', e.target.value)}
-                                >
+                                <select value={enrollment.status} onChange={(e) => updateEnrollment(index, 'status', e.target.value)}>
                                     <option value="enrolled">Зачислен</option>
                                     <option value="in_progress">Обучается</option>
                                     <option value="completed">Завершен</option>
                                     <option value="dismissed">Отчислен</option>
                                 </select>
                             </div>
-                            
                             {enrollments.length > 1 && (
-                                <button
-                                    type="button"
-                                    onClick={() => removeEnrollment(index)}
-                                    className={styles.removeBtn}
-                                >
-                                    ✕
-                                </button>
+                                <button type="button" onClick={() => removeEnrollment(index)} className={styles.removeBtn}>✕</button>
                             )}
                         </div>
                     ))}
-                    
-                    <button type="button" onClick={addEnrollment} className={styles.addBtn}>
-                        + Добавить слушателя
-                    </button>
+                    <button type="button" onClick={addEnrollment} className={styles.addBtn}>+ Добавить слушателя</button>
                 </section>
                 
                 {/* КНОПКИ */}
                 <div className={styles.actions}>
                     <button type="submit" className={styles.submitBtn} disabled={loading}>
-                        {loading ? 'Создание...' : 'Создать группу'}
+                        {loading ? 'Сохранение...' : (isEditMode ? '💾 Сохранить изменения' : '✅ Создать группу')}
                     </button>
-                    <button type="button" onClick={() => navigate('/groups')} className={styles.cancelBtn}>
+                    <button type="button" onClick={() => navigate(isEditMode ? `/groups/${groupId}/documents` : '/groups')} className={styles.cancelBtn}>
                         Отмена
                     </button>
                 </div>

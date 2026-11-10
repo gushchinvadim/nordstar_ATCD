@@ -1,215 +1,73 @@
-.container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-.container h1 {
-    color: #2c3e50;
-    margin-bottom: 8px;
-    font-size: 1.6rem;
-}
+.container { composes: page from '../../styles/Workspace.module.css'; }
 
 .subtitle {
-    color: #7f8c8d;
-    margin-bottom: 25px;
-    font-size: 0.95rem;
+    margin-bottom: 20px;
+    color: var(--atcd-muted);
 }
 
-.loading,
-.empty {
-    text-align: center;
-    padding: 60px 20px;
-    color: #7f8c8d;
-    font-size: 1rem;
-    background: white;
-    border-radius: 8px;
-    border: 1px dashed #bdc3c7;
-}
+.loading, .empty { composes: empty from '../../styles/Workspace.module.css'; }
 
-/* АДАПТИВНАЯ СЕТКА КАРТОЧЕК */
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+    gap: 16px;
 }
 
-/* СТИЛЬ КАРТОЧКИ */
 .card {
-    background: white;
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    border: 1px solid #edf2f7;
+    composes: panel from '../../styles/Workspace.module.css';
     display: flex;
     flex-direction: column;
-    transition: transform 0.2s, box-shadow 0.2s;
-    overflow: hidden;
 }
 
-.card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
-    border-color: #cbd5e0;
-}
-
-/* ШАПКА КАРТОЧКИ */
 .cardHeader {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: flex-start;
-    padding: 16px 16px 8px 16px;
-    border-bottom: 1px solid #f0f4f8;
+    gap: 8px;
+    padding: 16px 16px 0;
 }
 
 .groupNumber {
     margin: 0;
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: #2d3748;
+    color: var(--atcd-brand);
+    font-size: 1.1rem;
+    overflow-wrap: anywhere;
 }
 
-/* ТЕЛО КАРТОЧКИ */
 .cardBody {
-    padding: 12px 16px;
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.moduleTitle {
-    font-size: 0.9rem;
-    color: #4a5568;
-    line-height: 1.4;
-    margin-bottom: 4px;
-    font-weight: 500;
-}
-
-.infoRow {
-    font-size: 0.85rem;
-    color: #718096;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.directionBadge {
-    display: inline-block;
-    background: #ebf8ff;
-    color: #2b6cb0;
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    font-weight: 600;
-}
-
-/* ПОДВАЛ КАРТОЧКИ (КНОПКИ) */
-.cardActions {
-    padding: 12px 16px 16px 16px;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    align-content: start;
+    gap: 6px;
+    padding: 12px 16px 16px;
+    overflow-wrap: anywhere;
+}
+
+.moduleTitle { font-weight: 650; }
+.infoRow { color: var(--atcd-muted); font-size: 0.875rem; }
+.directionBadge, .badge { composes: pill from '../../styles/Workspace.module.css'; }
+
+.cardActions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 126px), 1fr));
     gap: 8px;
-    border-top: 1px solid #f0f4f8;
-    background: #fafbfc;
+    padding: 12px;
+    border-top: 1px solid var(--atcd-line);
+    border-radius: 0 0 var(--atcd-radius) var(--atcd-radius);
+    background: var(--atcd-soft);
 }
 
-.btn {
-    padding: 8px 12px;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.btn { width: 100%; }
+.btnPrimary { composes: primary from '../../styles/Workspace.module.css'; }
+.btnOutline, .btnSecondary, .btnInfo, .btnSuccess, .btnWarning {
+    composes: button from '../../styles/Workspace.module.css';
 }
+.btn.btnSuccess { color: var(--atcd-success); }
+.btn.btnWarning { color: var(--atcd-warning); }
 
-.btnPrimary {
-    background: #3182ce;
-    color: white;
-}
-.btnPrimary:hover { background: #2b6cb0; }
-
-.btnWarning {
-    background: #ed8936;
-    color: white;
-}
-.btnWarning:hover { background: #dd6b20; }
-
-.btnSecondary {
-    background: #38a169;
-    color: white;
-}
-.btnSecondary:hover { background: #2f855a; }
-
-.btnOutline {
-    background: white;
-    color: #4a5568;
-    border: 1px solid #cbd5e0;
-}
-.btnOutline:hover { 
-    background: #edf2f7; 
-    border-color: #a0aec0;
-}
-
-/* БЕЙДЖИ СТАТУСОВ */
-.badge {
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.status_in_progress { background: #c6f6d5; color: #22543d; }
-.status_completed { background: #e2e8f0; color: #4a5568; }
-.status_enrolling { background: #feebc8; color: #744210; }
-.status_draft { background: #e2e8f0; color: #718096; }
-.status_archived { background: #fed7d7; color: #822727; }
-
-/* Добавьте это в конец файла GroupDocuments.module.css */
-
-.btnSuccess {
-    background-color: #27ae60;
-    color: white;
-    border: none;
-    font-weight: 600;
-    transition: all 0.2s ease;
-}
-
-.btnSuccess:hover {
-    background-color: #219150;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(39, 174, 96, 0.3);
-}
-
-.btnInfo {
-    background-color: #17a2b8;
-    color: white;
-    border: none;
-    font-weight: 600;
-    transition: all 0.2s ease;
-}
-.btnInfo:hover {
-    background-color: #138496;
-    transform: translateY(-1px);
-}
-
-/* АДАПТИВНОСТЬ ДЛЯ МОБИЛЬНЫХ */
-@media (max-width: 600px) {
-    .grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .cardActions {
-        grid-template-columns: 1fr; /* Кнопки в одну колонку на телефоне */
-    }
-    
-    .container {
-        padding: 15px;
-    }
-}
+.badge.status_in_progress { background: var(--atcd-info-bg); color: var(--atcd-blue-hover); }
+.badge.status_completed { background: var(--atcd-success-bg); color: var(--atcd-success); }
+.badge.status_enrolling { background: var(--atcd-warning-bg); color: var(--atcd-warning); }
+.badge.status_draft, .badge.status_archived { background: var(--atcd-soft); color: var(--atcd-muted); }
+.badge.status_cancelled { background: var(--atcd-danger-bg); color: var(--atcd-danger); }

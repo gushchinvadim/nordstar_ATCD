@@ -1,0 +1,134 @@
+.container { composes: page from '../../styles/Workspace.module.css'; }
+.header { margin-bottom: 16px; }
+.backBtn { composes: button from '../../styles/Workspace.module.css'; margin-bottom: 12px; }
+.loading { composes: empty from '../../styles/Workspace.module.css'; }
+
+.groupInfo, .saveBar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 10px 12px;
+    font-size: 0.875rem;
+}
+
+.groupInfo {
+    composes: panel from '../../styles/Workspace.module.css';
+    box-shadow: inset 3px 0 var(--atcd-blue);
+    margin-bottom: 10px;
+}
+
+.groupNumber { color: var(--atcd-brand); font-weight: 700; }
+.groupModule { font-weight: 600; }
+.groupSeparator, .groupCurator, .hint { color: var(--atcd-muted); }
+.hint { font-size: 0.875rem; }
+
+.saveBar {
+    margin-top: 10px;
+    border-radius: var(--atcd-control-radius);
+    background: var(--atcd-info-bg);
+}
+
+.unsavedIndicator { color: var(--atcd-warning); font-weight: 650; }
+.lastSaved { color: var(--atcd-success); }
+.refreshBtn { composes: button from '../../styles/Workspace.module.css'; }
+.addBtn { composes: primary from '../../styles/Workspace.module.css'; margin-top: 12px; }
+
+.tableWrapper {
+    composes: stacked from "../../styles/MobileTable.module.css";
+    composes: panel from '../../styles/Workspace.module.css';
+    max-height: 70svh;
+    overflow: auto;
+}
+
+.table {
+    width: 100%;
+    min-width: 1030px;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.8125rem;
+}
+
+.table th, .table td {
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--atcd-line);
+    vertical-align: middle;
+}
+
+.table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--atcd-soft);
+    color: var(--atcd-brand);
+    text-align: start;
+    white-space: nowrap;
+}
+
+.row:hover td { background: var(--atcd-soft); }
+.table tbody tr:last-child td { border-bottom: 0; }
+.badge { composes: pill from '../../styles/Workspace.module.css'; }
+.badge.sim { background: var(--atcd-warning-bg); color: var(--atcd-warning); }
+
+.editableText {
+    width: 100%;
+    min-height: 32px;
+    padding: 3px 5px;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.editableText:hover { border-color: var(--atcd-line); background: var(--atcd-info-bg); }
+.placeholder { color: var(--atcd-muted); }
+.editInput, .editSelect { composes: field from '../../styles/Workspace.module.css'; }
+.saving { color: var(--atcd-blue-hover); font-weight: 650; }
+
+.deleteBtn {
+    composes: button from '../../styles/Workspace.module.css';
+    color: var(--atcd-danger);
+    min-height: 32px;
+    padding: 4px 7px;
+}
+
+.deleteBtn.deleteBtn:hover:not(:disabled) { background: var(--atcd-danger-bg); }
+
+.addForm {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.addForm label {
+    display: grid;
+    gap: 4px;
+    color: var(--atcd-muted);
+    font-size: 0.875rem;
+}
+
+.addForm .addBtn {
+    margin-top: 0;
+}
+
+@media (max-width: 760px) {
+    .addForm label,
+    .addForm .addBtn {
+        width: 100%;
+    }
+
+    .addForm :is(input, button),
+    .saveBar button {
+        min-height: 44px;
+    }
+
+    .editableText {
+        background: var(--atcd-soft);
+        border-color: var(--atcd-line);
+    }
+}

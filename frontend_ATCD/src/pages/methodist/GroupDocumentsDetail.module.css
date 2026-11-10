@@ -1,0 +1,58 @@
+.container { composes: page from '../../styles/Workspace.module.css'; }
+.backBtn { composes: button from '../../styles/Workspace.module.css'; margin-bottom: 12px; }
+
+.header {
+    composes: panel from '../../styles/Workspace.module.css';
+    padding: clamp(14px, 2.5vw, 24px);
+}
+
+.meta, .actions, .cardActions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.meta {
+    margin-bottom: 16px;
+    font-size: 0.875rem;
+    color: var(--atcd-muted);
+    overflow-wrap: anywhere;
+}
+
+.badge, .status { composes: pill from '../../styles/Workspace.module.css'; }
+
+.sectionTitle {
+    margin: 24px 0 12px;
+    color: var(--atcd-brand);
+    font-size: 1.125rem;
+    font-weight: 700;
+}
+
+.grid, .reportsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+    gap: 14px;
+}
+
+.card, .reportCard {
+    composes: panel from '../../styles/Workspace.module.css';
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+}
+
+.cardHeader { display: flex; align-items: center; gap: 9px; }
+.icon { font-size: 1.2rem; }
+.docName, .reportCard h4 { margin: 0; font-size: 0.95rem; overflow-wrap: anywhere; }
+.cardBody { flex: 1; }
+.status.statusSaved { background: var(--atcd-success-bg); color: var(--atcd-success); }
+.status.statusMissing { background: var(--atcd-soft); color: var(--atcd-muted); }
+.cardActions:empty { display: none; }
+
+.btnPrimary, .btnGenerate { composes: primary from '../../styles/Workspace.module.css'; }
+.btnSecondary, .btnSecondaryLink, .btnView, .btnDownload {
+    composes: button from '../../styles/Workspace.module.css';
+}
+.loading, .error { composes: empty from '../../styles/Workspace.module.css'; }

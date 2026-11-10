@@ -1,24 +1,21 @@
 .container {
-    max-width: 1400px;  /* Увеличено с 1000px */
-    margin: 0 auto;
-    padding: 20px 30px;
-    width: 100%;
-    box-sizing: border-box;
+    composes: page from "./Workspace.module.css";
+    min-width: 0;
 }
 
 .mainTitle {
     font-size: 1.8rem;
-    color: #2c3e50;
+    color: var(--atcd-brand);
     margin-bottom: 10px;
     text-align: center;
 }
 
 .subtitle {
     font-size: 1.5rem;
-    color: #34495e;
+    color: var(--atcd-text);
     margin-bottom: 30px;
     text-align: center;
-    border-bottom: 2px solid #3498db;
+    border-bottom: 2px solid var(--atcd-blue);
     padding-bottom: 10px;
 }
 
@@ -26,22 +23,20 @@
     text-align: center;
     padding: 40px;
     font-size: 1.2rem;
-    color: #7f8c8d;
+    color: var(--atcd-muted);
 }
 
 .error {
     text-align: center;
     padding: 40px;
     font-size: 1.2rem;
-    color: #e74c3c;
-    background: #ffebee;
-    border-radius: 8px;
+    color: var(--atcd-danger);
+    background: var(--atcd-danger-bg);
+    border-radius: var(--atcd-control-radius);
 }
 
 .moduleCard {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    composes: panel from "./Workspace.module.css";
     margin-bottom: 20px;
     overflow: hidden;
     width: 100%;
@@ -59,25 +54,26 @@
 }
 
 .moduleHeader:hover {
-    background: #f8f9fa;
+    background: var(--atcd-soft);
 }
 
 .moduleInfo {
     flex: 1;
-    min-width: 300px;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .moduleInfo h3 {
     margin: 0 0 5px 0;
-    color: #2c3e50;
+    color: var(--atcd-brand);
     font-size: 1.3rem;
 }
 
 .moduleCode {
-    background: #3498db;
+    background: var(--atcd-blue);
     color: white;
     padding: 4px 12px;
-    border-radius: 12px;
+    border-radius: var(--atcd-radius);
     font-size: 0.9rem;
     display: inline-block;
     margin-top: 5px;
@@ -85,21 +81,21 @@
 
 .moduleMeta {
     text-align: right;
-    min-width: 200px;
+    min-width: 0;
 }
 
 .groupNumber, .status {
     margin: 5px 0;
-    color: #7f8c8d;
+    color: var(--atcd-muted);
     font-size: 0.95rem;
 }
 
 .expandButton {
-    background: #3498db;
+    background: var(--atcd-blue);
     color: white;
     border: none;
     padding: 10px 20px;
-    border-radius: 8px;
+    border-radius: var(--atcd-control-radius);
     cursor: pointer;
     font-weight: bold;
     transition: background 0.3s;
@@ -107,38 +103,37 @@
 }
 
 .expandButton:hover {
-    background: #2980b9;
+    background: var(--atcd-blue-hover);
 }
 
 .signaturesBlock {
-    padding: 25px;
-    background: #f8f9fa;
-    border-top: 1px solid #e0e0e0;
+    padding: clamp(12px, 2vw, 24px);
+    background: var(--atcd-soft);
+    border-top: 1px solid var(--atcd-line);
 }
 
 .signatureSection {
-    background: white;
-    padding: 25px;
-    border-radius: 8px;
+    composes: panel from "./Workspace.module.css";
+    padding: clamp(12px, 2vw, 24px);
+    border-radius: var(--atcd-control-radius);
     margin-bottom: 20px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 
 .signatureSection h4 {
     margin: 0 0 15px 0;
-    color: #2c3e50;
+    color: var(--atcd-brand);
     font-size: 1.1rem;
-    border-bottom: 2px solid #ecf0f1;
+    border-bottom: 2px solid var(--atcd-line);
     padding-bottom: 10px;
 }
 
 .actionButton {
     width: 100%;
     padding: 15px;
-    background: #27ae60;
+    background: var(--atcd-success);
     color: white;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--atcd-control-radius);
     font-size: 1.1rem;
     font-weight: bold;
     cursor: pointer;
@@ -146,12 +141,12 @@
 }
 
 .actionButton:hover {
-    background: #229954;
+    background: var(--atcd-success-hover);
 }
 
 .smallButton {
     padding: 10px 18px;
-    background: #3498db;
+    background: var(--atcd-blue);
     color: white;
     border: none;
     border-radius: 6px;
@@ -163,14 +158,14 @@
 }
 
 .smallButton:hover {
-    background: #2980b9;
+    background: var(--atcd-blue-hover);
 }
 
 .confirmed, .acknowledged, .attended, .received {
     display: inline-block;
     padding: 10px 18px;
-    background: #d5f4e6;
-    color: #27ae60;
+    background: var(--atcd-success-bg);
+    color: var(--atcd-success);
     border-radius: 6px;
     font-weight: bold;
     font-size: 0.9rem;
@@ -178,7 +173,7 @@
 }
 
 .pending {
-    color: #95a5a6;
+    color: var(--atcd-muted);
     font-style: italic;
     margin: 10px 0;
 }
@@ -194,7 +189,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 15px;
-    background: #f8f9fa;
+    background: var(--atcd-soft);
     border-radius: 6px;
     flex-wrap: wrap;
     gap: 15px;
@@ -211,23 +206,23 @@
 
 .date {
     font-weight: bold;
-    color: #2c3e50;
+    color: var(--atcd-brand);
     min-width: 100px;
 }
 
 .time {
-    color: #7f8c8d;
+    color: var(--atcd-muted);
     min-width: 120px;
 }
 
 .section {
-    color: #34495e;
+    color: var(--atcd-text);
     flex: 1;
-    min-width: 200px;
+    min-width: 0;
 }
 
 .subsection {
-    color: #95a5a6;
+    color: var(--atcd-muted);
     font-size: 0.9rem;
 }
 
@@ -236,7 +231,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 15px;
-    background: #f8f9fa;
+    background: var(--atcd-soft);
     border-radius: 6px;
     margin-bottom: 10px;
     flex-wrap: wrap;
@@ -254,9 +249,9 @@
 
 .sectionTitle {
     font-weight: bold;
-    color: #2c3e50;
+    color: var(--atcd-brand);
     flex: 1;
-    min-width: 200px;
+    min-width: 0;
 }
 
 .score {
@@ -269,34 +264,34 @@
 }
 
 .score.passed {
-    background: #d5f4e6;
-    color: #27ae60;
+    background: var(--atcd-success-bg);
+    color: var(--atcd-success);
 }
 
 .score.failed {
-    background: #ffebee;
-    color: #e74c3c;
+    background: var(--atcd-danger-bg);
+    color: var(--atcd-danger);
 }
 
 .status {
-    color: #7f8c8d;
+    color: var(--atcd-muted);
     font-size: 0.9rem;
     min-width: 80px;
 }
 
 .certType {
     font-weight: bold;
-    color: #2c3e50;
+    color: var(--atcd-brand);
     min-width: 150px;
 }
 
 .certNumber {
-    color: #34495e;
+    color: var(--atcd-text);
     min-width: 150px;
 }
 
 .certDate {
-    color: #7f8c8d;
+    color: var(--atcd-muted);
     font-size: 0.9rem;
 }
 
@@ -305,23 +300,23 @@
     align-items: center;
     gap: 8px;
     padding: 12px 20px;
-    background: #e8f4f8;
-    color: #2980b9;
+    background: var(--atcd-info-bg);
+    color: var(--atcd-blue-hover);
     text-decoration: none;
-    border-radius: 8px;
+    border-radius: var(--atcd-control-radius);
     font-weight: bold;
     margin-bottom: 15px;
     transition: background 0.3s, transform 0.2s;
-    border: 1px solid #bee5eb;
+    border: 1px solid var(--atcd-line);
 }
 
 .docLink:hover {
-    background: #d1ecf1;
+    background: var(--atcd-info-bg);
     transform: translateY(-2px);
 }
 
 .sdoBadge {
-    background: #9b59b6;
+    background: var(--atcd-brand);
     color: white;
     padding: 2px 8px;
     border-radius: 4px;
@@ -330,9 +325,19 @@
 }
 
 .sdoText {
-    color: #95a5a6;
+    color: var(--atcd-muted);
     font-size: 0.9rem;
     font-style: italic;
+}
+
+.emptyState {
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--atcd-soft);
+    border-radius: var(--atcd-radius);
+    color: var(--atcd-success);
+    font-size: 1.1rem;
+    font-weight: 500;
 }
 
 /* Кнопка открытия документа */
@@ -341,7 +346,7 @@
     align-items: center;
     gap: 8px;
     padding: 10px 18px;
-    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    background: linear-gradient(135deg, var(--atcd-blue) 0%, var(--atcd-blue-hover) 100%);
     color: white;
     border: none;
     border-radius: 6px;
@@ -355,7 +360,7 @@
 }
 
 .docLinkButton:hover {
-    background: linear-gradient(135deg, #2980b9 0%, #1f6391 100%);
+    background: linear-gradient(135deg, var(--atcd-blue-hover) 0%, var(--atcd-blue-hover) 100%);
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(52, 152, 219, 0.4);
 }
@@ -366,7 +371,7 @@
 }
 
 .docLinkButton:disabled {
-    background: #bdc3c7;
+    background: var(--atcd-control-line);
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
@@ -385,10 +390,6 @@
 
 /* Адаптивность для мобильных устройств */
 @media (max-width: 768px) {
-    .container {
-        padding: 15px;
-    }
-    
     .moduleHeader {
         flex-direction: column;
         align-items: flex-start;

@@ -145,3 +145,11 @@
     margin-bottom: 20px;
     border-left: 4px solid #2e7d32;
 }
+@media (max-width: 760px) {
+    .container { padding: 0; }
+    .section { padding: 14px; }
+    .row { gap: 8px; }
+    .field, .fieldSmall { flex: 1 1 100%; min-width: 0; }
+    .actions { flex-wrap: wrap; }
+    .actions button { flex: 1 1 100%; min-height: 44px; }
+}

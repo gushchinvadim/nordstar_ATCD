@@ -1046,33 +1046,26 @@ def journal_view(request, group_id):
     # ======================================================================
     # 4.1. ПОДПИСИ КУРАТОРОВ (ответственных за организацию)
     # ======================================================================
-    # print(f"\n🔍 ПОИСК ПОДПИСЕЙ КУРАТОРА для группы {group.id}:")
-    # print(f"  - Куратор группы: {group.curator.full_name if group.curator else 'НЕТ'}")
-
     if group.curator:
-        # Ищем подпись куратора через выставление оценок (grades_submitted)
+        # 🔥 ИСПРАВЛЕНИЕ: ищем как 'methodist_documents_issued' (от старых скриптов),
+        # так и 'grades_submitted' (то, что создает фронтенд при сохранении оценок)
         curator_logs = ComplianceLog.objects.filter(
             enrollment__group=group,
             staff=group.curator,
-            action_type='methodist_documents_issued'  # ← Стало так
+            action_type__in=['methodist_documents_issued', 'grades_submitted']  # <-- ДОБАВЛЕНО 'grades_submitted'
         ).select_related('enrollment')
 
-        # print(f"  - Найдено записей grades_submitted от куратора: {curator_logs.count()}")
-
-        # Словарь: { enrollment_id: signature_string }
         curator_signatures_dict = {}
         for log in curator_logs:
             eid = log.enrollment_id
+            # Берем самую свежую подпись для каждого студента
             if eid not in curator_signatures_dict or log.timestamp > curator_signatures_dict[eid]['timestamp']:
                 curator_signatures_dict[eid] = {
                     'signature': log.signature_string,
                     'timestamp': log.timestamp
                 }
-
-        # print(f"  - Уникальных студентов с подписью куратора: {len(curator_signatures_dict)}")
     else:
         curator_signatures_dict = {}
-        print("  - Куратор не назначен!")
     # ======================================================================
 
     # Прикрепляем данные к каждому студенту (ОДИН ЦИКЛ для всего)
@@ -1825,47 +1818,7 @@ def group_documents_dashboard(request, group_id):
 
     return render(request, 'docs/dashboard/documents_dashboard.html', context)
 
-    # === ПОЛУЧЕНИЕ СПИСКА ИУП ДЛЯ ГРУППЫ ===
-    iup_documents = []
-    year = str(group.start_date.year) if group.start_date else str(date.today().year)
-    module_code = re.sub(r'[^\w\-]', '_', group.module.code) if group.module else 'unknown_module'
 
-    # ИСПРАВЛЕНО: используем safe_group_number вместо group.assigned_number
-    safe_group_number = re.sub(r'[^\w\.\-]', '_', group.assigned_number)
-    iup_folder_rel = f"documents/{year}/groups/{module_code}/{safe_group_number}/iup"
-
-    iups = IndividualStudyPlan.objects.filter(
-        group=group
-    ).select_related('student').order_by('-created_at')
-
-    for iup in iups:
-        surname = iup.student.surname
-        name = iup.student.name
-        patronymic = iup.student.patronymic or ''
-
-        sched_rel_path = f"{iup_folder_rel}/ИУП_{surname}_{name}_расписание.pdf"
-        theme_rel_path = f"{iup_folder_rel}/ИУП_{surname}_{name}_тематический_план.pdf"
-
-        # Используем os.sep для корректной проверки на любой ОС
-        sched_exists = os.path.exists(os.path.join(settings.MEDIA_ROOT, sched_rel_path.replace('/', os.sep)))
-        theme_exists = os.path.exists(os.path.join(settings.MEDIA_ROOT, theme_rel_path.replace('/', os.sep)))
-
-        iup_documents.append({
-            'id': iup.id,
-            'student_name': f"{surname} {name} {patronymic}".strip(),
-            'reason': iup.reason,
-            'created_at': iup.created_at,
-            'status': iup.get_status_display(),
-            'schedule_path': sched_rel_path,
-            'thematic_path': theme_rel_path,
-            'schedule_exists': sched_exists,
-            'thematic_exists': theme_exists,
-        })
-
-    context['iup_documents'] = iup_documents
-    # ==========================================
-
-    return render(request, 'docs/dashboard/documents_dashboard.html', context)
 
 @staff_member_required
 def certificate_batch_view(request, group_id):

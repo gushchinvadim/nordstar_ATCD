@@ -1,88 +1,77 @@
-/* src/components/Sidebar.module.css */
 .sidebar {
-    width: 260px;
-    background: #ffffff;
-    min-height: calc(100vh - 60px);
-    padding: 20px 0;
+    width: clamp(190px, 18vw, 240px);
     flex-shrink: 0;
-    transition: width 0.3s ease;
-    border-right: 3px solid #1a252f; /* Линия справа (как у футера сверху) */
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1); /* Тень справа */
+    box-sizing: border-box;
+    padding: 16px 10px;
+    background: var(--atcd-brand);
 }
 
 .nav {
-    display: flex;
-    flex-direction: column;
+    display: grid;
     gap: 5px;
 }
 
 .navItem {
     display: flex;
     align-items: center;
-    gap: 15px;
-    padding: 15px 20px;
-    color: #2c3e50;
+    gap: 10px;
+    padding: 11px 10px;
+    border-inline-start: 3px solid transparent;
+    border-radius: var(--atcd-control-radius);
+    color: white;
     text-decoration: none;
-    transition: background 0.2s, padding 0.3s ease;
-    border-left: 4px solid transparent;
-    white-space: nowrap;
 }
 
-.navItem:hover {
-    background: #f0f4f8;
+.navItem:hover,
+.navItem.active {
+    background: rgb(255 255 255 / 12%);
 }
 
 .navItem.active {
-    background: #e8f4f8;
-    border-left-color: #3498db;
-    color: #2980b9;
-    font-weight: 600;
+    border-inline-start-color: var(--atcd-sky);
+    font-weight: 650;
+}
+
+.navItem.navItem:focus-visible {
+    outline-color: var(--atcd-sky);
 }
 
 .icon {
-    font-size: 1.2rem;
     min-width: 24px;
     text-align: center;
 }
 
 .label {
-    font-size: 0.95rem;
-    font-weight: 500;
-    transition: opacity 0.2s ease;
+    font-size: 0.875rem;
 }
 
-/* =========================================
-   МОБИЛЬНАЯ АДАПТАЦИЯ (экраны < 768px)
-   ========================================= */
-@media (max-width: 768px) {
+@media (max-width: 760px) {
     .sidebar {
-        width: 70px;
-        padding: 10px 0;
-        border-right: 2px solid #1a252f;
+        width: 100%;
+        padding: 6px;
+    }
+
+    .nav {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     .navItem {
-        padding: 15px 0;
+        flex-direction: column;
         justify-content: center;
-        gap: 0;
-        border-left: none;
+        gap: 2px;
+        min-height: 44px;
+        padding: 4px 2px;
+        border-inline-start: 0;
         border-bottom: 3px solid transparent;
+        text-align: center;
     }
 
     .navItem.active {
-        background: transparent;
-        border-bottom-color: #3498db;
-    }
-    
-    .navItem.active .icon {
-        color: #3498db;
+        border-bottom-color: var(--atcd-sky);
     }
 
     .label {
-        display: none;
-    }
-
-    .icon {
-        font-size: 1.5rem;
+        font-size: 0.75rem;
+        line-height: 1.2;
     }
 }

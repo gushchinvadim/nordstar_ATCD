@@ -88,6 +88,7 @@
 }
 
 .tableWrapper {
+    composes: stacked from "../../styles/MobileTable.module.css";
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
@@ -214,3 +215,25 @@
 .loading { text-align: center; padding: 50px; font-size: 18px; color: #666; }
 .error { text-align: center; padding: 50px; background: white; border-radius: 8px; }
 .error h2 { color: #c62828; }
+@media (max-width: 760px) {
+    .container {
+        padding: 0;
+        min-height: 0;
+        background: transparent;
+    }
+
+    .header, .massActions {
+        padding: 12px;
+    }
+
+    .massActions button {
+        flex: 1 1 100%;
+        min-height: 44px;
+    }
+}
+
+.saveMessage:not(:empty) {
+    margin-bottom: 12px;
+    color: var(--atcd-text);
+    overflow-wrap: anywhere;
+}

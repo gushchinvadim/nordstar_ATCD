@@ -1,63 +1,56 @@
 .container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
+    composes: page from "../../styles/Workspace.module.css";
+    min-width: 0;
 }
 
 .backButton {
-    background: #95a5a6;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 6px;
-    cursor: pointer;
-    margin-bottom: 20px;
-}
-
-.backButton:hover {
-    background: #7f8c8d;
+    composes: button from "../../styles/Workspace.module.css";
+    margin-bottom: 12px;
 }
 
 .title {
     font-size: 1.8rem;
     margin-bottom: 30px;
-    color: #2c3e50;
+    color: var(--atcd-brand);
 }
 
 .loading {
     text-align: center;
     padding: 40px;
     font-size: 1.2rem;
-    color: #7f8c8d;
+    color: var(--atcd-muted);
 }
 
 .tableWrapper {
+    composes: stacked from "../../styles/MobileTable.module.css";
+    composes: panel from "../../styles/Workspace.module.css";
     overflow-x: auto;
     margin-bottom: 20px;
 }
 
 .gradesTable {
     width: 100%;
+    min-width: 480px;
     border-collapse: collapse;
-    background: white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    background: var(--atcd-surface);
+    box-shadow: var(--atcd-shadow);
 }
 
 .gradesTable th,
 .gradesTable td {
-    border: 1px solid #ddd;
+    border: 1px solid var(--atcd-line);
     padding: 12px;
     text-align: left;
 }
 
 .gradesTable th {
-    background: #3498db;
+    background: var(--atcd-blue);
     color: white;
     font-weight: bold;
 }
 
 .gradesTable tr:nth-child(even) {
-    background: #f9f9f9;
+    background: var(--atcd-soft);
 }
 
 .editableCell {
@@ -67,24 +60,26 @@
 }
 
 .scoreInput {
+    box-sizing: border-box;
     width: 60px;
     padding: 8px;
-    border: 2px solid #3498db;
+    border: 2px solid var(--atcd-blue);
     border-radius: 4px;
     font-size: 1rem;
     text-align: center;
 }
 
 .notesInput {
+    box-sizing: border-box;
     width: 100%;
     padding: 6px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--atcd-line);
     border-radius: 4px;
     font-size: 0.9rem;
 }
 
 .saveButton {
-    background: #27ae60;
+    background: var(--atcd-success);
     color: white;
     border: none;
     padding: 15px 40px;
@@ -97,11 +92,11 @@
 }
 
 .saveButton:hover:not(:disabled) {
-    background: #229954;
+    background: var(--atcd-success-hover);
 }
 
 .saveButton:disabled {
-    background: #95a5a6;
+    background: var(--atcd-muted);
     cursor: not-allowed;
 }
 
@@ -114,6 +109,7 @@
     }
     
     .scoreInput {
+    box-sizing: border-box;
         width: 50px;
         padding: 6px;
     }

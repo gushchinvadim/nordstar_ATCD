@@ -3,24 +3,24 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// 🔥 Импортируем страницу технических работ
 import MaintenancePage from './pages/MaintenancePage';
-
-// Общая страница
 import Landing from './pages/Landing'; 
 import LoginPage from './pages/LoginPage';
 import QuickStart from './pages/QuickStart';
 
-// Layouts
 import Layout from './components/Layout';
 import InstructorLayout from './components/InstructorLayout';
+import DirectorLayout from './components/DirectorLayout';
+import StudentLayout from './components/StudentLayout';
 
 // Методист
 import Dashboard from './pages/methodist/Dashboard';
-import CreateGroup from './pages/methodist/CreateGroup';
+import CreateGroup from './pages/methodist/CreateGroup'; // Универсальная форма
 import GroupDocuments from './pages/methodist/GroupDocuments';
-import EditGroup from './pages/methodist/EditGroup';
 import GroupGrades from './pages/methodist/GroupGrades';
+import GroupDocumentsDetail from './pages/methodist/GroupDocumentsDetail';
+import ScheduleEditor from './pages/methodist/ScheduleEditor';
+import CreateStudent from './pages/methodist/CreateStudent';
 
 // Инструктор
 import InstructorDashboard from './pages/instructor/Dashboard';
@@ -28,43 +28,39 @@ import InstructorGrades from './pages/instructor/Grades';
 
 // Студент
 import StudentDashboard from './pages/student/Dashboard';
-import StudentLayout from './components/StudentLayout';
-import CreateStudent from './pages/methodist/CreateStudent';
 
 // Директор
-import DirectorLayout from './components/DirectorLayout';
 import DirectorDashboard from './pages/director/Dashboard';
 
 function App() {
-    // 🔥 Читаем флаг из .env. Сравниваем именно со строкой 'true'
     const isMaintenance = import.meta.env.VITE_IS_MAINTENANCE === 'true';
 
-    // 🔥 Если режим обслуживания включен, показываем ТОЛЬКО заглушку
     if (isMaintenance) {
         return <MaintenancePage />;
     }
 
-    // 🔥 Иначе показываем обычное приложение
     return (
         <AuthProvider>
             <BrowserRouter>
                 <Routes>
-                    {/* 1. Публичный маршрут: ГЛАВНАЯ СТРАНИЦА (Лендинг) */}
                     <Route path="/" element={<Landing />} /> 
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/quick-start" element={<QuickStart />} /> 
                     
-                    {/* 2. Защищенные маршруты (требуют авторизации) */}
                     <Route element={<ProtectedRoute />}>
-                        
                         {/* === МЕТОДИСТ === */}
                         <Route element={<Layout />}>
                             <Route path="/methodist" element={<Navigate to="/groups" replace />} />
                             <Route path="/groups" element={<GroupDocuments />} />
+                            
+                            {/* 🔥 Один компонент для создания И редактирования */}
                             <Route path="/create-group" element={<CreateGroup />} />
-                            <Route path="/groups/:groupId/edit" element={<EditGroup />} />
+                            <Route path="/groups/:groupId/edit" element={<CreateGroup />} />
+                            
                             <Route path="/create-student" element={<CreateStudent />} />
                             <Route path="/groups/:groupId/grades" element={<GroupGrades />} />
+                            <Route path="/groups/:groupId/documents" element={<GroupDocumentsDetail />} />
+                            <Route path="/groups/:groupId/schedule" element={<ScheduleEditor />} />
                         </Route>
 
                         {/* === ИНСТРУКТОР === */}
@@ -82,7 +78,6 @@ function App() {
                         <Route element={<StudentLayout />}>
                             <Route path="/student/dashboard" element={<StudentDashboard />} />
                         </Route>
-                        
                     </Route>
                 </Routes>
             </BrowserRouter>

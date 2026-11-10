@@ -10,6 +10,7 @@ const GroupGrades = () => {
     
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [saveMessage, setSaveMessage] = useState('');
     const [groupInfo, setGroupInfo] = useState(null);
     const [instructors, setInstructors] = useState([]);
     const [students, setStudents] = useState([]);
@@ -35,6 +36,7 @@ const GroupGrades = () => {
     };
 
     const handleCellChange = (enrollmentId, sectionId, field, value) => {
+        setSaveMessage('');
         const key = `${enrollmentId}_${sectionId}_${field}`;
         setChangedCells(prev => new Set(prev).add(key));
 
@@ -52,16 +54,10 @@ const GroupGrades = () => {
     };
 
     const saveGrades = async () => {
-        if (changedCells.size === 0) {
-            alert("Нет изменений для сохранения");
-            return;
-        }
-
-        if (!window.confirm(`Сохранить изменения? Будет обновлено ячеек: ${changedCells.size}`)) {
-            return;
-        }
+        if (saving || changedCells.size === 0) return;
 
         setSaving(true);
+        setSaveMessage('');
         const updates = [];
 
         students.forEach(student => {
@@ -84,15 +80,16 @@ const GroupGrades = () => {
 
         try {
             const response = await api.post(`/api/docs/groups/${groupId}/grades/`, { updates });
-            alert(response.data.message || `Сохранено: ${response.data.saved_count}`);
-            if (response.data.warnings) {
-                alert("Предупреждения:\n" + response.data.warnings.join('\n'));
+            const { saved_count: savedCount, warnings = [] } = response.data;
+            if (savedCount !== updates.length || warnings.length > 0) {
+                setSaveMessage(warnings.join(' ') || `Сохранено ${savedCount} из ${updates.length}. Проверьте заполнение оценок и повторите сохранение.`);
+                return;
             }
             setChangedCells(new Set());
-            fetchData();
+            setSaveMessage(`Оценки сохранены: ${savedCount}.`);
         } catch (error) {
             console.error("Ошибка сохранения:", error);
-            alert("Ошибка при сохранении оценок");
+            setSaveMessage('Не удалось сохранить оценки. Повторите попытку.');
         } finally {
             setSaving(false);
         }
@@ -162,6 +159,7 @@ const GroupGrades = () => {
                 <button 
                     className={`${styles.massBtn} ${styles.completeBtn}`} 
                     onClick={completeAllPassed}
+                    disabled={saving}
                 >
                     ✓ Завершить всех сдавших
                 </button>
@@ -169,82 +167,92 @@ const GroupGrades = () => {
                 <button 
                     className={`${styles.massBtn} ${styles.dismissBtn}`} 
                     onClick={dismissFailed}
+                    disabled={saving}
                 >
                     ⚠ Отчислить не сдавших
                 </button>
             </div>
 
-            <div className={styles.tableWrapper}>
-                <table className={styles.gradesTable}>
-                    <thead>
-                        <tr>
-                            <th className={styles.stickyCol1}>№</th>
-                            <th className={styles.stickyCol2}>ФИО студента</th>
-                            <th className={styles.stickyCol3}>Статус</th>
+            <p role="status" className={styles.saveMessage}>{saveMessage}</p>
+
+            <div className={styles.tableWrapper} role="region" aria-label="Таблица оценок группы" tabIndex={0}>
+                <table role="table" className={styles.gradesTable}>
+                    <thead role="rowgroup">
+                        <tr role="row">
+                            <th role="columnheader" className={styles.stickyCol1}>№</th>
+                            <th role="columnheader" className={styles.stickyCol2}>ФИО студента</th>
+                            <th role="columnheader" className={styles.stickyCol3}>Статус</th>
                             {students.length > 0 && students[0].assessments && students[0].assessments.map(assess => (
-                                <th key={assess.section_id} className={styles.sectionHeader} title={assess.section_title}>
+                                <th role="columnheader" key={assess.section_id} className={styles.sectionHeader} title={assess.section_title}>
                                     {assess.section_title.length > 30 ? assess.section_title.substring(0, 30) + '...' : assess.section_title}
                                 </th>
                             ))}
                         </tr>
                     </thead>
-                    <tbody>
-                        {students.map(student => (
-                            <tr key={student.enrollment_id} className={styles[`status${student.status}`]}>
-                                <td className={styles.stickyCol1}>{student.number_in_group}</td>
-                                <td className={`${styles.stickyCol2} ${styles.studentName}`}>{student.student_name}</td>
-                                <td className={styles.stickyCol3}>{student.status_display}</td>
-                                
-                                {student.assessments && student.assessments.map(assess => {
-                                    const isChanged = changedCells.has(`${student.enrollment_id}_${assess.section_id}_score`) ||
-                                                      changedCells.has(`${student.enrollment_id}_${assess.section_id}_date`);
+
+                    <tbody role="rowgroup">
+                        {students
+                            .filter(student => student.status !== 'dismissed') // 🔥 Страховка: скрываем отчисленных
+                            .map(student => (
+                                <tr role="row" key={student.enrollment_id} className={styles[`status${student.status}`]}>
+                                    <td role="cell" data-label="№" className={styles.stickyCol1}>{student.number_in_group}</td>
+                                    <td role="cell" data-label="Слушатель" data-wide="" className={`${styles.stickyCol2} ${styles.studentName}`}>{student.student_name}</td>
+                                    <td role="cell" data-label="Статус" className={styles.stickyCol3}>{student.status_display}</td>
                                     
-                                    return (
-                                        <td key={assess.section_id} className={`${styles.assessmentCell} ${isChanged ? styles.changed : ''}`}>
-                                            {assess.grade_type === 'binary' || assess.grade_type === 'pass_fail' ? (
-                                                <select 
-                                                    value={assess.score ?? ''} 
-                                                    onChange={(e) => handleCellChange(student.enrollment_id, assess.section_id, 'score', e.target.value === '' ? null : parseInt(e.target.value))}
-                                                    className={styles.inputSelect}
-                                                >
-                                                    <option value="">—</option>
-                                                    <option value="1">✓ Зачтено</option>
-                                                    <option value="0">Не зачтено</option>
-                                                </select>
-                                            ) : (
+                                    {student.assessments && student.assessments.map(assess => {
+                                        const isChanged = changedCells.has(`${student.enrollment_id}_${assess.section_id}_score`) ||
+                                                        changedCells.has(`${student.enrollment_id}_${assess.section_id}_date`);
+                                        
+                                        return (
+                                            <td role="cell" data-label={assess.section_title} data-wide="" key={assess.section_id} className={`${styles.assessmentCell} ${isChanged ? styles.changed : ''}`}>
+                                                {assess.grade_type === 'binary' || assess.grade_type === 'pass_fail' ? (
+                                                    <select 
+                                                        disabled={saving}
+                                                        aria-label={`Оценка: ${assess.section_title}`} value={assess.score ?? ''} 
+                                                        onChange={(e) => handleCellChange(student.enrollment_id, assess.section_id, 'score', e.target.value === '' ? null : parseInt(e.target.value))}
+                                                        className={styles.inputSelect}
+                                                    >
+                                                        <option value="">—</option>
+                                                        <option value="1">✓ Зачтено</option>
+                                                        <option value="0">Не зачтено</option>
+                                                    </select>
+                                                ) : (
+                                                    <input 
+                                                        type="number" 
+                                                        min="0" max="5" 
+                                                        disabled={saving}
+                                                        aria-label={`Оценка: ${assess.section_title}`} value={assess.score ?? ''} 
+                                                        onChange={(e) => handleCellChange(student.enrollment_id, assess.section_id, 'score', e.target.value === '' ? null : parseInt(e.target.value))}
+                                                        className={styles.inputNumber}
+                                                        placeholder="—"
+                                                    />
+                                                )}
+                                                
                                                 <input 
-                                                    type="number" 
-                                                    min="0" max="5" 
-                                                    value={assess.score ?? ''} 
-                                                    onChange={(e) => handleCellChange(student.enrollment_id, assess.section_id, 'score', e.target.value === '' ? null : parseInt(e.target.value))}
-                                                    className={styles.inputNumber}
-                                                    placeholder="—"
+                                                    type="date" 
+                                                    disabled={saving}
+                                                    aria-label={`Дата: ${assess.section_title}`} value={assess.date || ''} 
+                                                    onChange={(e) => handleCellChange(student.enrollment_id, assess.section_id, 'date', e.target.value)}
+                                                    className={styles.inputDate}
                                                 />
-                                            )}
-                                            
-                                            <input 
-                                                type="date" 
-                                                value={assess.date || ''} 
-                                                onChange={(e) => handleCellChange(student.enrollment_id, assess.section_id, 'date', e.target.value)}
-                                                className={styles.inputDate}
-                                            />
-                                            
-                                            <select 
-                                                value={assess.instructor_id || ''} 
-                                                onChange={(e) => handleCellChange(student.enrollment_id, assess.section_id, 'instructor_id', e.target.value === '' ? null : parseInt(e.target.value))}
-                                                className={styles.inputSelectSmall}
-                                                title="Преподаватель"
-                                            >
-                                                <option value="">— преп. —</option>
-                                                {instructors.map(inst => (
-                                                    <option key={inst.id} value={inst.id}>{inst.name}</option>
-                                                ))}
-                                            </select>
-                                        </td>
-                                    );
-                                })}
-                            </tr>
-                        ))}
+                                                
+                                                <select 
+                                                    disabled={saving}
+                                                    value={assess.instructor_id || ''} 
+                                                    onChange={(e) => handleCellChange(student.enrollment_id, assess.section_id, 'instructor_id', e.target.value === '' ? null : parseInt(e.target.value))}
+                                                    className={styles.inputSelectSmall}
+                                                    aria-label={`Преподаватель: ${assess.section_title}`}
+                                                >
+                                                    <option value="">— преп. —</option>
+                                                    {instructors.map(inst => (
+                                                        <option key={inst.id} value={inst.id}>{inst.name}</option>
+                                                    ))}
+                                                </select>
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            ))}
                     </tbody>
                 </table>
             </div>
