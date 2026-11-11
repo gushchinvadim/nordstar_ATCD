@@ -74,20 +74,16 @@ const GroupDocuments = () => {
         }
     };
 
-    const handleFinalizeGroup = async (groupId, groupName) => {
-        const isConfirmed = window.confirm(`🏁 ФИНАЛЬНОЕ ЗАВЕРШЕНИЕ ГРУППЫ\n\nВы уверены, что хотите закрыть группу "${groupName}"?\n\nСистема проверит:\n• Все ли студенты ознакомились с инструктажем\n• Все ли инструкторы завершили занятия\n• Выставлены ли все итоговые оценки\n\nПосле этого группа перейдет в статус "Завершена".`);
-        if (!isConfirmed) return;
+    const handleFinalizeGroup = async (group) => {
+        const action = group.status === 'completed' ? 'Подтвердить выдачу документов' : 'Завершить группу и подтвердить выдачу документов';
+        if (!window.confirm(`${action} для группы «${group.assigned_number}»?`)) return;
         try {
-            // 🔥 Используем наш единый API endpoint для завершения
-            const res = await api.post(`/api/docs/groups/${groupId}/complete-all/`);
-            if (res.data.success) {
-                alert(`✅ Успех!\n${res.data.message}`);
-                loadGroups();
-            } else {
-                alert(`❌ Ошибка: ${res.data.error}`);
-            }
+            const { data } = await api.post(`/api/execution/methodist/groups/${group.id}/complete/`);
+            alert(data.message);
+            loadGroups();
         } catch (err) {
-            alert(err.response?.data?.error || 'Ошибка сети при попытке завершить группу.');
+            const { error, missing_items: missingItems } = err.response?.data || {};
+            alert([error, ...(missingItems || [])].filter(Boolean).join('\n') || 'Не удалось подтвердить выдачу документов.');
         }
     };
 
@@ -177,12 +173,12 @@ const GroupDocuments = () => {
                                     Расписание
                                 </button>
 
-                                {group.status === 'in_progress' && (
+                                {(group.status === 'in_progress' || (group.status === 'completed' && group.has_unsigned_documents)) && (
                                     <button 
                                         className={`${styles.btn} ${styles.btnSuccess}`} 
-                                        onClick={() => handleFinalizeGroup(group.id, group.assigned_number)}
+                                        onClick={() => handleFinalizeGroup(group)}
                                     >
-                                        Завершить
+                                        {group.status === 'completed' ? 'Подтвердить выдачу' : 'Завершить'}
                                     </button>
                                 )}
                             </div>

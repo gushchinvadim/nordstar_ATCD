@@ -3,13 +3,15 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
+from django.template.loader import render_to_string
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
+from docs.services.document_storage import DocumentStorageService
 from people.models import Staff, Student
 from training.models import Course, Module, Section, Stage
 
-from .models import Assessment, ComplianceLog, Enrollment, Group
+from .models import Assessment, Certificate, ComplianceLog, Enrollment, Group, ScheduleItem
 
 
 class MethodistCompleteGroupTests(APITestCase):
@@ -25,7 +27,7 @@ class MethodistCompleteGroupTests(APITestCase):
             module=module, assigned_number='TEST-CLOSE', start_date=date(2026, 1, 12), status='in_progress',
         )
         student = Student.objects.create(surname='Test', name='Student')
-        cls.enrollment = Enrollment.objects.create(group=cls.group, student=student, number_in_group=1)
+        cls.enrollment = Enrollment.objects.create(group=cls.group, student=student, number_in_group=1, status='completed')
         Assessment.objects.create(
             enrollment=cls.enrollment, section=section, score=5, assessment_date=cls.group.start_date,
         )
@@ -75,3 +77,60 @@ class MethodistCompleteGroupTests(APITestCase):
         self.group.refresh_from_db()
         self.assertEqual(self.group.status, 'completed')
         self.assertFalse(self.issuance.exists())
+
+    def test_grades_then_finalization_provides_the_issuance_signature_to_journal(self):
+        self.group.curator = self.curator
+        self.group.save(update_fields=['curator'])
+        self.enrollment.status = 'in_progress'
+        self.enrollment.save(update_fields=['status'])
+        self.assertEqual(self.client.post(self.url).status_code, 400)
+        self.assertFalse(self.issuance.exists())
+
+        complete_grades = reverse('docs_api:complete_all_passed', args=[self.group.pk])
+        self.assertEqual(self.client.post(complete_grades).status_code, 200)
+        self.group.refresh_from_db()
+        self.assertEqual(self.group.status, 'in_progress')
+        self.assertFalse(self.issuance.exists())
+
+        # Старые группы могли быть закрыты без записи о выдаче.
+        self.group.status = 'completed'
+        self.group.actual_completion_date = self.group.start_date
+        self.group.save(update_fields=['status', 'actual_completion_date'])
+        groups_url = reverse('docs_api:api_groups_list')
+        self.assertTrue(self.client.get(groups_url).data['results'][0]['has_unsigned_documents'])
+
+        self.assertEqual(self.client.post(self.url).status_code, 200)
+        self.group.refresh_from_db()
+        self.assertEqual(self.group.actual_completion_date, self.group.start_date)
+        self.assertFalse(self.client.get(groups_url).data['results'][0]['has_unsigned_documents'])
+
+        certificate = Certificate.objects.create(
+            enrollment=self.enrollment,
+            number='TEST-JOURNAL-CERTIFICATE',
+            student_full_name='Test Student',
+            module_title=self.group.module.title,
+            total_hours=2,
+        )
+        signature = self.issuance.get().signature_string
+        journal = DocumentStorageService(self.group)
+
+        for template in ('journal.html', 'journal_landscape.html'):
+            with self.subTest(template=template):
+                if template == 'journal_landscape.html':
+                    section = self.enrollment.assessments.get().section
+                    ScheduleItem.objects.bulk_create([
+                        ScheduleItem(
+                            group=self.group, section=section, date=date(2026, 1, day),
+                            session_type='base-2',
+                        )
+                        for day in range(12, 29)
+                    ])
+                with patch.object(journal, 'save_both') as save_both:
+                    journal.save_journal()
+
+                template_name, context, _, _ = save_both.call_args.args
+                self.assertEqual(template_name, f'docs/journal/{template}')
+                html = render_to_string(template_name, context)
+                _, marker, certificate_row = html.partition(certificate.number)
+                self.assertTrue(marker)
+                self.assertIn(signature, certificate_row.split('</tr>', 1)[0])

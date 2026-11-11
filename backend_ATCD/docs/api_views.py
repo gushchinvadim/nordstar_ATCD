@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Exists, OuterRef
 from django.utils import timezone
 from datetime import datetime, date
 from core.services.schedule_generator import generate_schedule_for_group
@@ -50,9 +50,17 @@ def get_schedule_group(user, **lookup):
 @permission_classes([IsAuthenticated])
 def groups_list(request):
     """API для получения списка групп с фильтрацией и пагинацией."""
+    issuance_logs = ComplianceLog.objects.filter(
+        enrollment_id=OuterRef('pk'),
+        staff_id=OuterRef('group__curator_id'),
+        action_type='methodist_documents_issued',
+    )
+    unsigned_enrollments = Enrollment.objects.filter(
+        group_id=OuterRef('pk'), status='completed',
+    ).exclude(Exists(issuance_logs))
     queryset = Group.objects.select_related(
         'module', 'module__course', 'mentor', 'curator'
-    ).annotate(students_count=Count('enrollment'))
+    ).annotate(students_count=Count('enrollment'), has_unsigned_documents=Exists(unsigned_enrollments))
 
     status_param = request.query_params.get('status', 'in_progress,completed')
     if status_param:
@@ -114,6 +122,7 @@ def groups_list(request):
             'status': group.status,
             'status_display': group.get_status_display(),
             'students_count': group.students_count,
+            'has_unsigned_documents': group.has_unsigned_documents,
             'curator': group.curator.full_name if group.curator else None,
             'mentor': group.mentor.full_name if group.mentor else None,
         })
@@ -626,10 +635,8 @@ def complete_all_passed(request, group_id):
             enrollment.save()
             completed_count += 1
 
-    # 🔥 НОВОЕ: Если активных студентов не осталось (все отчислены или уже завершены),
-    # автоматически закрываем группу, чтобы она не блокировала работу методиста.
-    active_students_count = students.count()
-    if active_students_count == 0:
+    # Выпускников оформляют при финальном закрытии группы.
+    if not students.exists() and not Enrollment.objects.filter(group=group, status='completed').exists():
         group.status = 'completed'
         group.actual_completion_date = today
         group.save(update_fields=['status', 'actual_completion_date'])

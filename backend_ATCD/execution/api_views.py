@@ -623,6 +623,11 @@ def methodist_complete_group(request, group_id):
     except Group.DoesNotExist:
         return Response({'error': 'Группа не найдена'}, status=status.HTTP_404_NOT_FOUND)
 
+    staff = getattr(request.user, 'staff', None)
+    is_methodist = staff and staff.is_active and (staff.fptitle or staff.pk == group.curator_id)
+    if not (request.user.is_staff or is_methodist):
+        return Response({'error': 'Закрыть группу может методист или её куратор.'}, status=status.HTTP_403_FORBIDDEN)
+
     missing_items = []
     # 🔥 ИСПРАВЛЕНИЕ: 'dismissed' намеренно исключен из активных статусов
     ACTIVE_STATUSES = ['enrolled', 'in_progress', 'completed']
@@ -639,6 +644,11 @@ def methodist_complete_group(request, group_id):
         return Response({
             'message': f'Группа {group.assigned_number} успешно закрыта (все студенты отчислены).'
         }, status=status.HTTP_200_OK)
+
+    if active_enrollments.exclude(status='completed').exists():
+        return Response({
+            'error': 'Сначала завершите обучение слушателей в журнале оценок.',
+        }, status=status.HTTP_400_BAD_REQUEST)
 
     # 1. Проверка инструктажа по ТБ (ТОЛЬКО для активных студентов)
     students_with_safety_ack = ComplianceLog.objects.filter(
@@ -698,7 +708,7 @@ def methodist_complete_group(request, group_id):
         }, status=status.HTTP_400_BAD_REQUEST)
 
     group.status = 'completed'
-    group.actual_completion_date = timezone.now().date()
+    group.actual_completion_date = group.actual_completion_date or timezone.now().date()
     group.save(update_fields=['status', 'actual_completion_date'])
 
     forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')

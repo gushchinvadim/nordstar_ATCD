@@ -1,4 +1,4 @@
-from execution.models import Group, GroupModule, GroupStage, GroupSection
+from execution.models import Group
 from training.models import Module, Stage, Section
 
 
