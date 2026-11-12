@@ -84,7 +84,7 @@ const Header = () => {
                 <div className={styles.container}>
                     <div className={styles.logo}>
                         <img src="/logo-nordstar.png" alt="НордСтар" className={styles.logoImage} />
-                        <span className={styles.logoText}>АУЦ</span>
+                        <span className={styles.logoText}>Документооборот АУЦ</span>
                     </div>
 
                     <div className={styles.userInfo}>

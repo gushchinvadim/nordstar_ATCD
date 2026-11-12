@@ -9,9 +9,9 @@ const Footer = () => {
     return (
         <footer className={styles.footer}>
             <div className={styles.container}>
-                <div className={styles.brand}>АУЦ НордСтар | ATCD</div>
+                <div className={styles.brand}>GVE Dynamics | ATCD | Документооборот АУЦ</div>
                 <div className={styles.info}>
-                    <span className={styles.copyright}>© GVE, {currentYear}</span>
+                    <span className={styles.copyright}>© GVE Dynamics, {currentYear}</span>
                     <span className={styles.version}>v{appVersion}</span>
                 </div>
             </div>
