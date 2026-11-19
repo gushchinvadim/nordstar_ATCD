@@ -1,3 +1,4 @@
+import CompletionDateModal from '../../components/CompletionDateModal';
 // src/pages/methodist/GroupDocuments.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -7,6 +8,7 @@ import GroupFilters from './components/GroupFilters';
 import styles from './GroupDocuments.module.css';
 
 const GroupDocuments = () => {
+    const [completionGroup, setCompletionGroup] = useState(null);
     const [groups, setGroups] = useState([]);
     const [directions, setDirections] = useState([]);
     const [curators, setCurators] = useState([]); 
@@ -74,21 +76,11 @@ const GroupDocuments = () => {
         }
     };
 
-    const handleFinalizeGroup = async (group) => {
-        const action = group.status === 'completed' ? 'Подтвердить выдачу документов' : 'Завершить группу и подтвердить выдачу документов';
-        if (!window.confirm(`${action} для группы «${group.assigned_number}»?`)) return;
-        try {
-            const { data } = await api.post(`/api/execution/methodist/groups/${group.id}/complete/`);
-            alert(data.message);
-            loadGroups();
-        } catch (err) {
-            const { error, missing_items: missingItems } = err.response?.data || {};
-            alert([error, ...(missingItems || [])].filter(Boolean).join('\n') || 'Не удалось подтвердить выдачу документов.');
-        }
-    };
+    const handleFinalizeGroup = (group) => setCompletionGroup(group);
 
     return (
         <div className={styles.container}>
+            {completionGroup && <CompletionDateModal group={completionGroup} onClose={() => setCompletionGroup(null)} onCompleted={() => { setCompletionGroup(null); loadGroups(); }} />}
             <h1>Документы и управление группами</h1>
             <p className={styles.subtitle}>Выберите группу для работы с документами, расписанием или финального закрытия</p>
 

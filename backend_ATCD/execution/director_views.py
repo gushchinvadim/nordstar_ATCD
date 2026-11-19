@@ -46,6 +46,7 @@ def director_groups(request):
         serializer = DirectorScheduleSerializer(schedule_items, many=True,
                                                 context={'request': request, 'director': director})
 
+        approval = ComplianceLog.objects.filter(group=group, action_type='director_schedule_approved').order_by('-timestamp').first()
         groups_data.append({
             'id': group.id,
             'assigned_number': group.assigned_number,
@@ -55,6 +56,9 @@ def director_groups(request):
             'end_date': group.end_date,
             'status': group.get_status_display(),
             'schedule': serializer.data,
+            'has_director_approval': approval is not None,
+            'director_approval_date': approval.timestamp if approval else None,
+            'director_approval_signature': approval.signature_string if approval else None,
         })
 
     return Response(groups_data)

@@ -434,30 +434,17 @@ class ComplianceLog(models.Model):
 
     def _get_local_timestamp(self):
         """Получает локальное время с учетом часового пояса локации группы"""
-        from django.utils import timezone as django_tz
-
-        # Пытаемся получить часовой пояс локации
-        local_tz = None
-        try:
-            if self.enrollment and self.enrollment.group and self.enrollment.group.location:
-                tz_name = self.enrollment.group.location.timezone
-                if tz_name:
-                    import pytz
-                    local_tz = pytz.timezone(tz_name)
-        except Exception:
-            pass
-
-        # Если не удалось получить локальный часовой пояс — используем часовой пояс по умолчанию
-        if not local_tz:
-            local_tz = django_tz.get_default_timezone()
-
-        # Конвертируем UTC в локальное время
-        if django_tz.is_aware(self.timestamp):
-            return self.timestamp.astimezone(local_tz)
-        else:
-            # Если timestamp naive (без часового пояса), делаем его aware в UTC, затем конвертируем
-            utc_time = django_tz.make_aware(self.timestamp, django_tz.utc)
-            return utc_time.astimezone(local_tz)
+        from .local_time import local_datetime
+        group = self.group
+        if group is None and self.enrollment_id:
+            group = self.enrollment.group
+        if group is None and self.schedule_item_id:
+            group = self.schedule_item.group
+        if group is None and self.assessment_id:
+            group = self.assessment.enrollment.group
+        if group is None and self.certificate_id:
+            group = self.certificate.enrollment.group
+        return local_datetime(self.timestamp, group)
 
     @property
     def signature_string(self):
@@ -475,7 +462,8 @@ class ComplianceLog(models.Model):
 
         # Используем локальное время вместо UTC
         local_time = self._get_local_timestamp()
-        time_str = local_time.strftime('%d.%m.%Y %H:%M')
+        from .local_time import utc_offset
+        time_str = local_time.strftime('%d.%m.%Y %H:%M') + f' ({utc_offset(local_time)})'
 
         return f"{actor_name} (системная) {time_str}"
 

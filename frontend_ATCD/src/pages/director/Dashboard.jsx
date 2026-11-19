@@ -75,7 +75,7 @@ const DirectorDashboard = () => {
                             <div className={styles.scheduleBlock}>
                                 {group.has_director_approval ? (
                                     <div className={styles.approved}>
-                                        ✅ Расписание утверждено {new Date(group.director_approval_date).toLocaleString('ru-RU')}
+                                        ✅ Расписание утверждено {group.director_approval_signature}
                                     </div>
                                 ) : (
                                     <button 

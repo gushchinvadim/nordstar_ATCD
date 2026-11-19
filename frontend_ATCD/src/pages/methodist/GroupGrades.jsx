@@ -1,3 +1,4 @@
+import CompletionDateModal from '../../components/CompletionDateModal';
 // src/pages/methodist/GroupGrades.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -8,6 +9,7 @@ const GroupGrades = () => {
     const { groupId } = useParams();
     const navigate = useNavigate();
     
+    const [showCompletion, setShowCompletion] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState('');
@@ -95,19 +97,9 @@ const GroupGrades = () => {
         }
     };
 
-    const completeAllPassed = async () => {
-        if (!window.confirm('Завершить обучение для всех студентов, сдавших все разделы?')) {
-            return;
-        }
-
-        try {
-            const response = await api.post(`/api/docs/groups/${groupId}/complete-all/`);
-            alert(`✅ ${response.data.message}`);
-            fetchData();
-        } catch (error) {
-            console.error("Ошибка:", error);
-            alert(error.response?.data?.error || 'Ошибка при завершении группы');
-        }
+    const completeAllPassed = () => {
+        if (changedCells.size) { setSaveMessage('Сначала сохраните изменения оценок.'); return; }
+        setShowCompletion(true);
     };
 
     const dismissFailed = async () => {
@@ -146,6 +138,7 @@ const GroupGrades = () => {
                 <p>{groupInfo.module_code} — {groupInfo.module_title}</p>
             </div>
 
+            {showCompletion && <CompletionDateModal group={{ id: groupId, assigned_number: groupInfo.assigned_number }} studentsOnly onClose={() => setShowCompletion(false)} onCompleted={(data) => { setShowCompletion(false); setSaveMessage(data.message); fetchData(); }} />}
             {/* ПАНЕЛЬ МАССОВЫХ ДЕЙСТВИЙ */}
             <div className={styles.massActions}>
                 <button 

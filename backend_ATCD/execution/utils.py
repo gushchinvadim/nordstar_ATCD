@@ -13,16 +13,9 @@ def check_schedule_time_allowed(schedule_item):
     if not schedule_item.start_time:
         return True, ""
 
-    # 1. Определяем часовой пояс локации группы
-    tz_name = 'Europe/Moscow'  # Значение по умолчанию
-    if schedule_item.group and schedule_item.group.location and schedule_item.group.location.timezone:
-        tz_name = schedule_item.group.location.timezone
-
-    try:
-        local_tz = ZoneInfo(tz_name)
-    except Exception:
-        # Если такой пояс не найден, fallback на настройки Django
-        local_tz = ZoneInfo(settings.TIME_ZONE)
+    from .local_time import group_timezone
+    local_tz = group_timezone(schedule_item.group)
+    tz_name = str(local_tz)
 
     # 2. Создаем "точное" время начала занятия (локальное для этой локации)
     naive_start = datetime.combine(schedule_item.date, schedule_item.start_time)

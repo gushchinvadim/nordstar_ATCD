@@ -609,16 +609,24 @@ def group_grades_api(request, group_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def complete_all_passed(request, group_id):
     """Завершает всех студентов, сдавших все ОЦЕНИВАЕМЫЕ разделы"""
-    group = get_object_or_404(Group, id=group_id)
+    group = get_object_or_404(Group.objects.select_for_update(), id=group_id)
+    if not can_manage_group(request.user, group):
+        return Response({'error': 'Завершение доступно методисту или куратору группы.'}, status=403)
+    if group.status in ('completed', 'archived', 'cancelled'):
+        return Response({'error': 'Группа уже закрыта или отменена.'}, status=400)
+    from execution.completion import choose_completion_date, log_completion_date
+    from execution.local_time import group_today
+    completion_date, reason = choose_completion_date(group, request.data)
 
     # Берем только активных студентов
     students = Enrollment.objects.filter(group=group, status__in=['enrolled', 'in_progress'])
     sections = Section.objects.filter(stage__module=group.module, grade_type__in=['numeric', 'binary'])
 
     completed_count = 0
-    today = timezone.now().date()
+    today = group_today(group)
 
     for enrollment in students:
         assessments = Assessment.objects.filter(enrollment=enrollment, section__in=sections, passed=True)
@@ -627,7 +635,7 @@ def complete_all_passed(request, group_id):
 
         if passed_section_ids >= required_section_ids:
             enrollment.status = 'completed'
-            enrollment.completed_at = today
+            enrollment.completed_at = completion_date
             enrollment.final_result = 'passed'
             if not enrollment.order_out_number or not enrollment.order_out_date:
                 enrollment.order_out_number = enrollment.generate_order_out_number('completed', is_individual=False)
@@ -635,15 +643,8 @@ def complete_all_passed(request, group_id):
             enrollment.save()
             completed_count += 1
 
-    # Выпускников оформляют при финальном закрытии группы.
-    if not students.exists() and not Enrollment.objects.filter(group=group, status='completed').exists():
-        group.status = 'completed'
-        group.actual_completion_date = today
-        group.save(update_fields=['status', 'actual_completion_date'])
-        return Response({
-            'success': True,
-            'message': 'В группе не осталось активных студентов. Группа автоматически закрыта.'
-        })
+    if completed_count:
+        log_completion_date(group, request.user, completion_date, reason, 'enrollments_completed')
 
     return Response({
         'success': True,

@@ -1,3 +1,4 @@
+from .rendering import render_group_document
 # docs/views.py
 import base64
 import io
@@ -219,7 +220,7 @@ def group_grades_view(request, group_id):
         'today': timezone.localdate(),
         'frontend_url': getattr(settings, 'FRONTEND_URL', 'http://localhost:5173'),
     }
-    return render(request, 'docs/grades/group_grades.html', context)
+    return render_group_document(request, 'docs/grades/group_grades.html', context)
 
 
 @staff_member_required
@@ -359,7 +360,6 @@ def check_and_close_group(group):
         # НОВОЕ: Создаем системную подпись куратора (методиста) для всех студентов
         # ======================================================================
         if group.curator:
-            signature_text = f"{group.curator.full_name} (системная) {timezone.now().strftime('%d.%m.%Y %H:%M')}"
 
             enrollments = list(Enrollment.objects.filter(group=group))
 
@@ -496,7 +496,7 @@ def land_training_task_view(request, group_id):
         'final_grades_dict': final_grades_dict,
     }
 
-    return render(request, template_name, context)
+    return render_group_document(request, template_name, context)
 
 
 @staff_member_required
@@ -588,7 +588,7 @@ def water_training_task_view(request, group_id):
         'final_grades_dict': final_grades_dict,
     }
 
-    return render(request, template_name, context)
+    return render_group_document(request, template_name, context)
 
 def _build_attendance_by_stage(group):
     """Формирует структуру посещаемости: этапы → даты очных занятий"""
@@ -1255,7 +1255,7 @@ def journal_view(request, group_id):
     template_name = 'docs/journal/journal_landscape.html' if context.get(
         'use_landscape') else 'docs/journal/journal.html'
 
-    return render(request, template_name, context)
+    return render_group_document(request, template_name, context)
 
 @staff_member_required
 def send_enrollment_order_email(request, group_id):
@@ -1389,7 +1389,7 @@ def enrollment_order_view(request, group_id):
         'logo_base64': get_logo_base64(),
     }
 
-    return render(request, 'docs/orders/enrollment.html', context)
+    return render_group_document(request, 'docs/orders/enrollment.html', context)
 
 
 @staff_member_required
@@ -1410,7 +1410,7 @@ def schedule_view(request, group_id):
         'logo_base64': get_logo_base64(),
     }
 
-    return render(request, 'docs/schedules/schedule.html', context)
+    return render_group_document(request, 'docs/schedules/schedule.html', context)
 
 
 @staff_member_required
@@ -1508,7 +1508,7 @@ def dismissal_ot_list_view(request, group_id):
         'group': group,
         'orders': orders_list,
     }
-    return render(request, 'docs/orders/dismissal_ot_list.html', context)
+    return render_group_document(request, 'docs/orders/dismissal_ot_list.html', context)
 
 
 @staff_member_required
@@ -1559,7 +1559,7 @@ def dismissal_ot_view(request, group_id):
         'logo_base64': get_logo_base64(),
     }
 
-    return render(request, 'docs/orders/dismissal_ot.html', context)
+    return render_group_document(request, 'docs/orders/dismissal_ot.html', context)
 
 
 @staff_member_required
@@ -1594,7 +1594,7 @@ def dismissal_ok_view(request, group_id):
         'orders_list': orders_list,
         'logo_base64': get_logo_base64(),
     }
-    return render(request, 'docs/orders/dismissal_ok.html', context)
+    return render_group_document(request, 'docs/orders/dismissal_ok.html', context)
 
 @staff_member_required
 def download_document(request, file_path):
@@ -1816,7 +1816,7 @@ def group_documents_dashboard(request, group_id):
         'frontend_url': getattr(settings, 'FRONTEND_URL', 'http://localhost:5173'),
     }
 
-    return render(request, 'docs/dashboard/documents_dashboard.html', context)
+    return render_group_document(request, 'docs/dashboard/documents_dashboard.html', context)
 
 
 
@@ -1981,7 +1981,7 @@ def create_iup_view(request, enrollment_id):
         'student': student,
         'group': group,
     }
-    return render(request, 'docs/iup/create_iup.html', context)
+    return render_group_document(request, 'docs/iup/create_iup.html', context)
 
 
 
@@ -2267,7 +2267,7 @@ def dismissal_reference_view(request, group_id):
         'logo_base64': get_logo_base64(),
         'zk20_pages': zk20_pages,
     }
-    return render(request, 'docs/references/dismissal_reference.html', context)
+    return render_group_document(request, 'docs/references/dismissal_reference.html', context)
 
 
 @staff_member_required
@@ -2316,7 +2316,7 @@ def view_iup(request, iup_id):
         'iup_end_date': iup.end_date,
     }
 
-    return render(request, 'docs/schedules/schedule.html', context)
+    return render_group_document(request, 'docs/schedules/schedule.html', context)
 
 
 @staff_member_required
@@ -2407,7 +2407,7 @@ def edit_iup_view(request, iup_id):
         'existing_iup': iup,
         'existing_schedule_json': json.dumps(iup.schedule_data, ensure_ascii=False, default=str),  # Для JS
     }
-    return render(request, 'docs/iup/create_iup.html', context)  # Используем тот же шаблон
+    return render_group_document(request, 'docs/iup/create_iup.html', context)  # Используем тот же шаблон
 
 
 @login_required # Обязательно! Студент должен быть залогинен
@@ -2424,13 +2424,13 @@ def instructing(request):
         'logo_base64': logo_base64,  # <-- Передаем переменную в шаблон
     }
 
-    return render(request, 'docs/instructing/instructing.html', context)
+    return render_group_document(request, 'docs/instructing/instructing.html', context)
 
 
 @staff_member_required
 def help_view(request):
     """Страница с инструкцией 'Быстрый старт'"""
-    return render(request, 'docs/help/quick_start.html')
+    return render_group_document(request, 'docs/help/quick_start.html')
 
 
 
@@ -2541,4 +2541,4 @@ def audit_log_view(request, group_id):
         'STATIC_URL': settings.STATIC_URL,  # Для HTML-просмотра
     }
 
-    return render(request, 'docs/audit/audit_log.html', context)
+    return render_group_document(request, 'docs/audit/audit_log.html', context)

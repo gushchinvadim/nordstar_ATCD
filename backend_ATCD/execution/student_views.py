@@ -193,7 +193,7 @@ def student_modules(request):
 
         znt_issue_date = None
         if znt_log:
-            znt_issue_date = znt_log.timestamp.date().isoformat()
+            znt_issue_date = znt_log._get_local_timestamp().date().isoformat()
         elif enrollment.completed_at:
             znt_issue_date = enrollment.completed_at.isoformat()
 
@@ -222,12 +222,14 @@ def student_modules(request):
             'instructing_doc': {
                 'url': instructing_doc_url,
                 'has_ack': has_safety_ack,
-                'ack_date': safety_ack_log.timestamp if safety_ack_log else None
+                'ack_date': safety_ack_log.timestamp if safety_ack_log else None,
+                'signature': safety_ack_log.signature_string if safety_ack_log else None
             },
             'schedule_doc': {
                 'url': schedule_doc_url,
                 'has_ack': has_schedule_ack,
-                'ack_date': schedule_ack_log.timestamp if schedule_ack_log else None
+                'ack_date': schedule_ack_log.timestamp if schedule_ack_log else None,
+                'signature': schedule_ack_log.signature_string if schedule_ack_log else None
             },
             'schedule': schedule_data,
             'grades': grades_data,

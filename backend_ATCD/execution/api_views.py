@@ -385,7 +385,8 @@ def instructor_groups_view(request):
                 'final_grade_type': final_section.grade_type if final_section else 'numeric',
                 'final_passed': final_assessment.passed if final_assessment else None,
                 'briefing_done': briefing_log is not None,
-                'briefing_date': briefing_log.timestamp if briefing_log else None
+                'briefing_date': briefing_log.timestamp if briefing_log else None,
+                'briefing_signature': briefing_log.signature_string if briefing_log else None
             })
 
         # 3. Занятия (расписание) этой группы
@@ -416,7 +417,8 @@ def instructor_groups_view(request):
             'schedule_doc': {
                 'url': schedule_doc_url,
                 'has_ack': schedule_ack is not None,
-                'ack_date': schedule_ack.timestamp if schedule_ack else None
+                'ack_date': schedule_ack.timestamp if schedule_ack else None,
+                'signature': schedule_ack.signature_string if schedule_ack else None
             },
             'students': students_data,
             'classes': classes_data
@@ -609,7 +611,7 @@ class StudentCreateAPIView(generics.CreateAPIView):
 #  ФИНАЛЬНОЕ ЗАВЕРШЕНИЕ ГРУППЫ МЕТОДИСТОМ (СТРОГАЯ ПРОВЕРКА + ПОДПИСИ)
 # ==============================================================================
 
-@api_view(['POST'])
+@api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 @transaction.atomic
 def methodist_complete_group(request, group_id):
@@ -628,6 +630,18 @@ def methodist_complete_group(request, group_id):
     if not (request.user.is_staff or is_methodist):
         return Response({'error': 'Закрыть группу может методист или её куратор.'}, status=status.HTTP_403_FORBIDDEN)
 
+    from .completion import completion_context, choose_completion_date, log_completion_date
+    from .models import Certificate
+    if request.method == 'GET':
+        return Response(completion_context(group))
+    if group.status in ('archived', 'cancelled'):
+        return Response({'error': 'Архивную или отменённую группу закрывать нельзя.'}, status=400)
+    completion_date, completion_reason = choose_completion_date(group, request.data)
+    date_changes = Enrollment.objects.filter(group=group, status='completed').exclude(completed_at=completion_date)
+    if group.status != 'completed' and Certificate.objects.filter(enrollment__in=date_changes).exists():
+        return Response({'error': 'Для слушателей уже созданы документы с другой датой окончания. Сначала требуется согласованное исправление документов.'}, status=400)
+    was_closed = group.status == 'completed'
+
     missing_items = []
     # 🔥 ИСПРАВЛЕНИЕ: 'dismissed' намеренно исключен из активных статусов
     ACTIVE_STATUSES = ['enrolled', 'in_progress', 'completed']
@@ -639,8 +653,10 @@ def methodist_complete_group(request, group_id):
     # разрешаем закрытие группы сразу, без проверок подписей и оценок!
     if total_active_students == 0:
         group.status = 'completed'
-        group.actual_completion_date = timezone.now().date()
+        group.actual_completion_date = completion_date
         group.save(update_fields=['status', 'actual_completion_date'])
+        if not was_closed:
+            log_completion_date(group, request.user, completion_date, completion_reason, 'group_closed')
         return Response({
             'message': f'Группа {group.assigned_number} успешно закрыта (все студенты отчислены).'
         }, status=status.HTTP_200_OK)
@@ -708,8 +724,11 @@ def methodist_complete_group(request, group_id):
         }, status=status.HTTP_400_BAD_REQUEST)
 
     group.status = 'completed'
-    group.actual_completion_date = group.actual_completion_date or timezone.now().date()
+    group.actual_completion_date = completion_date
     group.save(update_fields=['status', 'actual_completion_date'])
+    if not was_closed:
+        date_changes.update(completed_at=completion_date)
+        log_completion_date(group, request.user, completion_date, completion_reason, 'group_closed')
 
     forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     ip_address = forwarded_for.split(',')[0].strip() if forwarded_for else request.META.get('REMOTE_ADDR')
@@ -724,7 +743,7 @@ def methodist_complete_group(request, group_id):
             staff_id=group.curator_id,
             action_type='methodist_documents_issued',
             ip_address=ip_address,
-            notes=f"Документы выданы при завершении группы {group.assigned_number}",
+            notes=f"Документы выданы при завершении группы {group.assigned_number}. Окончание обучения: {completion_date.isoformat()}",
         )
         for enrollment in active_enrollments.exclude(pk__in=issued)
     ])

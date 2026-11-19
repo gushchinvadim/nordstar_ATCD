@@ -1,3 +1,4 @@
+from docs.rendering import render_group_html
 # docs/services/document_storage.py
 import os
 import re
@@ -5,7 +6,6 @@ from datetime import date
 from django.utils import timezone
 from django.conf import settings
 from django.db.models import Q
-from django.template.loader import render_to_string
 from weasyprint import HTML
 
 from docs.utils import get_logo_base64, get_instructor_final_signature
@@ -56,7 +56,7 @@ class DocumentStorageService:
         file_path = os.path.join(folder, pdf_filename)
 
         # Рендерим шаблон
-        html_content = render_to_string(template_name, context)
+        html_content = render_group_html(template_name, context)
 
         # 1. ПРОВЕРКА HTML: должен быть не только длинным, но и содержать данные группы
         clean_html = html_content.strip()

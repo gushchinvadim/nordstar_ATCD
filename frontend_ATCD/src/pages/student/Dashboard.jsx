@@ -81,7 +81,7 @@ const openDocument = async (url) => {
 
     // Показываем пользователю, что что-то происходит
     newWindow.document.write(`
-        <html>
+        <html lang="ru" translate="no" class="notranslate">
             <head><title>Загрузка...</title></head>
             <body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;">
                 <h2>⏳ Загрузка документа, пожалуйста, подождите...</h2>
@@ -166,7 +166,7 @@ const openDocument = async (url) => {
                             
                             {module.schedule_doc?.has_ack ? (
                                 <div className={styles.confirmed}>
-                                    ✅ Ознакомлен {new Date(module.schedule_doc.ack_date).toLocaleString('ru-RU')}
+                                    ✅ Ознакомлен {module.schedule_doc.signature}
                                 </div>
                             ) : (
                                 <button 
@@ -196,7 +196,7 @@ const openDocument = async (url) => {
                             
                             {module.instructing_doc?.has_ack ? (
                                 <div className={styles.confirmed}>
-                                    ✅ Ознакомлен {new Date(module.instructing_doc.ack_date).toLocaleString('ru-RU')}
+                                    ✅ Ознакомлен {module.instructing_doc.signature}
                                 </div>
                             ) : (
                                 <button 

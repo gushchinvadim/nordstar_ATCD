@@ -96,7 +96,7 @@ const openDocument = async (url) => {
 
     // Показываем пользователю, что что-то происходит
     newWindow.document.write(`
-        <html>
+        <html lang="ru" translate="no" class="notranslate">
             <head><title>Загрузка...</title></head>
             <body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;">
                 <h2>⏳ Загрузка документа, пожалуйста, подождите...</h2>
@@ -210,7 +210,7 @@ const openDocument = async (url) => {
                                     
                                     {group.schedule_doc.has_ack ? (
                                         <div className={styles.confirmed}>
-                                            ✅ Ознакомлен {new Date(group.schedule_doc.ack_date).toLocaleString('ru-RU')}
+                                            ✅ Ознакомлен {group.schedule_doc.signature}
                                         </div>
                                     ) : (
                                         <button className={styles.actionButton} onClick={() => handleConfirm('instructor_schedule_ack', { group_id: group.group_id })}>
@@ -236,7 +236,7 @@ const openDocument = async (url) => {
                                             <div key={student.enrollment_id} className={styles.studentRow}>
                                                 <span className={styles.studentName}>{student.number}. {student.student_name}</span>
                                                 {student.briefing_done ? (
-                                                    <span className={styles.confirmedSmall}>✅ {new Date(student.briefing_date).toLocaleDateString()}</span>
+                                                    <span className={styles.confirmedSmall}>✅ {student.briefing_signature}</span>
                                                 ) : (
                                                     <button className={styles.smallButton} onClick={() => handleConfirm('instructor_briefing_done', { enrollment_id: student.enrollment_id })}>
                                                         Провести инструктаж
