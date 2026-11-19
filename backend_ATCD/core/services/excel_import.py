@@ -1,3 +1,4 @@
+from django.utils import timezone
 # core/services/excel_import.py
 import pandas as pd
 from datetime import datetime
@@ -99,7 +100,7 @@ VALID_DETAILS = ['sdo', 'sim', 'base-1', 'base-2', 'base-3', 'base-4',
                  'asp-l', 'asp-w', 'none']
 
 REQUIRED_QUALIFICATIONS_COLUMNS = [
-    'full_name', 'subject_code', 'subject_name', 'issue_date', 'validity_months'
+    'full_name', 'subject_code'
 ]
 
 # Допустимые значения для device_type
@@ -711,7 +712,7 @@ def import_students(file_path):
 # ==========================================
 # 4. ИМПОРТ ДОПУСКОВ ИНСТРУКТОРОВ
 # ==========================================
-def import_instructor_qualifications(file_path):
+def import_instructor_qualifications(file_path, user=None):
     """
     Импорт допусков инструкторов из Excel.
 
@@ -793,12 +794,12 @@ def import_instructor_qualifications(file_path):
         device_type_raw = str(row.get('device_type', 'CLASS')).strip().upper() if pd.notna(
             row.get('device_type')) else 'CLASS'
         if device_type_raw not in VALID_DEVICE_TYPES:
-            warnings.append(f"Строка {index + 2}: Неизвестный device_type '{device_type_raw}', используется CLASS")
-            device_type_raw = 'CLASS'
+            warnings.append(f"Строка {index + 2}: Неизвестный device_type '{device_type_raw}', запись пропущена")
+            continue
 
         # === Парсим дату выдачи ===
         issue_date = parse_date(row.get('issue_date'))
-        if not issue_date:
+        if not issue_date and pd.notna(row.get('issue_date')):
             warnings.append(f"Строка {index + 2}: Неверная дата выдачи для '{full_name}'")
             continue
 
@@ -812,54 +813,51 @@ def import_instructor_qualifications(file_path):
             row.get('certificate_number')) else ''
         waiver_notes = str(row.get('waiver_notes', '')).strip() if pd.notna(row.get('waiver_notes')) else ''
 
-        # === Ищем существующий допуск (staff + subject + device_type) ===
-        # Сначала ищем активный
-        existing_qual = InstructorQualification.objects.filter(
-            staff=staff,
-            subject=subject,
-            device_type=device_type_raw,
-            is_active=True
-        ).first()
-
-        if existing_qual:
-            # Обновляем существующий активный допуск
-            existing_qual.certificate_number = certificate_number
-            existing_qual.issue_date = issue_date
-            existing_qual.validity_months = validity_months
-            existing_qual.waiver_notes = waiver_notes
-            existing_qual.save()
-            updated_qualifications += 1
-        else:
-            # Проверяем, есть ли неактивный допуск с такими же параметрами
-            inactive_qual = InstructorQualification.objects.filter(
-                staff=staff,
-                subject=subject,
-                device_type=device_type_raw,
-                is_active=False
-            ).first()
-
-            if inactive_qual:
-                # Активируем старый допуск и обновляем данные
-                inactive_qual.is_active = True
-                inactive_qual.certificate_number = certificate_number
-                inactive_qual.issue_date = issue_date
-                inactive_qual.validity_months = validity_months
-                inactive_qual.waiver_notes = waiver_notes
-                inactive_qual.save()
-                updated_qualifications += 1
-            else:
-                # Создаем новый допуск
-                InstructorQualification.objects.create(
-                    staff=staff,
-                    subject=subject,
-                    device_type=device_type_raw,
-                    certificate_number=certificate_number,
-                    issue_date=issue_date,
-                    validity_months=validity_months,
-                    is_active=True,
-                    waiver_notes=waiver_notes
-                )
-                created_qualifications += 1
+        # New exports contain an explicit expiry. Old files remain unconfirmed evidence.
+        from django.db import transaction
+        from django.core.exceptions import ValidationError
+        from training.qualification_services import register_qualification, confirm_qualification
+        raw_until = row.get('valid_until')
+        until = parse_date(raw_until) if pd.notna(raw_until) else None
+        if pd.notna(raw_until) and not until:
+            warnings.append(f"Строка {index + 2}: некорректная ручная дата окончания; запись пропущена")
+            continue
+        try:
+            with transaction.atomic():
+                Staff.objects.select_for_update().get(pk=staff.pk)
+                current = InstructorQualification.objects.filter(staff=staff, subject=subject,
+                    device_type=device_type_raw, is_active=True).first()
+                if until:
+                    if not user:
+                        warnings.append(f"Строка {index + 2}: подтверждение документа требует пользователя. Импортируйте через админку")
+                        continue
+                    effective = parse_date(row.get('effective_from')) if pd.notna(row.get('effective_from')) else (issue_date or timezone.localdate())
+                    data = {'subject': subject, 'device_type': device_type_raw, 'certificate_number': certificate_number,
+                        'issue_date': issue_date, 'effective_from': effective, 'valid_until': until, 'waiver_notes': waiver_notes}
+                    if current and current.is_verified and current.certificate_number == certificate_number and current.valid_until == until and current.effective_from == effective:
+                        continue
+                    if current and not current.is_verified:
+                        confirm_qualification(user, current.pk, data)
+                        updated_qualifications += 1
+                    else:
+                        register_qualification(user, staff.pk, data, reason='Новый документ из Excel')
+                        created_qualifications += 1
+                elif current:
+                    if current.certificate_number != certificate_number or current.issue_date != issue_date:
+                        warnings.append(f"Строка {index + 2}: нет ручной даты окончания. Существующий документ не изменён")
+                else:
+                    qualification = InstructorQualification.objects.create(staff=staff, subject=subject,
+                        device_type=device_type_raw, certificate_number=certificate_number, issue_date=issue_date,
+                        effective_from=issue_date or timezone.localdate(), validity_months=validity_months, waiver_notes=waiver_notes,
+                        is_verified=False, valid_until=None)
+                    if user:
+                        from training.qualification_services import audit_qualification
+                        audit_qualification(user, qualification, 'qualification_legacy_imported')
+                    warnings.append(f"Строка {index + 2}: сведения сохранены без подтверждения. Внесите ручную дату окончания")
+                    created_qualifications += 1
+                Staff.objects.filter(pk=staff.pk).update(is_instructor=True)
+        except ValidationError as error:
+            warnings.append(f"Строка {index + 2}: {' '.join(error.messages)}")
 
     return {
         'qualifications_created': created_qualifications,

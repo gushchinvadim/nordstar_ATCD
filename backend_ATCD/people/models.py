@@ -10,6 +10,7 @@ class Staff(models.Model):
     full_name = models.CharField("ФИО", max_length=200)
     is_active = models.BooleanField("Активен", default=True)
     rauts_id = models.CharField("ID персонала в РАУЦ", max_length=50, blank=True)
+    is_instructor = models.BooleanField("Преподаватель", default=False)
     fptitle = models.BooleanField(default=False, verbose_name="Может оформлять документы")
     tptitle = models.BooleanField(default=False, verbose_name="Может подписывать документы")
     phone = models.CharField("Телефон", max_length=50, blank=True)

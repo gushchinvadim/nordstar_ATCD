@@ -1,3 +1,6 @@
+import EditStudent from './pages/methodist/EditStudent';
+import GroupFunding from './pages/methodist/GroupFunding';
+import Instructors from './pages/methodist/Instructors';
 // src/App.jsx
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
@@ -31,6 +34,9 @@ import StudentDashboard from './pages/student/Dashboard';
 
 // Директор
 import DirectorDashboard from './pages/director/Dashboard';
+import CancelledRequests from './pages/director/CancelledRequests';
+import MinistryStatistics from './pages/director/MinistryStatistics';
+import AUCStatistics from './pages/director/AUCStatistics';
 
 function App() {
     const isMaintenance = import.meta.env.VITE_IS_MAINTENANCE === 'true';
@@ -58,6 +64,9 @@ function App() {
                             <Route path="/groups/:groupId/edit" element={<CreateGroup />} />
                             
                             <Route path="/create-student" element={<CreateStudent />} />
+                            <Route path="/edit-student" element={<EditStudent />} />
+                            <Route path="/instructors" element={<Instructors />} />
+                            <Route path="/groups/:groupId/funding" element={<GroupFunding />} />
                             <Route path="/groups/:groupId/grades" element={<GroupGrades />} />
                             <Route path="/groups/:groupId/documents" element={<GroupDocumentsDetail />} />
                             <Route path="/groups/:groupId/schedule" element={<ScheduleEditor />} />
@@ -72,6 +81,10 @@ function App() {
                         {/* === ДИРЕКТОР === */}
                         <Route element={<DirectorLayout />}>
                             <Route path="/director/dashboard" element={<DirectorDashboard />} />
+                            <Route path="/director/cancelled" element={<CancelledRequests />} />
+                            <Route path="/director/statistics" element={<Navigate to="/director/statistics/auc" replace />} />
+                            <Route path="/director/statistics/auc" element={<AUCStatistics />} />
+                            <Route path="/director/statistics/ministry" element={<MinistryStatistics />} />
                         </Route>
 
                         {/* === СТУДЕНТ === */}

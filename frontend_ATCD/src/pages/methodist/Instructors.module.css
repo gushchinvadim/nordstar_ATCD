@@ -1,0 +1,149 @@
+.page {
+    composes: page from '../../styles/Workspace.module.css';
+}
+.panel {
+    composes: panel from '../../styles/Workspace.module.css';
+    padding: 20px;
+    margin-block: 16px;
+}
+.filters,
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: end;
+    margin-block: 16px;
+}
+.filters label,
+.form label {
+    display: grid;
+    gap: 5px;
+}
+.filters label {
+    min-width: 140px;
+}
+.form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+.field {
+    composes: field from '../../styles/Workspace.module.css';
+}
+.button {
+    composes: button from '../../styles/Workspace.module.css';
+}
+.primary {
+    composes: primary from '../../styles/Workspace.module.css';
+}
+.meta {
+    color: var(--atcd-muted);
+}
+.error {
+    color: var(--atcd-danger);
+    background: var(--atcd-danger-bg);
+    padding: 12px;
+    border-radius: var(--atcd-control-radius);
+}
+.notice {
+    background: var(--atcd-info-bg);
+    padding: 12px;
+    border-radius: var(--atcd-control-radius);
+}
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+    gap: 12px;
+}
+.card {
+    composes: panel;
+    padding: 16px;
+    margin: 0;
+}
+.card h2 {
+    margin: 0 0 10px;
+    font-size: 1.1rem;
+}
+.tableWrap {
+    overflow-x: auto;
+}
+.table {
+    border-collapse: collapse;
+    width: 100%;
+}
+.table th,
+.table td {
+    text-align: left;
+    vertical-align: top;
+    padding: 12px;
+    border-bottom: 1px solid var(--atcd-line);
+}
+.table td {
+    min-width: 140px;
+}
+.table .actions {
+    margin: 0;
+}
+.badge {
+    display: inline-block;
+    border-radius: var(--atcd-control-radius);
+    padding: 3px 8px;
+    background: var(--atcd-soft);
+    color: var(--atcd-muted);
+}
+.valid {
+    background: var(--atcd-success-bg);
+    color: var(--atcd-success);
+}
+.warning {
+    background: var(--atcd-warning-bg);
+    color: var(--atcd-warning);
+}
+.critical,
+.expired,
+.expires_today {
+    background: var(--atcd-danger-bg);
+    color: var(--atcd-danger);
+}
+.reason {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.dialog {
+    composes: panel;
+    width: min(700px, calc(100% - 48px));
+    max-height: calc(100svh - 48px);
+    overflow-y: auto;
+    color: var(--atcd-text);
+    margin: auto;
+}
+.dialog::backdrop {
+    background: rgb(0 0 0 / 45%);
+}
+.wide {
+    grid-column: 1 / -1;
+}
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    margin-block: 24px;
+}
+@media (max-width: 600px) {
+    .form {
+        grid-template-columns: 1fr;
+    }
+    .filters label {
+        flex: 1 1 100%;
+    }
+    .actions {
+        align-items: stretch;
+    }
+    .actions > button {
+        flex: 1 1 100%;
+    }
+    .panel {
+        padding: 14px;
+    }
+}

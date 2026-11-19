@@ -1,0 +1,109 @@
+.page {
+    composes: page from '../../styles/Workspace.module.css';
+}
+.card {
+    composes: panel from '../../styles/Workspace.module.css';
+    padding: 20px;
+    margin-block: 16px;
+}
+.card h2 {
+    margin-block: 0 8px;
+    font-size: 1.2rem;
+}
+.filters {
+    display: flex;
+    align-items: end;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-block: 20px;
+}
+.filters label {
+    display: grid;
+    gap: 4px;
+    min-width: 140px;
+}
+.field {
+    composes: field from '../../styles/Workspace.module.css';
+}
+.button {
+    composes: button from '../../styles/Workspace.module.css';
+}
+.primary {
+    composes: primary from '../../styles/Workspace.module.css';
+}
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-block-start: 16px;
+}
+.meta {
+    color: var(--atcd-muted);
+}
+.reason {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.error {
+    color: var(--atcd-danger);
+    background: var(--atcd-danger-bg);
+    padding: 12px;
+    border-radius: var(--atcd-control-radius);
+}
+.notice {
+    padding: 12px;
+    background: var(--atcd-info-bg);
+    border-radius: var(--atcd-control-radius);
+}
+.history {
+    border-block-start: 1px solid var(--atcd-line);
+    margin-block-start: 20px;
+    padding-block-start: 12px;
+}
+.history h3 {
+    margin-block: 18px 8px;
+    font-size: 1rem;
+}
+.entries {
+    padding-inline-start: 22px;
+}
+.entries li {
+    margin-block: 10px;
+    overflow-wrap: anywhere;
+}
+.badge {
+    display: inline-block;
+    padding: 3px 9px;
+    background: var(--atcd-soft);
+    color: var(--atcd-muted);
+    border-radius: var(--atcd-control-radius);
+    margin-block-end: 10px;
+}
+.pagination {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    margin-block: 24px;
+}
+.dialog {
+    composes: panel from '../../styles/Workspace.module.css';
+    color: var(--atcd-text);
+    width: min(520px, calc(100% - 48px));
+    padding: 24px;
+}
+.dialog::backdrop {
+    background: rgb(0 0 0 / 45%);
+}
+@media (max-width: 600px) {
+    .filters label {
+        flex: 1 1 100%;
+    }
+    .actions > button {
+        flex: 1 1 100%;
+    }
+    .card {
+        padding: 14px;
+    }
+}

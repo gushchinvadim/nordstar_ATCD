@@ -1,3 +1,4 @@
+from execution.group_lifecycle import group_write_guard
 # execution/api_views.py
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import generics, permissions, status
@@ -39,12 +40,13 @@ class InstructorScheduleView(generics.ListAPIView):
             instructor=staff,
             date__gte=today,
             status__in=['planned', 'in_progress']
-        ).select_related(
+        ).exclude(group__status__in=['cancelled', 'archived']).select_related(
             'group', 'section', 'subsection', 'classroom', 'instructor'
         ).order_by('date', 'start_time')
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
+@group_write_guard
 def confirm_schedule_item(request, pk):
     """
     POST /api/instructor/schedule/<pk>/confirm/
@@ -109,6 +111,7 @@ class InstructorGradesView(generics.ListAPIView):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@group_write_guard
 def save_instructor_grades(request):
     """
     POST /api/execution/instructor/grades/
@@ -222,6 +225,7 @@ def save_instructor_grades(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@group_write_guard
 def log_schedule_action(request, pk):
     """
     POST /api/instructor/schedule/<pk>/log/
@@ -432,6 +436,7 @@ def instructor_groups_view(request):
 # ==============================================================================
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@group_write_guard
 def instructor_complete_group(request, group_id):
     """
     POST /api/execution/instructor/groups/<group_id>/complete/
@@ -514,6 +519,7 @@ def instructor_complete_group(request, group_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@group_write_guard
 def instructor_log_action(request):
     action_type = request.data.get('action_type')
     valid_actions = ['instructor_schedule_ack', 'instructor_briefing_done']
@@ -585,7 +591,9 @@ def change_password(request):
     user.last_login = timezone.now()
     user.save(update_fields=['last_login'])
 
-    return Response({'success': 'Пароль успешно изменен'}, status=status.HTTP_200_OK)
+    from rest_framework_simplejwt.tokens import RefreshToken
+    refresh = RefreshToken.for_user(user)
+    return Response({'success': 'Пароль успешно изменен', 'access': str(refresh.access_token), 'refresh': str(refresh)}, status=status.HTTP_200_OK)
 
 
 
@@ -614,6 +622,7 @@ class StudentCreateAPIView(generics.CreateAPIView):
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 @transaction.atomic
+@group_write_guard
 def methodist_complete_group(request, group_id):
     """
     POST /api/execution/methodist/groups/<group_id>/complete/
@@ -741,6 +750,7 @@ def methodist_complete_group(request, group_id):
         ComplianceLog(
             enrollment=enrollment,
             staff_id=group.curator_id,
+            actor_name_snapshot=group.curator.full_name,
             action_type='methodist_documents_issued',
             ip_address=ip_address,
             notes=f"Документы выданы при завершении группы {group.assigned_number}. Окончание обучения: {completion_date.isoformat()}",

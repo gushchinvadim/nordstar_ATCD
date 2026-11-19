@@ -1,0 +1,108 @@
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  color: #213047;
+}
+.search {
+  display: flex;
+  gap: 12px;
+  margin: 24px 0;
+}
+.search input {
+  flex: 1;
+  min-width: 0;
+}
+.page input {
+  box-sizing: border-box;
+  padding: 11px;
+  min-height: 44px;
+  font: inherit;
+  border: 1px solid #b9c8d8;
+  border-radius: 8px;
+}
+.page button {
+  padding: 11px 16px;
+  min-height: 44px;
+  font: inherit;
+  border: 1px solid #b9c8d8;
+  border-radius: 8px;
+  background: #f5f9fc;
+  color: #174a6c;
+  cursor: pointer;
+}
+.page button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 22px;
+  align-items: start;
+}
+.panel {
+  padding: 22px;
+  background: white;
+  border: 1px solid #d9e3ed;
+  border-radius: 14px;
+  min-width: 0;
+}
+.person {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.person span {
+  font-size: 13px;
+  color: #53677b;
+}
+.person[aria-pressed="true"] {
+  outline: 2px solid #1582ab;
+}
+.panel fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.panel label {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 15px;
+}
+.panel label input {
+  width: 100%;
+}
+.actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+.error {
+  color: #b42318;
+}
+.credentials {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 10px;
+  background: #e9f5fb;
+  overflow-wrap: anywhere;
+}
+.credentials code {
+  font-size: 16px;
+  user-select: all;
+}
+@media (max-width: 760px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .panel {
+    padding: 16px;
+  }
+}

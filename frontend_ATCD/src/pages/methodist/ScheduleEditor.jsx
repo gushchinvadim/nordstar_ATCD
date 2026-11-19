@@ -17,11 +17,13 @@ const ScheduleEditor = () => {
     
     // 🔥 ВСЕ ХУКИ ДОЛЖНЫ БЫТЬ ЗДЕСЬ, ВНУТРИ КОМПОНЕНТА
     const [groupInfo, setGroupInfo] = useState(null);
+    const readOnly = groupInfo?.status === 'cancelled';
     const [items, setItems] = useState([]);
     const [dropdowns, setDropdowns] = useState({ instructors: [], classrooms: [], sections: [] });
     const [loading, setLoading] = useState(true);
     const [savingId, setSavingId] = useState(null);
     const [editingCell, setEditingCell] = useState(null);
+    const [eligibilityError, setEligibilityError] = useState('');
     const [newDate, setNewDate] = useState('');
     const [lastSaved, setLastSaved] = useState(null);
 
@@ -51,8 +53,24 @@ const ScheduleEditor = () => {
         }
     };
 
-    const handleCellClick = (itemId, field) => {
-        setEditingCell({ id: itemId, field });
+    const handleCellClick = async (itemId, field) => {
+        if (readOnly || savingId !== null) return;
+        setEligibilityError('');
+        if (field === 'instructor') {
+            const item = items.find((row) => row.id === itemId);
+            setSavingId(itemId);
+            try {
+                const { data } = await api.get(`/api/docs/groups/${groupId}/schedule/dropdowns/`, {
+                    params: { section_id: item.section?.id, date: item.date,
+                        ...(item.session_type === 'sdo' && item.deadline ? { deadline: item.deadline } : {}) },
+                });
+                setDropdowns((previous) => ({ ...previous, instructors: data.instructors }));
+                setEligibilityError(data.eligibility_error || (data.instructors.length ? '' : 'Нет преподавателей с подтверждённым допуском на выбранную дату. Проверьте сведения в разделе «Преподаватели».'));
+                setEditingCell({ id: itemId, field });
+            } catch (error) {
+                setEligibilityError(error.response?.data?.error || 'Не удалось проверить допуски преподавателей. Повторите попытку.');
+            } finally { setSavingId(null); }
+        } else { setEditingCell({ id: itemId, field }); }
     };
 
     const handleSave = async (itemId, field, value) => {
@@ -92,7 +110,7 @@ const ScheduleEditor = () => {
             }
         } catch (err) {
             console.error('Ошибка сохранения:', err);
-            alert('Не удалось сохранить изменения. Попробуйте еще раз.');
+            alert(err.response?.data?.errors?.instructor?.join(' ') || err.response?.data?.error || 'Не удалось сохранить изменения. Попробуйте еще раз.');
             loadData(); // Откат при ошибке
         } finally {
             setSavingId(null);
@@ -143,11 +161,13 @@ const ScheduleEditor = () => {
                         autoFocus
                         defaultValue={item.instructor?.id || ''}
                         onBlur={(e) => {
+                            if (e.target.value === String(item.instructor?.id || '')) { setEditingCell(null); return; }
                             const selected = dropdowns.instructors.find(i => i.id === parseInt(e.target.value));
                             handleSave(item.id, field, selected || null);
                         }}
                     >
                         <option value="">— Не назначен —</option>
+                        {item.instructor && !dropdowns.instructors.some((row) => row.id === item.instructor.id) && <option value={item.instructor.id} disabled>{item.instructor.name} — текущий, допуск требует проверки</option>}
                         {dropdowns.instructors.map(inst => (
                             <option key={inst.id} value={inst.id}>{inst.full_name}</option>
                         ))}
@@ -231,7 +251,7 @@ const ScheduleEditor = () => {
         }
 
         return (
-            <button type="button" className={styles.editableText} onClick={() => handleCellClick(item.id, field)} disabled={savingId !== null}>
+            <button type="button" className={styles.editableText} onClick={() => handleCellClick(item.id, field)} disabled={readOnly || savingId !== null}>
                 {displayValue || <span className={styles.placeholder}>Указать</span>}
             </button>
         );
@@ -243,12 +263,14 @@ const ScheduleEditor = () => {
 
     return (
         <div className={styles.container}>
+            {eligibilityError && <p role="alert">{eligibilityError}</p>}
+            {readOnly && <p role="status">Группа отменена. Расписание доступно только для просмотра.</p>}
             <div className={styles.header}>
                 <button className={styles.backBtn} onClick={() => navigate(`/groups/${groupId}/documents`)}>
                     ← Назад к документам группы
                 </button>
                 
-                <h1>📅 Редактирование расписания</h1>
+                <h1>📅 {readOnly ? 'Расписание отменённой группы' : 'Редактирование расписания'}</h1>
                 
                 {/* 🔥 ИНФОРМАЦИЯ О ГРУППЕ */}
                 {groupInfo && (
@@ -281,7 +303,7 @@ const ScheduleEditor = () => {
                     
                     <button 
                         className={styles.refreshBtn} 
-                        onClick={loadData} disabled={savingId !== null} 
+                        onClick={loadData} disabled={savingId !== null}
                         title="Сверить текущее расписание с сервером"
                     >
                         🔄 Проверить сохранение
@@ -294,7 +316,7 @@ const ScheduleEditor = () => {
                         <input className={styles.editInput} type="date" value={newDate}
                             onChange={(event) => setNewDate(event.target.value)} required />
                     </label>
-                    <button className={styles.addBtn} type="submit" disabled={!dropdowns.sections.length || savingId !== null}>
+                    <button className={styles.addBtn} type="submit" disabled={readOnly || !dropdowns.sections.length || savingId !== null}>
                         + Добавить занятие
                     </button>
                 </form>
@@ -331,7 +353,7 @@ const ScheduleEditor = () => {
                                 <td role="cell" data-label="Аудитория" data-wide="">{renderEditableCell(item, 'classroom', item.classroom ? `${item.classroom.title} (${item.classroom.audience})` : '')}</td>
                                 <td role="cell" data-label="Примечание" data-wide="">{renderEditableCell(item, 'notes', item.notes)}</td>
                                 <td role="cell" data-wide="">
-                                    <button className={styles.deleteBtn} onClick={() => handleDelete(item.id)} title="Удалить занятие" aria-label="Удалить занятие">
+                                    <button disabled={readOnly} className={styles.deleteBtn} onClick={() => handleDelete(item.id)} title="Удалить занятие" aria-label="Удалить занятие">
                                         🗑
                                     </button>
                                 </td>

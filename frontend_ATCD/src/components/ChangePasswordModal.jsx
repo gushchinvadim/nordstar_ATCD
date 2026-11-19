@@ -42,6 +42,8 @@ const ChangePasswordModal = ({ isOpen, onClose, isFirstLogin }) => {
             const data = await response.json();
 
             if (response.ok) {
+                if (data.access) localStorage.setItem('accessToken', data.access);
+                if (data.refresh) localStorage.setItem('refreshToken', data.refresh);
                 setSuccess('Пароль успешно изменен!');
                 setTimeout(() => {
                     onClose(); // Закрываем модалку

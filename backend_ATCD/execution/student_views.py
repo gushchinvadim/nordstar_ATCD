@@ -1,9 +1,11 @@
+from execution.group_lifecycle import group_write_guard
 # execution/student_views.py
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.http import HttpResponse
@@ -72,7 +74,10 @@ def student_modules(request):
     except ObjectDoesNotExist:
         return Response({'error': 'Профиль студента не найден'}, status=status.HTTP_403_FORBIDDEN)
 
-    enrollments = Enrollment.objects.filter(student=student).select_related('group__module')
+    enrollments = Enrollment.objects.filter(student=student).exclude(
+        Q(group__status='cancelled') | (Q(group__status='archived') & (
+            Q(group__archived_from_status='cancelled') | Q(group__cancellation_date__isnull=False) |
+            ~Q(group__cancellation_reason='')))).select_related('group__module')
     modules_data = []
 
     for enrollment in enrollments:
@@ -245,6 +250,7 @@ def student_modules(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@group_write_guard
 def student_confirm_action(request):
     """Фиксирует действие студента"""
     try:

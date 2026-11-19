@@ -7,6 +7,17 @@ const GroupFilters = ({ filters, directions, curators = [], onFilterChange }) =>
 
     return (
         <div className={styles.container}>
+            <label className={styles.filterGroup}>
+                <span>Статус:</span>
+                <select className={styles.field} value={filters.status} onChange={(e) => onFilterChange('status', e.target.value)}>
+                    <option value="in_progress,completed">Обучение и завершённые</option>
+                    <option value="draft,enrolling,in_progress">Все активные</option>
+                    <option value="completed">Завершённые</option>
+                    <option value="cancelled">Отменённые</option>
+                    <option value="archived">Архивные</option>
+                    <option value="draft,enrolling,in_progress,completed,cancelled,archived">Все статусы</option>
+                </select>
+            </label>
             {/* 🔥 НОВОЕ: Фильтр по Куратору */}
             <label className={styles.filterGroup}>
                 <span>Куратор:</span>

@@ -4,6 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { fetchModules, fetchStaff, fetchStudents, fetchLocations } from '../../api/groups';
 import api from '../../api/config'; // Добавлено для PATCH запроса
 import styles from './CreateGroup.module.css';
+import FundingFields from '../../components/FundingFields';
+import { emptyFunding } from '../../components/fundingUtils';
 
 const CreateGroup = () => {
     const { groupId } = useParams(); // Получаем ID, если мы в режиме редактирования
@@ -16,6 +18,9 @@ const CreateGroup = () => {
     const [students, setStudents] = useState([]);
     const [locations, setLocations] = useState([]);
     
+    const [fundingReferences, setFundingReferences] = useState(null);
+    const [fundingDefaults, setFundingDefaults] = useState(emptyFunding);
+    const [fundingReason, setFundingReason] = useState('');
     // Основная информация
     const [serialNumber, setSerialNumber] = useState('');
     const [application, setApplication] = useState('');
@@ -51,17 +56,19 @@ const CreateGroup = () => {
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [modulesRes, staffRes, studentsRes, locationsRes] = await Promise.all([
+                const [modulesRes, staffRes, studentsRes, locationsRes, fundingRes] = await Promise.all([
                     fetchModules(),
                     fetchStaff(),
                     fetchStudents(),
                     fetchLocations(),
+                    api.get('/api/execution/methodist/funding/references/').catch(() => ({ data: null })),
                 ]);
                 
                 setModules(modulesRes.data);
                 setStaff(staffRes.data);
                 setStudents(studentsRes.data);
                 setLocations(locationsRes.data);
+                setFundingReferences(fundingRes.data);
 
                 // 🔥 ЕСЛИ РЕДАКТИРОВАНИЕ: загружаем данные группы
                 if (isEditMode) {
@@ -136,7 +143,9 @@ const CreateGroup = () => {
             curator_id: curatorId || null,
             director_id: directorId || null,
             order_in_date: orderInDate || null,
-            enrollments: enrollments.filter(e => e.student_id),
+            funding_defaults: fundingDefaults,
+            funding_reason: fundingReason,
+            enrollments: enrollments.filter(e => e.student_id).map((row) => ({ ...fundingDefaults, ...row })),
         };
         
         try {
@@ -280,6 +289,13 @@ const CreateGroup = () => {
                 {/* НАЗНАЧЕНИЯ */}
                 <section className={styles.section}>
                     <h2>Назначения (Слушатели)</h2>
+                    {fundingReferences && <>
+                        <h3>Общий источник финансирования</h3>
+                        <FundingFields value={fundingDefaults} references={fundingReferences} onChange={setFundingDefaults} disabled={loading} />
+                        <button type="button" className={styles.addBtn} disabled={loading} onClick={() => setEnrollments((previous) => previous.map((row) => ({ ...row, ...fundingDefaults })))}>Применить ко всем слушателям</button>
+                        <p>Общий вариант используется для новых назначений. Для существующих слушателей примените его явно или выберите источник отдельно.</p>
+                        {isEditMode && <label>Причина изменения финансирования (для завершённого обучения)<textarea value={fundingReason} maxLength={2000} onChange={(e) => setFundingReason(e.target.value)} /></label>}
+                    </>}
                     {enrollments.map((enrollment, index) => (
                         <div key={index} className={styles.enrollmentRow}>
                             <div className={styles.field}>
@@ -302,6 +318,7 @@ const CreateGroup = () => {
                                     <option value="dismissed">Отчислен</option>
                                 </select>
                             </div>
+                            {fundingReferences && <FundingFields value={{ ...fundingDefaults, ...Object.fromEntries(Object.entries(enrollment).filter(([key]) => ['funding_source', 'payer_organization', 'funding_reference'].includes(key))) }} references={fundingReferences} disabled={loading} onChange={(value) => setEnrollments((previous) => previous.map((row, current) => current === index ? { ...row, ...value } : row))} />}
                             {enrollments.length > 1 && (
                                 <button type="button" onClick={() => removeEnrollment(index)} className={styles.removeBtn}>✕</button>
                             )}

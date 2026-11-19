@@ -2,12 +2,18 @@
 import os
 import shutil
 from django.contrib import admin, messages
+from django import forms
 from django.utils.html import format_html
 from django.urls import path, reverse
 from django.shortcuts import render, get_object_or_404, redirect
 from core.services.schedule_generator import generate_schedule_for_group
 from .models import Enrollment, Assessment, Certificate, ScheduleItem, Group, IndividualStudyPlan
 from django.conf import settings
+from django.db import transaction
+from django.core.exceptions import PermissionDenied
+from .group_archive import archive_training_group, remove_generated_files, ArchiveError
+from .group_history import group_delete_reasons
+from .methodist_views import audit
 
 
 class AssessmentInline(admin.TabularInline):
@@ -127,80 +133,40 @@ def generate_schedule_action(modeladmin, request, queryset):
 
 
 def archive_groups(modeladmin, request, queryset):
-    """Архивирует выбранные группы и удаляет их медиа-файлы"""
-    import shutil
-    import re
-    from django.conf import settings
-
-    archived_count = 0
-    deleted_folders = []
-
-    for group in queryset:
-        # Меняем статус на архивный
-        group.status = 'archived'
-        group.save()
-        archived_count += 1
-
-        # Формируем путь к папке группы
-        if group.start_date:
-            year = str(group.start_date.year)
-        else:
-            continue  # Пропускаем группы без даты начала
-
-        module_code = re.sub(r'[^\w\-]', '_', group.module.code) if group.module else 'unknown_module'
-        safe_group_number = re.sub(r'[^\w\.\-]', '_', group.assigned_number)
-
-        group_folder = os.path.join(
-            settings.MEDIA_ROOT,
-            'documents', year, 'groups', module_code, safe_group_number
-        )
-
-        # Удаляем папку, если она существует
-        if os.path.exists(group_folder):
+    """Use the same validation and provenance as the personal cabinets."""
+    count = 0
+    for pk in queryset.values_list('pk', flat=True):
+        with transaction.atomic():
+            group = Group.objects.select_for_update().get(pk=pk)
+            if group.status not in ('completed', 'cancelled'):
+                modeladmin.message_user(request, f'{group.assigned_number}: архивировать можно только завершённую или отменённую группу.', level='warning')
+                continue
             try:
-                shutil.rmtree(group_folder)
-                deleted_folders.append(group.assigned_number)
-            except Exception as e:
-                modeladmin.message_user(request, f"Ошибка удаления папки {group.assigned_number}: {str(e)}",
-                                        level='error')
-
-    # Формируем сообщение
-    message = f"✅ Архивировано групп: {archived_count}"
-    if deleted_folders:
-        message += f". Удалено папок: {len(deleted_folders)}"
-
-    modeladmin.message_user(request, message)
+                archive_training_group(group, request.user, audit)
+            except ArchiveError as error:
+                modeladmin.message_user(request, f'{group.assigned_number}: {error}', level='error')
+                continue
+            count += 1
+    modeladmin.message_user(request, f'Архивировано групп: {count}. История сохранена, сформированные файлы удалены.')
 
 
 archive_groups.short_description = "Архивировать выбранные группы и удалить медиа"
 
 @admin.action(description='♻️ Восстановить группу из архива')
 def restore_groups(modeladmin, request, queryset):
-    """Возвращает архивную группу в статус 'completed'"""
-    restored_count = 0
-    skipped = []
-
-    for group in queryset:
-        if group.status == 'archived':
-            group.status = 'completed'
+    """Restoration never turns a cancelled request into a completed group."""
+    count = 0
+    for pk in queryset.values_list('pk', flat=True):
+        with transaction.atomic():
+            group = Group.objects.select_for_update().get(pk=pk)
+            if group.status != 'archived':
+                continue
+            restored_status = 'cancelled' if group.was_cancelled else (group.archived_from_status or 'completed')
+            group.status = restored_status
             group.save(update_fields=['status'])
-            restored_count += 1
-        else:
-            skipped.append(
-                f"{group.assigned_number} (статус: {group.get_status_display()})"
-            )
-
-    if restored_count > 0:
-        messages.success(
-            request,
-            f'✅ Восстановлено групп: {restored_count}. '
-            f'Документы можно сгенерировать заново в Центре документов.'
-        )
-    if skipped:
-        messages.warning(
-            request,
-            f'⚠️ Пропущено (не архивные): {"; ".join(skipped)}'
-        )
+            audit(request.user, group, {'operation': 'group_restored', 'restored_status': restored_status})
+            count += 1
+    modeladmin.message_user(request, f'Восстановлено групп: {count}. Отменённые заявки сохранили статус «Отменена».')
 
 
 # =====================================================================
@@ -236,12 +202,45 @@ class GroupAdmin(admin.ModelAdmin):
         'generate_frdo_action',
     ]
 
+    readonly_fields = ('cancellation_date', 'cancellation_reason', 'cancelled_at', 'cancelled_by', 'archived_from_status')
     fieldsets = (
+        ('Архив', {'fields': ('archived_from_status',)}),
+        ('Отмена группы', {'fields': ('cancellation_date', 'cancellation_reason', 'cancelled_at', 'cancelled_by')}),
         # ← Убрали 'application' из кортежа полей
         ('Основная информация', {'fields': ('serial_number', 'application', 'assigned_number', 'order_in_number', 'order_in_date', 'module', 'status')}),
         ('Место и время', {'fields': ('location', 'start_date', 'start_face_to_face', 'end_date', 'is_sdo', 'start_time_default', 'actual_completion_date')}),
         ('Преподавательский состав', {'fields': ('mentor', 'curator', 'director')}),
     )
+
+    def has_delete_permission(self, request, obj=None):
+        allowed = super().has_delete_permission(request, obj)
+        return allowed and (obj is None or not group_delete_reasons(obj))
+
+    def get_deleted_objects(self, objs, request):
+        objects = list(objs)
+        deleted, counts, permissions, protected = super().get_deleted_objects(objects, request)
+        for group in objects:
+            protected.extend(f'{group.assigned_number}: {reason}' for reason in group_delete_reasons(group))
+        return deleted, counts, permissions, protected
+
+    @transaction.atomic
+    def delete_model(self, request, obj):
+        self.delete_queryset(request, Group.objects.filter(pk=obj.pk))
+
+    @transaction.atomic
+    def delete_queryset(self, request, queryset):
+        groups = list(Group.objects.select_for_update().filter(pk__in=queryset.values('pk')).order_by('pk'))
+        # Check the whole selection before deleting any files or database rows.
+        for group in groups:
+            reasons = group_delete_reasons(group)
+            if reasons:
+                raise PermissionDenied(f'{group.assigned_number}: ' + ' '.join(reasons))
+        for group in groups:
+            try:
+                remove_generated_files(group)
+            except ArchiveError as error:
+                raise PermissionDenied(str(error)) from error
+            group.delete()
 
     def save_model(self, request, obj, form, change):
         if not obj.order_in_number and obj.assigned_number:
@@ -417,17 +416,43 @@ class GroupAdmin(admin.ModelAdmin):
 # =====================================================================
 # РЕГИСТРАЦИЯ ENROLLMENT (без изменений)
 # =====================================================================
+class EnrollmentFundingForm(forms.ModelForm):
+    funding_change_reason = forms.CharField(label='Причина изменения финансирования', required=False,
+        max_length=2000, widget=forms.Textarea(attrs={'rows': 2}))
+    class Meta:
+        model = Enrollment
+        fields = '__all__'
+    def clean(self):
+        data = super().clean()
+        if self.instance.pk and set(self.changed_data) & {'funding_source', 'payer_organization', 'funding_reference'}:
+            if (self.instance.status == 'completed' or self.instance.group.status in ('completed', 'archived', 'cancelled')) and not data.get('funding_change_reason', '').strip():
+                raise forms.ValidationError('Для изменения финансирования закрытого обучения укажите причину.')
+        return data
+
+
 @admin.register(Enrollment)
 class EnrollmentAdmin(admin.ModelAdmin):
-    list_display = ['student', 'group', 'number_in_group', 'status', 'order_out_number', 'order_out_date']
-    list_filter = ['status', 'group']
+    form = EnrollmentFundingForm
+    def save_model(self, request, obj, form, change):
+        from .funding import financing_snapshot
+        old = Enrollment.objects.get(pk=obj.pk) if change else None
+        before = financing_snapshot(old) if old else None
+        super().save_model(request, obj, form, change)
+        after = financing_snapshot(obj)
+        if before != after:
+            audit(request.user, obj, {'operation': 'enrollment_funding_changed',
+                'reason': form.cleaned_data.get('funding_change_reason', ''), 'before': before, 'after': after})
+
+    list_display = ['student', 'group', 'number_in_group', 'status', 'funding_source', 'payer_organization', 'order_out_number', 'order_out_date']
+    list_filter = ['status', 'funding_source', 'payer_organization', 'group']
     search_fields = ['student__surname', 'student__name', 'group__assigned_number']
     autocomplete_fields = ['student', 'group']
     inlines = [AssessmentInline]
 
-    readonly_fields = ['order_in_number_display', 'order_in_date_display']
+    readonly_fields = ['payer_name_snapshot', 'order_in_number_display', 'order_in_date_display']
 
     fieldsets = (
+        ('Финансирование', {'fields': ('funding_source', 'payer_organization', 'funding_reference', 'payer_name_snapshot', 'funding_change_reason')}),
         ('Основная информация', {
             'fields': ('group', 'student', 'number_in_group')
         }),

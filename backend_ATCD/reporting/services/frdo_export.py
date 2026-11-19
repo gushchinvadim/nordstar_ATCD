@@ -27,7 +27,7 @@ class FRDOExportService:
         'Имя получателя (оригинала)', 'Отчество получателя (оригинала)', 'Номер документа для изменения',
     ]
 
-    HEADERS_PILOT = [
+    HEADERS_DPO = [
         'Вид документа', 'Статус документа', 'Подтверждение утраты', 'Подтверждение обмена',
         'Подтверждение уничтожения', 'Серия документа', 'Номер документа', 'Дата выдачи документа',
         'Регистрационный номер',
@@ -46,6 +46,8 @@ class FRDOExportService:
         'Номер документа для изменения',
     ]
 
+    DPO_TEMPLATE_TYPES = frozenset({'pilot', 'engineer', 'representative'})
+
     FRDO_DOCUMENT_TYPES = {
         'credential': 'Удостоверение о повышении квалификации',
         'witness': 'Свидетельство о профессии рабочего, должности служащего',
@@ -59,6 +61,8 @@ class FRDOExportService:
         self.user = user
         self.course = group.module.course if group.module else None
         self.template_type = self.course.frdo_template_type if self.course else 'flight_attendant'
+        if self.template_type not in self.DPO_TEMPLATE_TYPES | {'flight_attendant'}:
+            raise ValueError('Неизвестное направление программы для ФРДО. Проверьте программу и применённые миграции.')
 
         year = str(group.start_date.year) if group.start_date else 'unknown_year'
         module_code = re.sub(r'[^\w\-]', '_', group.module.code) if group.module else 'unknown_module'
@@ -72,7 +76,7 @@ class FRDOExportService:
         os.makedirs(self.folder_path, exist_ok=True)
 
     def get_headers(self):
-        return self.HEADERS_PILOT if self.template_type == 'pilot_engineer' else self.HEADERS_ATTENDANT
+        return self.HEADERS_DPO if self.template_type in self.DPO_TEMPLATE_TYPES else self.HEADERS_ATTENDANT
 
     def get_data(self):
         enrollments = Enrollment.objects.filter(
@@ -170,8 +174,8 @@ class FRDOExportService:
         if not data:
             return None, errors
 
-        if self.template_type == 'pilot_engineer':
-            return self._map_row_pilot(data, errors)
+        if self.template_type in self.DPO_TEMPLATE_TYPES:
+            return self._map_row_dpo(data, errors)
         else:
             return self._map_row_attendant(data, errors)
 
@@ -210,7 +214,7 @@ class FRDOExportService:
         }
         return row, errors
 
-    def _map_row_pilot(self, data, errors):
+    def _map_row_dpo(self, data, errors):
         s, g, module, course, cert = data['s'], data['g'], data['module'], data['course'], data['cert']
         row = {
             'Вид документа': data['frdo_doc_type'],
@@ -338,7 +342,8 @@ class FRDOExportService:
                     row_errors.append("Некорректный СНИЛС")
                 if not row.get('Дата рождения получателя'):
                     row_errors.append("Не заполнена дата рождения")
-                if not row.get('Год окончания обучения'):
+                year_end_field = 'Год окончания обучения (для документа о квалификации)' if self.template_type in self.DPO_TEMPLATE_TYPES else 'Год окончания обучения'
+                if not row.get(year_end_field):
                     row_errors.append("Не заполнен год окончания обучения")
 
                 RegulatoryReportItem.objects.create(

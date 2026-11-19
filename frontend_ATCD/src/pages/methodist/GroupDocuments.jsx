@@ -1,3 +1,4 @@
+import CancelGroupModal from '../../components/CancelGroupModal';
 import CompletionDateModal from '../../components/CompletionDateModal';
 // src/pages/methodist/GroupDocuments.jsx
 import { useState, useEffect } from 'react';
@@ -8,6 +9,7 @@ import GroupFilters from './components/GroupFilters';
 import styles from './GroupDocuments.module.css';
 
 const GroupDocuments = () => {
+    const [cancelGroup, setCancelGroup] = useState(null);
     const [completionGroup, setCompletionGroup] = useState(null);
     const [groups, setGroups] = useState([]);
     const [directions, setDirections] = useState([]);
@@ -76,12 +78,26 @@ const GroupDocuments = () => {
         }
     };
 
+    const [archivingId, setArchivingId] = useState(null);
+    const [archiveError, setArchiveError] = useState('');
+    async function handleArchiveGroup(group) {
+        if (archivingId || !window.confirm(`Архивировать группу «${group.assigned_number}»? Сформированные файлы документов и отчётов будут удалены. Записи обучения останутся в БД; восстановление и повторная генерация доступны администратору.`)) return;
+        setArchivingId(group.id); setArchiveError('');
+        try {
+            await api.post(`/api/execution/methodist/groups/${group.id}/archive/`, { confirm_delete_files: true });
+            loadGroups();
+        } catch (error) { setArchiveError(error.response?.data?.error || 'Не удалось архивировать группу. Повторите попытку.'); }
+        finally { setArchivingId(null); }
+    }
+
     const handleFinalizeGroup = (group) => setCompletionGroup(group);
 
     return (
         <div className={styles.container}>
+            {cancelGroup && <CancelGroupModal group={cancelGroup} onClose={() => setCancelGroup(null)} onCancelled={() => { setCancelGroup(null); loadGroups(); }} />}
             {completionGroup && <CompletionDateModal group={completionGroup} onClose={() => setCompletionGroup(null)} onCompleted={() => { setCompletionGroup(null); loadGroups(); }} />}
             <h1>Документы и управление группами</h1>
+            {archiveError && <p role="alert">{archiveError}</p>}
             <p className={styles.subtitle}>Выберите группу для работы с документами, расписанием или финального закрытия</p>
 
             <GroupFilters
@@ -117,6 +133,10 @@ const GroupDocuments = () => {
                                 <div className={styles.infoRow}>
                                     <span>👥 Слушателей: <strong>{group.students_count}</strong></span>
                                 </div>
+                                {group.status === 'cancelled' && <div>
+                                    <p><strong>Дата отмены:</strong> {group.cancellation_date ? group.cancellation_date.split('-').reverse().join('.') : 'не указана (старая запись)'}</p>
+                                    <p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}><strong>Причина:</strong> {group.cancellation_reason || 'не указана (старая запись)'}</p>
+                                </div>}
                                 {group.curator && (
                                     <div className={styles.infoRow}>
                                         <span>👤 Куратор: <strong>{group.curator}</strong></span>
@@ -125,6 +145,7 @@ const GroupDocuments = () => {
                             </div>
 
                             <div className={styles.cardActions}>
+                                <button className={`${styles.btn} ${styles.btnOutline}`} onClick={() => navigate(`/groups/${group.id}/funding`)}>Финансирование</button>
                                 <button 
                                     className={`${styles.btn} ${styles.btnPrimary}`} 
                                     onClick={() => navigate(`/groups/${group.id}/documents`)}
@@ -132,6 +153,7 @@ const GroupDocuments = () => {
                                     Документы
                                 </button>
                                 
+                                {group.status !== 'cancelled' && <>
                                 {/* 🔥 НОВАЯ КНОПКА: Редактирование группы (вместо Аудита ПЭП) */}
                                 <button 
                                     className={`${styles.btn} ${styles.btnOutline}`} 
@@ -149,6 +171,7 @@ const GroupDocuments = () => {
                                     Авторасписание
                                 </button>
 
+                                </>}
                                 <button 
                                     className={`${styles.btn} ${styles.btnSecondary}`} 
                                     onClick={() => navigate(`/groups/${group.id}/grades`)} 
@@ -164,6 +187,12 @@ const GroupDocuments = () => {
                                 >
                                     Расписание
                                 </button>
+
+                                {['draft', 'enrolling', 'in_progress'].includes(group.status) && <button className={`${styles.btn} ${styles.btnOutline}`} onClick={() => setCancelGroup(group)}>Отменить группу</button>}
+
+                                {group.status === 'completed' && <button className={`${styles.btn} ${styles.btnOutline}`} disabled={archivingId !== null} onClick={() => handleArchiveGroup(group)}>
+                                    {archivingId === group.id ? 'Архивирование…' : 'Архивировать'}
+                                </button>}
 
                                 {(group.status === 'in_progress' || (group.status === 'completed' && group.has_unsigned_documents)) && (
                                     <button 

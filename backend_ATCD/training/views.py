@@ -4,6 +4,7 @@ import tempfile
 from django.shortcuts import render, redirect
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.http import FileResponse
 from core.services.excel_import import import_instructor_qualifications
 from training.models import InstructorQualification
@@ -14,6 +15,8 @@ import pandas as pd
 def import_qualifications_view(request):
     """View для импорта допусков инструкторов из Excel"""
     if request.method == 'POST':
+        if not request.user.has_perms(['training.add_instructorqualification', 'training.change_instructorqualification']):
+            raise PermissionDenied('Недостаточно прав для импорта допусков преподавателей.')
         excel_file = request.FILES.get('excel_file')
 
         if not excel_file:
@@ -33,7 +36,7 @@ def import_qualifications_view(request):
                 tmp_file_path = tmp_file.name
 
             # Запускаем импорт
-            result = import_instructor_qualifications(tmp_file_path)
+            result = import_instructor_qualifications(tmp_file_path, user=request.user)
 
             # Удаляем временный файл
             os.unlink(tmp_file_path)
@@ -88,7 +91,9 @@ def download_qualifications_template_view(request):
                 'subject_name': q.subject.name,
                 'device_type': q.device_type,
                 'certificate_number': q.certificate_number or '',
-                'issue_date': q.issue_date.strftime('%d.%m.%Y'),
+                'issue_date': q.issue_date.strftime('%d.%m.%Y') if q.issue_date else '',
+                'valid_until': q.valid_until.strftime('%d.%m.%Y') if q.valid_until else '',
+                'effective_from': q.effective_from.strftime('%d.%m.%Y'),
                 'validity_months': q.validity_months,
                 'waiver_notes': q.waiver_notes or '',
             })

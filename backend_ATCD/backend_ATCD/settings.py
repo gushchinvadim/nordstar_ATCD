@@ -126,6 +126,8 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': False,
+    'CHECK_REVOKE_TOKEN': True,  # Password changes invalidate previously issued JWTs.
+    'TOKEN_REFRESH_SERIALIZER': 'execution.auth_serializers.PasswordAwareRefreshSerializer',
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 

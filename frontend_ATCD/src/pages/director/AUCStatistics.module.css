@@ -1,0 +1,140 @@
+.page {
+    composes: page from '../../styles/Workspace.module.css';
+}
+.panel {
+    composes: panel from '../../styles/Workspace.module.css';
+    padding: 22px;
+    margin-block: 20px;
+}
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 16px;
+    margin-block: 24px;
+}
+.filters label {
+    display: grid;
+    gap: 6px;
+    min-width: 180px;
+}
+.field {
+    composes: field from '../../styles/Workspace.module.css';
+}
+.primary {
+    composes: primary from '../../styles/Workspace.module.css';
+}
+.meta {
+    color: var(--atcd-muted);
+}
+.period {
+    font-size: 1.2rem;
+    font-weight: 650;
+    color: var(--atcd-brand);
+}
+.metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+}
+.metric {
+    background: var(--atcd-soft);
+    padding: 20px;
+    border: 1px solid var(--atcd-line);
+    border-radius: var(--atcd-control-radius);
+}
+.metric dt {
+    color: var(--atcd-muted);
+}
+.metric dd {
+    margin: 8px 0 0;
+    color: var(--atcd-brand);
+    font-weight: 750;
+    font-size: clamp(2rem, 3vw, 3rem);
+    font-variant-numeric: tabular-nums;
+}
+.error {
+    color: var(--atcd-danger);
+    background: var(--atcd-danger-bg);
+    padding: 14px;
+    border-radius: var(--atcd-control-radius);
+}
+.notice {
+    padding: 14px;
+    border-radius: var(--atcd-control-radius);
+    background: var(--atcd-info-bg);
+}
+.direction {
+    border-block-start: 1px solid var(--atcd-line);
+    margin-block-start: 24px;
+    padding-block-start: 12px;
+}
+.directionHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 20px;
+}
+.directionHeader h3 {
+    font-size: 1.05rem;
+    margin-block: 10px;
+}
+.directionHeader p {
+    color: var(--atcd-brand);
+    font-weight: 650;
+}
+.tableWrap {
+    container-type: inline-size;
+    overflow-x: auto;
+}
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.table th,
+.table td {
+    text-align: left;
+    padding: 12px;
+    border-bottom: 1px solid var(--atcd-line);
+    overflow-wrap: anywhere;
+}
+.table th {
+    background: var(--atcd-soft);
+}
+.table .number {
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.table .code {
+    min-width: 110px;
+}
+@media (max-width: 600px) {
+    .panel {
+        padding: 14px;
+    }
+    .filters label {
+        width: 100%;
+    }
+    .filters button {
+        width: 100%;
+    }
+    .metrics {
+        grid-template-columns: 1fr;
+    }
+}
+
+.compactTotal {
+    display: none;
+}
+
+@container (max-width: 960px) {
+    .moduleTitle,
+    .fullTotal {
+        display: none;
+    }
+    .compactTotal {
+        display: table-cell;
+    }
+}

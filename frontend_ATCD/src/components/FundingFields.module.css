@@ -1,0 +1,17 @@
+.fields {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-block: 12px;
+}
+.fields label {
+    display: grid;
+    align-content: start;
+    gap: 5px;
+}
+.field {
+    composes: field from '../styles/Workspace.module.css';
+}

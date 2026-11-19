@@ -1,3 +1,4 @@
+from execution.group_lifecycle import group_write_guard
 # docs/api_views.py
 import os
 import re
@@ -121,6 +122,8 @@ def groups_list(request):
             'end_date': group.end_date.strftime('%d.%m.%Y') if group.end_date else None,
             'status': group.status,
             'status_display': group.get_status_display(),
+            'cancellation_date': group.cancellation_date,
+            'cancellation_reason': group.cancellation_reason,
             'students_count': group.students_count,
             'has_unsigned_documents': group.has_unsigned_documents,
             'curator': group.curator.full_name if group.curator else None,
@@ -140,16 +143,10 @@ def groups_list(request):
 @permission_classes([IsAuthenticated])
 def directions_list(request):
     """API для получения списка направлений."""
-    try:
-        courses = Course.objects.exclude(frdo_template_type__isnull=True).exclude(frdo_template_type='').values_list(
-            'frdo_template_type', flat=True).distinct()
-        directions = [{'code': code, 'title': dict(Course.FRDO_TEMPLATE_CHOICES).get(code, code)} for code in courses]
-        if not directions:
-            directions = [{'code': code, 'title': title} for code, title in Course.FRDO_TEMPLATE_CHOICES]
-        directions.sort(key=lambda x: x['title'])
-        return Response(directions)
-    except Exception:
-        return Response([{'code': code, 'title': title} for code, title in Course.FRDO_TEMPLATE_CHOICES])
+    return Response(sorted(
+        [{'code': code, 'title': title} for code, title in Course.FRDO_TEMPLATE_CHOICES],
+        key=lambda item: item['title'],
+    ))
 
 
 @api_view(['GET'])
@@ -179,6 +176,8 @@ def group_detail(request, group_id):
         'end_date': group.end_date.strftime('%d.%m.%Y') if group.end_date else None,
         'status': group.status,
         'status_display': group.get_status_display(),
+            'cancellation_date': group.cancellation_date,
+            'cancellation_reason': group.cancellation_reason,
         'location': group.location.full_name if group.location else None,
         'mentor': group.mentor.full_name if group.mentor else None,
         'curator': group.curator.full_name if group.curator else None,
@@ -250,7 +249,7 @@ def user_roles(request):
         is_director = tptitle
         position_name = staff.position.name.lower() if staff.position else ''
         is_instructor_by_position = any(word in position_name for word in ['преподаватель', 'инструктор', 'учитель'])
-        if has_lessons or is_instructor_by_position:
+        if staff.is_instructor or has_lessons or is_instructor_by_position:
             is_instructor = True
 
     available_roles = []
@@ -309,6 +308,8 @@ def locations_list(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_group(request):
+    if request.data.get("status") == "cancelled":
+        return Response({"error": "Создайте группу, затем отмените с причиной и датой."}, status=400)
     if not can_manage_group(request.user):
         raise PermissionDenied()
     data = request.data
@@ -341,16 +342,24 @@ def create_group(request):
                 assigned_at=timezone.now(),
             )
 
+            from execution.funding import funding_values, FundingData, IsMethodist
+            defaults = FundingData(data=data.get('funding_defaults', {})); defaults.is_valid(raise_exception=True)
             for enrollment_data in data.get('enrollments', []):
+                finance = funding_values({**defaults.validated_data, **{key: enrollment_data[key] for key in ('funding_source', 'payer_organization', 'funding_reference') if key in enrollment_data}})
+                if (finance['funding_source'] != 'unspecified' or finance['funding_reference']) and not IsMethodist().has_permission(request, None):
+                    raise PermissionDenied('Финансирование заполняет методист.')
                 Enrollment.objects.create(
                     group=group,
                     student_id=enrollment_data.get('student_id'),
                     number_in_group=enrollment_data.get('number_in_group'),
                     status=enrollment_data.get('status', 'enrolled'),
+                    **finance,
                 )
 
         return Response({'success': True, 'group_id': group.id, 'assigned_number': group.assigned_number,
                          'message': f'Группа {group.assigned_number} успешно создана'}, status=201)
+    except PermissionDenied:
+        raise
     except Exception as e:
         return Response({'success': False, 'error': str(e)}, status=400)
 
@@ -371,6 +380,8 @@ def group_detail_edit(request, group_id):
         'student_name': f"{e.student.surname} {e.student.name} {e.student.patronymic}".strip(),
         'profession': e.student.profession.name if e.student.profession else '',
         'number_in_group': e.number_in_group, 'status': e.status,
+        'funding_source': e.funding_source, 'payer_organization': e.payer_organization_id,
+        'funding_reference': e.funding_reference,
     } for e in enrollments_qs]
 
     def safe_date(d):
@@ -395,6 +406,7 @@ def group_detail_edit(request, group_id):
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
+@group_write_guard
 def update_group(request, group_id):
     """Обновление данных группы"""
     try:
@@ -406,6 +418,8 @@ def update_group(request, group_id):
         raise PermissionDenied()
 
     data = request.data
+    if data.get('status') == 'cancelled':
+        return Response({'error': 'Используйте «Отменить группу» с причиной и датой.'}, status=400)
 
     # 1. Простые текстовые поля и ID
     if 'serial_number' in data: group.serial_number = data['serial_number']
@@ -439,20 +453,14 @@ def update_group(request, group_id):
 
     group.save()
 
-    # 5. Обновляем назначения (enrollments), если они пришли в запросе
+    # Preserve enrollment IDs and all their grades, signatures and financing.
     if 'enrollments' in data:
-        # Удаляем старые назначения
-        Enrollment.objects.filter(group=group).delete()
-
-        # Создаем новые
-        for enrollment_data in data['enrollments']:
-            if enrollment_data.get('student_id'):
-                Enrollment.objects.create(
-                    group=group,
-                    student_id=enrollment_data['student_id'],
-                    number_in_group=enrollment_data.get('number_in_group', 1),
-                    status=enrollment_data.get('status', 'enrolled'),
-                )
+        from execution.funding import sync_group_enrollments
+        reason = data.get('funding_reason', '')
+        if not isinstance(reason, str) or len(reason) > 2000:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError('Некорректная причина изменения финансирования.')
+        sync_group_enrollments(group, data['enrollments'], request.user, reason)
 
     return Response({
         'success': True,
@@ -462,6 +470,7 @@ def update_group(request, group_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@group_write_guard
 def generate_group_schedule(request, group_id):
     group = get_schedule_group(request.user, id=group_id)
     try:
@@ -489,6 +498,7 @@ def get_help_content(request):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
+@group_write_guard
 def group_grades_api(request, group_id):
     group = get_object_or_404(Group, id=group_id)
 
@@ -533,7 +543,7 @@ def group_grades_api(request, group_id):
 
         return Response({
             'group_info': {'id': group.id, 'assigned_number': group.assigned_number, 'module_code': group.module.code,
-                           'module_title': group.module.title},
+                           'module_title': group.module.title, 'status': group.status},
             'instructors': [{'id': inst.id, 'name': inst.full_name} for inst in instructors],
             'students': students_data
         })
@@ -610,6 +620,7 @@ def group_grades_api(request, group_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 @transaction.atomic
+@group_write_guard
 def complete_all_passed(request, group_id):
     """Завершает всех студентов, сдавших все ОЦЕНИВАЕМЫЕ разделы"""
     group = get_object_or_404(Group.objects.select_for_update(), id=group_id)
@@ -654,6 +665,7 @@ def complete_all_passed(request, group_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@group_write_guard
 def dismiss_failed(request, group_id):
     """Отчисляет всех студентов, не сдавших ОЦЕНИВАЕМЫЕ разделы"""
     group = get_object_or_404(Group, id=group_id)
@@ -796,6 +808,7 @@ def group_documents_api(request, group_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@group_write_guard
 def save_single_document_api(request, group_id):
     """Сохраняет один конкретный документ через DocumentStorageService"""
     group = get_object_or_404(Group, id=group_id)
@@ -836,6 +849,7 @@ def save_single_document_api(request, group_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@group_write_guard
 def generate_all_documents_api(request, group_id):
     """Массовая генерация всех активных документов"""
     group = get_object_or_404(Group, id=group_id)
@@ -877,6 +891,7 @@ def generate_all_documents_api(request, group_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@group_write_guard
 def save_rauc_report_api(request, group_id, format_type):
     """Сохраняет отчет РАУЦ (excel или xml) через реальный сервис"""
     group = get_object_or_404(Group, id=group_id)
@@ -908,6 +923,7 @@ def save_rauc_report_api(request, group_id, format_type):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@group_write_guard
 def save_frdo_report_api(request, group_id):
     """Сохраняет отчет ФРДО через реальный сервис"""
     group = get_object_or_404(Group, id=group_id)
@@ -1178,6 +1194,7 @@ def group_schedule_list(request, group_id):
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
+@group_write_guard
 def update_schedule_item(request, item_id):
     """Частичное обновление одного занятия (для inline-редактирования)"""
     item = get_object_or_404(ScheduleItem.objects.select_related("group"), id=item_id)
@@ -1200,7 +1217,22 @@ def schedule_dropdowns(request, group_id):
     group = get_schedule_group(request.user, id=group_id)
 
     # 1. Инструкторы (активные сотрудники)
-    instructors = Staff.objects.filter(is_active=True).values('id', 'full_name').order_by('full_name')
+    instructors_qs = Staff.objects.filter(is_active=True, is_instructor=True).order_by('full_name')
+    eligibility_error = None
+    if request.query_params.get('section_id'):
+        from datetime import date as calendar_date
+        from training.qualification_services import assignment_error
+        try:
+            target_section = Section.objects.get(pk=request.query_params['section_id'], stage__module=group.module)
+            target_date = calendar_date.fromisoformat(request.query_params.get('date', ''))
+            deadline = calendar_date.fromisoformat(request.query_params['deadline']) if request.query_params.get('deadline') else None
+        except (ValueError, Section.DoesNotExist):
+            return Response({'error': 'Укажите корректные раздел и дату занятия.'}, status=400)
+        if not target_section.subject_id or not target_section.teaching_device_type:
+            eligibility_error = 'В справочнике разделов укажите предмет и формат преподавания для проверки допуска.'
+        allowed = [row.pk for row in instructors_qs if not assignment_error(row, target_section, target_date, deadline)]
+        instructors_qs = instructors_qs.filter(pk__in=allowed)
+    instructors = instructors_qs.values('id', 'full_name')
 
     # 2. Аудитории (с группировкой для удобного отображения)
     classrooms = Classroom.objects.select_related('location', 'organization').values(
@@ -1225,6 +1257,7 @@ def schedule_dropdowns(request, group_id):
 
     return Response({
         'instructors': list(instructors),
+        'eligibility_error': eligibility_error,
         'classrooms': classroom_list,
         'sections': list(sections)
     })
@@ -1233,6 +1266,7 @@ def schedule_dropdowns(request, group_id):
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
+@group_write_guard
 def delete_schedule_item(request, item_id):
     """Удаление занятия расписания"""
     item = get_object_or_404(ScheduleItem.objects.select_related("group"), id=item_id)
@@ -1244,6 +1278,7 @@ def delete_schedule_item(request, item_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@group_write_guard
 def create_schedule_item(request, group_id):
     """Создание нового занятия расписания"""
     group = get_schedule_group(request.user, id=group_id)

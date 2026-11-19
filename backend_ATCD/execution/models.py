@@ -76,6 +76,13 @@ class Group(models.Model):
         help_text="Время начала первого занятия в день (например, 09:00 или 14:00)"
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', verbose_name="Статус")
+    cancellation_date = models.DateField(null=True, blank=True, verbose_name="Дата отмены")
+    cancellation_reason = models.TextField(blank=True, verbose_name="Причина отмены")
+    cancelled_at = models.DateTimeField(null=True, blank=True, editable=False, verbose_name="Когда зафиксирована отмена")
+    cancelled_by = models.ForeignKey('auth.User', on_delete=models.PROTECT, null=True, blank=True,
+        editable=False, related_name='cancelled_training_groups', verbose_name="Кто отменил")
+    archived_from_status = models.CharField(max_length=20, blank=True, editable=False,
+        choices=STATUS_CHOICES, verbose_name="Статус до архивирования")
     assigned_at = models.DateTimeField(default=timezone.now, verbose_name="Дата создания")
     assigned_by = models.ForeignKey(Staff, on_delete=models.SET_NULL, null=True, blank=True,
                                     verbose_name="Создал сотрудник", related_name='created_groups')
@@ -87,6 +94,11 @@ class Group(models.Model):
 
     def __str__(self):
         return f"{self.assigned_number} ({self.module.code})"
+
+    @property
+    def was_cancelled(self):
+        return self.status == 'cancelled' or (self.status == 'archived' and (
+            self.archived_from_status == 'cancelled' or bool(self.cancellation_date or self.cancellation_reason)))
 
     def get_generated_order_in_number(self):
         """Генерирует номер приказа о зачислении на основе номера группы"""
@@ -105,6 +117,20 @@ class Enrollment(models.Model):
         ("partial", "Частично прослушал"),  # ← НОВОЕ
         ("absent", "Не явился"),  # ← НОВОЕ
     ]
+
+    FUNDING_CHOICES = [
+        ('unspecified', 'Не указано'),
+        ('self_paid', 'За счёт физлица'),
+        ('company_internal', 'За счёт НордСтар'),
+        ('company_external', 'Внешний заказчик'),
+    ]
+    funding_source = models.CharField("Источник финансирования", max_length=24,
+        choices=FUNDING_CHOICES, default='unspecified')
+    payer_organization = models.ForeignKey('references.Organization', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='funded_enrollments', verbose_name="Компания-плательщик")
+    payer_name_snapshot = models.CharField("Название плательщика при заполнении", max_length=200,
+        blank=True, editable=False)
+    funding_reference = models.CharField("Договор / заявка", max_length=120, blank=True)
 
     group = models.ForeignKey(Group, on_delete=models.CASCADE, verbose_name="Группа")
     student = models.ForeignKey(Student, on_delete=models.CASCADE, verbose_name="Слушатель")
@@ -141,6 +167,26 @@ class Enrollment(models.Model):
         verbose_name_plural = "Назначения"
         ordering = ['group', 'number_in_group']
         unique_together = ['group', 'number_in_group']
+
+    def clean(self):
+        super().clean()
+        from django.core.exceptions import ValidationError
+        corporate = self.funding_source in ('company_internal', 'company_external')
+        if corporate and not self.payer_organization_id:
+            raise ValidationError({'payer_organization': 'Укажите компанию-плательщика.'})
+        if not corporate and self.payer_organization_id:
+            raise ValidationError({'payer_organization': 'Компания указывается только при финансировании юрлицом.'})
+
+    def save(self, *args, **kwargs):
+        if self.payer_organization_id:
+            previous = type(self).objects.filter(pk=self.pk).values_list('payer_organization_id', flat=True).first() if self.pk else None
+            if not self.payer_name_snapshot or previous != self.payer_organization_id:
+                self.payer_name_snapshot = self.payer_organization.company_name
+        else:
+            self.payer_name_snapshot = ''
+        if kwargs.get('update_fields') and ('payer_organization' in kwargs['update_fields'] or 'payer_organization_id' in kwargs['update_fields']):
+            kwargs['update_fields'] = set(kwargs['update_fields']) | {'payer_name_snapshot'}
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.student} → {self.group} ({self.get_status_display()})"
@@ -303,6 +349,20 @@ class ScheduleItem(models.Model):
         verbose_name_plural = "Расписание"
         ordering = ['date', 'start_time', 'section__order', 'subsection__order']
 
+    def clean(self):
+        super().clean()
+        if not self.instructor_id or not self.section_id or not self.group_id:
+            return
+        old = type(self).objects.filter(pk=self.pk).first() if self.pk else None
+        changed = old is None or any(getattr(old, key) != getattr(self, key) for key in (
+            'instructor_id', 'section_id', 'date', 'deadline'))
+        if changed:
+            from training.qualification_services import assignment_error
+            from django.core.exceptions import ValidationError
+            error = assignment_error(self.instructor, self.section, self.date,
+                self.deadline if self.session_type == 'sdo' else None)
+            if error: raise ValidationError({'instructor': error})
+
     def __str__(self):
         time_str = f"{self.start_time}-{self.end_time}" if self.start_time else "СДО"
         sub_title = f" ({self.subsection.title})" if self.subsection else ""
@@ -407,6 +467,7 @@ class ComplianceLog(models.Model):
 
     action_type = models.CharField("Тип действия", max_length=30, choices=ACTION_CHOICES)
     timestamp = models.DateTimeField("Время фиксации (сервер)", auto_now_add=True)
+    actor_name_snapshot = models.CharField("ФИО при подтверждении", max_length=200, blank=True, editable=False)
     ip_address = models.GenericIPAddressField("IP-адрес", null=True, blank=True, help_text="Для аудита безопасности")
     notes = models.TextField("Служебная отметка", blank=True)
 
@@ -446,6 +507,14 @@ class ComplianceLog(models.Model):
             group = self.certificate.enrollment.group
         return local_datetime(self.timestamp, group)
 
+    def save(self, *args, **kwargs):
+        if self._state.adding and not self.actor_name_snapshot:
+            if self.staff_id:
+                self.actor_name_snapshot = self.staff.full_name
+            elif self.student_id:
+                self.actor_name_snapshot = str(self.student).strip()
+        return super().save(*args, **kwargs)
+
     @property
     def signature_string(self):
         if self.staff:
@@ -459,6 +528,8 @@ class ComplianceLog(models.Model):
             actor_name = ' '.join(part for part in parts if part).strip() or "Студент"
         else:
             actor_name = "Неизвестно"
+
+        actor_name = self.actor_name_snapshot or actor_name
 
         # Используем локальное время вместо UTC
         local_time = self._get_local_timestamp()

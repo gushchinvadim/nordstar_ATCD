@@ -3,6 +3,7 @@ from django.utils import timezone
 from dateutil.relativedelta import relativedelta
 from django.db import models
 from references.models import AircraftType
+from .qualification_choices import INSTRUCTOR_DEVICE_CHOICES
 
 
 class Course(models.Model):
@@ -17,7 +18,9 @@ class Course(models.Model):
 
     FRDO_TEMPLATE_CHOICES = [
         ('flight_attendant', 'Бортпроводники (Проф. обучение)'),
-        ('pilot_engineer', 'Пилоты и инженеры (Доп. проф. программа)'),
+        ('pilot', 'Пилоты (Доп. проф. программа)'),
+        ('engineer', 'Инженеры (Доп. проф. программа)'),
+        ('representative', 'Представители (Доп. проф. программа)'),
     ]
 
     frdo_template_type = models.CharField(
@@ -183,6 +186,9 @@ class Section(models.Model):
         verbose_name="Предмет / Дисциплина",
         help_text="К какому предмету относится этот раздел (для допусков инструкторов). Пока необязательно."
     )
+    teaching_device_type = models.CharField("Формат преподавания для проверки допуска", max_length=20,
+        choices=INSTRUCTOR_DEVICE_CHOICES, blank=True,
+        help_text="Укажите вместе с предметом. Без этих сведений назначение нового преподавателя невозможно.")
     class Meta:
         verbose_name = "Раздел/Дисциплина"
         verbose_name_plural = "Разделы/Дисциплины"
@@ -208,27 +214,18 @@ class InstructorQualification(models.Model):
     Один инструктор может иметь несколько допусков к разным предметам.
     """
 
-    DEVICE_CHOICES = [
-        ('CLASS', 'Аудиторные занятия'),
-        ('FFS', 'Комплексный тренажер (FFS)'),
-        ('FTD', 'Процедурный тренажер (FTD)'),
-        ('CBT', 'Компьютерное обучение (CBT)'),
-        ('ON_JOB', 'Стажировка на рабочем месте'),
-        ('VR', 'VR-тренировки'),
-        ('ASP_W', 'АСП вода'),
-        ('ASP_L', 'АСП суша'),
-    ]
+    DEVICE_CHOICES = INSTRUCTOR_DEVICE_CHOICES
 
     staff = models.ForeignKey(
         'people.Staff',  # Замените на ваш путь к модели Staff
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         verbose_name="Сотрудник (Инструктор)",
         related_name='qualifications'
     )
 
     subject = models.ForeignKey(
         Subject,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         verbose_name="Предмет / Дисциплина",
         help_text="К какому предмету допущен инструктор"
     )
@@ -251,7 +248,7 @@ class InstructorQualification(models.Model):
 
     issue_date = models.DateField(
         "Дата выдачи",
-        default=timezone.now
+        null=True, blank=True,
     )
 
     validity_months = models.PositiveIntegerField(
@@ -259,6 +256,18 @@ class InstructorQualification(models.Model):
         default=24,
         help_text="Через сколько месяцев нужно продление"
     )
+
+    valid_until = models.DateField("Действителен до (включительно)", null=True, blank=True,
+        help_text="Вводится вручную по сведениям контрагента. Не вычисляется из срока в месяцах.")
+    effective_from = models.DateField("Действует с", default=timezone.localdate)
+    is_verified = models.BooleanField("Сведения подтверждены методистом", default=False, editable=False)
+    confirmed_at = models.DateTimeField(null=True, blank=True, editable=False)
+    confirmed_by = models.ForeignKey('auth.User', on_delete=models.PROTECT, null=True, blank=True,
+        editable=False, related_name='confirmed_instructor_qualifications')
+    revoked_on = models.DateField("Аннулирован с", null=True, blank=True, editable=False)
+    revocation_reason = models.TextField("Причина аннулирования", blank=True, editable=False)
+    superseded_by = models.OneToOneField('self', on_delete=models.PROTECT, null=True, blank=True,
+        editable=False, related_name='previous_qualification')
 
     is_active = models.BooleanField(
         "Допуск активен",
@@ -290,47 +299,48 @@ class InstructorQualification(models.Model):
 
     @property
     def expiration_date(self):
-        """Вычисляемая дата окончания допуска"""
-        return self.issue_date + relativedelta(months=self.validity_months)
+        return self.valid_until
 
     @property
-    def months_left(self):
-        """Сколько месяцев осталось до окончания (может быть отрицательным)"""
-        now = timezone.now().date()
-        exp = self.expiration_date
-        delta = relativedelta(exp, now)
-        return delta.years * 12 + delta.months
+    def legacy_expiration_date(self):
+        if self.issue_date and self.validity_months:
+            return self.issue_date + relativedelta(months=self.validity_months)
+        return None
+
+    def days_left_on(self, today):
+        return (self.valid_until - today).days if self.valid_until else None
+
+    @property
+    def days_left(self):
+        return self.days_left_on(timezone.localdate())
+
+    def status_on(self, today):
+        if self.revoked_on and self.revoked_on <= today:
+            return 'revoked'
+        if not self.is_active:
+            if self.superseded_by_id and today < self.superseded_by.effective_from and self.is_verified and self.valid_until and self.effective_from <= today <= self.valid_until:
+                return 'continuing'
+            return 'superseded' if self.superseded_by_id else 'inactive'
+        if not self.is_verified or not self.valid_until or not self.certificate_number:
+            return 'unconfirmed'
+        if self.effective_from > today:
+            return 'scheduled'
+        days = self.days_left_on(today)
+        if days < 0:
+            return 'expired'
+        if days == 0:
+            return 'expires_today'
+        if days <= 30:
+            return 'critical'
+        if days <= 90:
+            return 'warning'
+        return 'valid'
 
     @property
     def status(self):
-        """
-        Статус допуска для цветовой индикации:
-        - 'valid': зеленый (более 2 месяцев)
-        - 'warning': желтый (1-2 месяца)
-        - 'critical': красный (менее 1 месяца или просрочено)
-        - 'inactive': серый (деактивирован)
-        """
-        if not self.is_active:
-            return 'inactive'
-
-        months = self.months_left
-
-        if months < 0:
-            return 'critical'  # Просрочено
-        elif months <= 1:
-            return 'critical'  # Менее 1 месяца
-        elif months <= 2:
-            return 'warning'  # 1-2 месяца
-        else:
-            return 'valid'  # Более 2 месяцев
+        return self.status_on(timezone.localdate())
 
     @property
     def status_color(self):
-        """Возвращает цвет для UI"""
-        colors = {
-            'valid': 'green',
-            'warning': 'orange',
-            'critical': 'red',
-            'inactive': 'gray'
-        }
-        return colors.get(self.status, 'gray')
+        return {'valid': 'green', 'warning': 'orange', 'critical': 'red', 'expired': 'red',
+            'expires_today': 'red', 'unconfirmed': 'gray', 'scheduled': 'blue'}.get(self.status, 'gray')

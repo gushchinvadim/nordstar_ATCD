@@ -1,3 +1,4 @@
+from execution.group_lifecycle import group_write_guard
 from .rendering import render_group_document
 # docs/views.py
 import base64
@@ -43,6 +44,7 @@ from django.core.cache import cache
 logger = logging.getLogger(__name__)
 
 @staff_member_required
+@group_write_guard
 def group_grades_view(request, group_id):
     """Журнал оценок группы — табличный ввод"""
     group = get_object_or_404(Group, id=group_id)
@@ -225,6 +227,7 @@ def group_grades_view(request, group_id):
 
 @staff_member_required
 @require_POST
+@group_write_guard
 def complete_enrollment(request, enrollment_id):
     """Индивидуальное завершение обучения"""
     enrollment = get_object_or_404(Enrollment, id=enrollment_id)
@@ -284,6 +287,7 @@ def complete_enrollment(request, enrollment_id):
 
 @staff_member_required
 @require_POST
+@group_write_guard
 def complete_all_enrollments(request, group_id):
     """Массовое завершение обучения для всех, кто сдал"""
     group = get_object_or_404(Group, id=group_id)
@@ -367,6 +371,7 @@ def check_and_close_group(group):
                 ComplianceLog(
                     enrollment=enrollment,
                     staff=group.curator,
+                    actor_name_snapshot=group.curator.full_name,
                     action_type='methodist_documents_issued',
                     timestamp=timezone.now()
                 )
@@ -383,6 +388,7 @@ def check_and_close_group(group):
 
 @staff_member_required
 @require_POST
+@group_write_guard
 def dismiss_enrollments(request, group_id):
     """Массовое отчисление по неуспеваемости"""
     group = get_object_or_404(Group, id=group_id)
@@ -1866,6 +1872,7 @@ def certificate_batch_view(request, group_id):
 
 
 @staff_member_required
+@group_write_guard
 def create_iup_view(request, enrollment_id):
     """Создание или обновление индивидуального учебного плана для студента"""
 

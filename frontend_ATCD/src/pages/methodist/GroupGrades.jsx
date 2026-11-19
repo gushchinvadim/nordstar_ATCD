@@ -14,6 +14,7 @@ const GroupGrades = () => {
     const [saving, setSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState('');
     const [groupInfo, setGroupInfo] = useState(null);
+    const readOnly = groupInfo?.status === 'cancelled';
     const [instructors, setInstructors] = useState([]);
     const [students, setStudents] = useState([]);
     const [changedCells, setChangedCells] = useState(new Set());
@@ -139,12 +140,13 @@ const GroupGrades = () => {
             </div>
 
             {showCompletion && <CompletionDateModal group={{ id: groupId, assigned_number: groupInfo.assigned_number }} studentsOnly onClose={() => setShowCompletion(false)} onCompleted={(data) => { setShowCompletion(false); setSaveMessage(data.message); fetchData(); }} />}
+            {readOnly && <p role="status">Группа отменена. Журнал доступен только для просмотра.</p>}
             {/* ПАНЕЛЬ МАССОВЫХ ДЕЙСТВИЙ */}
             <div className={styles.massActions}>
                 <button 
                     className={`${styles.massBtn} ${styles.saveBtn} ${changedCells.size > 0 ? styles.hasChanges : ''}`} 
                     onClick={saveGrades}
-                    disabled={saving || changedCells.size === 0}
+                    disabled={readOnly || saving || changedCells.size === 0}
                 >
                      {saving ? 'Сохранение...' : `Сохранить оценки (${changedCells.size})`}
                 </button>
@@ -152,7 +154,7 @@ const GroupGrades = () => {
                 <button 
                     className={`${styles.massBtn} ${styles.completeBtn}`} 
                     onClick={completeAllPassed}
-                    disabled={saving}
+                    disabled={readOnly || saving}
                 >
                     ✓ Завершить всех сдавших
                 </button>
@@ -160,7 +162,7 @@ const GroupGrades = () => {
                 <button 
                     className={`${styles.massBtn} ${styles.dismissBtn}`} 
                     onClick={dismissFailed}
-                    disabled={saving}
+                    disabled={readOnly || saving}
                 >
                     ⚠ Отчислить не сдавших
                 </button>
@@ -200,7 +202,7 @@ const GroupGrades = () => {
                                             <td role="cell" data-label={assess.section_title} data-wide="" key={assess.section_id} className={`${styles.assessmentCell} ${isChanged ? styles.changed : ''}`}>
                                                 {assess.grade_type === 'binary' || assess.grade_type === 'pass_fail' ? (
                                                     <select 
-                                                        disabled={saving}
+                                                        disabled={readOnly || saving}
                                                         aria-label={`Оценка: ${assess.section_title}`} value={assess.score ?? ''} 
                                                         onChange={(e) => handleCellChange(student.enrollment_id, assess.section_id, 'score', e.target.value === '' ? null : parseInt(e.target.value))}
                                                         className={styles.inputSelect}
@@ -213,7 +215,7 @@ const GroupGrades = () => {
                                                     <input 
                                                         type="number" 
                                                         min="0" max="5" 
-                                                        disabled={saving}
+                                                        disabled={readOnly || saving}
                                                         aria-label={`Оценка: ${assess.section_title}`} value={assess.score ?? ''} 
                                                         onChange={(e) => handleCellChange(student.enrollment_id, assess.section_id, 'score', e.target.value === '' ? null : parseInt(e.target.value))}
                                                         className={styles.inputNumber}
@@ -223,14 +225,14 @@ const GroupGrades = () => {
                                                 
                                                 <input 
                                                     type="date" 
-                                                    disabled={saving}
+                                                    disabled={readOnly || saving}
                                                     aria-label={`Дата: ${assess.section_title}`} value={assess.date || ''} 
                                                     onChange={(e) => handleCellChange(student.enrollment_id, assess.section_id, 'date', e.target.value)}
                                                     className={styles.inputDate}
                                                 />
                                                 
                                                 <select 
-                                                    disabled={saving}
+                                                    disabled={readOnly || saving}
                                                     value={assess.instructor_id || ''} 
                                                     onChange={(e) => handleCellChange(student.enrollment_id, assess.section_id, 'instructor_id', e.target.value === '' ? null : parseInt(e.target.value))}
                                                     className={styles.inputSelectSmall}

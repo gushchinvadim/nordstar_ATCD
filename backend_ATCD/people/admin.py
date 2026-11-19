@@ -7,6 +7,19 @@ admin.site.site_title = "ATCD NordStar"                        # Заголов�
 admin.site.index_title = "Добро пожаловать в панель управления Training center NordStar" # Приветствие на главной странице админки
 
 
+from training.models import InstructorQualification
+
+
+class QualificationInline(admin.TabularInline):
+    model = InstructorQualification
+    extra = 0
+    can_delete = False
+    show_change_link = True
+    fields = ('subject', 'device_type', 'certificate_number', 'effective_from', 'valid_until', 'is_verified', 'is_active')
+    readonly_fields = fields
+    def has_add_permission(self, request, obj=None): return False
+
+
 class StaffPositionInline(admin.TabularInline):
     model = StaffPosition
     extra = 1
@@ -15,10 +28,10 @@ class StaffPositionInline(admin.TabularInline):
 
 @admin.register(Staff)
 class StaffAdmin(admin.ModelAdmin):
-    list_display = ['full_name', 'organization', 'position', 'is_active']
-    list_filter = ['is_active', 'organization', 'position']
+    list_display = ['full_name', 'organization', 'position', 'is_instructor', 'is_active']
+    list_filter = ['is_active', 'is_instructor', 'organization', 'position']
     search_fields = ['full_name', 'rauts_id', 'email']
-    inlines = [StaffPositionInline]
+    inlines = [StaffPositionInline, QualificationInline]
     change_list_template = 'admin/core/staff/change_list.html'
 
 

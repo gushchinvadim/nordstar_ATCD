@@ -2,7 +2,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import styles from './Sidebar.module.css';
 
-const Sidebar = () => {
+const Sidebar = ({ items }) => {
     const location = useLocation();
 
     const isActive = (path) => {
@@ -10,11 +10,13 @@ const Sidebar = () => {
         return location.pathname.startsWith(path);
     };
 
-    const menuItems = [
+    const menuItems = items || [
         // { path: '/methodist', label: 'Панель управления', icon: '📊' },
         { path: '/groups', label: 'Документы группы', icon: '📄' },
         { path: '/create-group', label: 'Создать группу', icon: '⊕' },
-        { path: '/create-student', label: 'Создать слушателя', icon: '👤' }, 
+        { path: '/create-student', label: 'Создать слушателя', icon: '👤' },
+        { path: '/edit-student', label: 'Редактировать слушателя', icon: '✎' },
+        { path: '/instructors', label: 'Преподаватели', icon: '♙' },
     ];
 
     return (
