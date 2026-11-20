@@ -205,8 +205,9 @@ class InstructorQualificationTests(APITestCase):
         self.assertEqual(row.certificate_number, 'SYNTHETIC-DOC')
 
     def test_local_day_count_uses_training_center_time(self):
-        row = self.register(30)
         with timezone.override('Europe/Moscow'), patch('django.utils.timezone.now', return_value=datetime(2026, 11, 18, 22, tzinfo=dt_timezone.utc)):
+            self.today = timezone.localdate()
+            row = self.register(30)
             row.valid_until = timezone.localdate()
             self.assertEqual(row.days_left, 0)
             self.assertEqual(row.status, 'expires_today')

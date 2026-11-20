@@ -1,3 +1,4 @@
+from execution.local_time import group_today, schedule_start_datetime
 from execution.group_lifecycle import group_write_guard
 # docs/api_views.py
 import os
@@ -569,8 +570,7 @@ def group_grades_api(request, group_id):
 
             schedule_item = schedule_dates_cache[cache_key]
             if schedule_item and schedule_item.date:
-                schedule_dt = datetime.combine(schedule_item.date, schedule_item.start_time or datetime.min.time())
-                if timezone.is_naive(schedule_dt): schedule_dt = timezone.make_aware(schedule_dt)
+                schedule_dt = schedule_start_datetime(schedule_item)
                 if schedule_dt > timezone.now():
                     errors.append(f'Нельзя выставить оценку по "{section.title}". Время занятия еще не наступило.')
                     continue
@@ -582,11 +582,7 @@ def group_grades_api(request, group_id):
                 except ValueError:
                     pass
             if not assessment_date:
-                assessment_date = schedule_dates_cache.get(f"schedule_{group.id}_{section.id}")
-                if hasattr(assessment_date, 'date'):
-                    assessment_date = assessment_date.date()
-                else:
-                    assessment_date = timezone.localdate()
+                assessment_date = schedule_item.date if schedule_item and schedule_item.date else group_today(group)
 
             instructor = Staff.objects.get(id=instructor_id) if instructor_id else None
             if not instructor and schedule_item: instructor = schedule_item.instructor

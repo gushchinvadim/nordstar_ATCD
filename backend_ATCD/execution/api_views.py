@@ -1,3 +1,4 @@
+from .local_time import group_today, schedule_start_datetime
 from execution.group_lifecycle import group_write_guard
 # execution/api_views.py
 from django.core.exceptions import ObjectDoesNotExist
@@ -157,16 +158,7 @@ def save_instructor_grades(request):
         # 2. ЗАЩИТА: Проверка времени занятия перед сохранением оценки
         schedule_item = ScheduleItem.objects.filter(group_id=group_id, section_id=section_id).first()
         if schedule_item and schedule_item.date:
-            # Склеиваем дату и время начала занятия в один datetime объект
-            if schedule_item.start_time:
-                schedule_dt = datetime.combine(schedule_item.date, schedule_item.start_time)
-            else:
-                # Если время не указано, используем начало дня (00:00)
-                schedule_dt = datetime.combine(schedule_item.date, datetime.min.time())
-
-            # Делаем время "осознанным" (aware) для корректного сравнения
-            if timezone.is_naive(schedule_dt):
-                schedule_dt = timezone.make_aware(schedule_dt)
+            schedule_dt = schedule_start_datetime(schedule_item)
 
             if schedule_dt > timezone.now():
                 section_title = schedule_item.section.title if schedule_item.section else f"Раздел {section_id}"
@@ -175,6 +167,10 @@ def save_instructor_grades(request):
                     'error': f'Нельзя выставить оценку по разделу "{section_title}". '
                              f'Время занятия ({time_str}) еще не наступило.'
                 }, status=status.HTTP_400_BAD_REQUEST)
+
+        assessment_group = schedule_item.group if schedule_item else Enrollment.objects.select_related(
+            'group__location').get(pk=enrollment_id).group
+        assessment_date = group_today(assessment_group)
 
         # 3. Находим или создаем оценку
         assessment, created = Assessment.objects.get_or_create(
@@ -185,7 +181,7 @@ def save_instructor_grades(request):
                 'score': score,
                 'notes': notes,
                 'instructor': staff,
-                'assessment_date': timezone.localdate()
+                'assessment_date': assessment_date
             }
         )
 
@@ -194,7 +190,7 @@ def save_instructor_grades(request):
             assessment.score = score
             assessment.notes = notes
             assessment.instructor = staff
-            assessment.assessment_date = timezone.localdate()
+            assessment.assessment_date = assessment_date
             assessment.save()
 
         # 4. НОВОЕ: Создание ComplianceLog (системной подписи)

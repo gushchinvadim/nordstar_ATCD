@@ -1,3 +1,4 @@
+from execution.local_time import group_today, schedule_start_datetime
 from execution.group_lifecycle import group_write_guard
 from .rendering import render_group_document
 # docs/views.py
@@ -91,15 +92,7 @@ def group_grades_view(request, group_id):
                 # ======================================================================
                 schedule_item = ScheduleItem.objects.filter(group=group, section=section).first()
                 if schedule_item and schedule_item.date:
-                    # Склеиваем дату и время начала занятия
-                    if schedule_item.start_time:
-                        schedule_dt = datetime.combine(schedule_item.date, schedule_item.start_time)
-                    else:
-                        schedule_dt = datetime.combine(schedule_item.date, datetime.min.time())
-
-                    # Делаем время "осознанным" (aware)
-                    if timezone.is_naive(schedule_dt):
-                        schedule_dt = timezone.make_aware(schedule_dt)
+                    schedule_dt = schedule_start_datetime(schedule_item)
 
                     if schedule_dt > timezone.now():
                         messages.error(
@@ -123,7 +116,7 @@ def group_grades_view(request, group_id):
                         pass
 
                 if not assessment_date:
-                    assessment_date = schedule_dates.get(section.id) or timezone.localdate()
+                    assessment_date = schedule_dates.get(section.id) or group_today(group)
 
                 instructor = None
                 if instructor_id:
