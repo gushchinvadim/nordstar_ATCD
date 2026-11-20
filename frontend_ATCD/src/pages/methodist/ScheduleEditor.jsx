@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/config';
 import styles from './ScheduleEditor.module.css';
+import TeacherSubjects from './TeacherSubjects';
 
 const STATUS_CHOICES = [
     { value: 'planned', label: 'Запланировано' },
@@ -24,6 +25,10 @@ const ScheduleEditor = () => {
     const [savingId, setSavingId] = useState(null);
     const [editingCell, setEditingCell] = useState(null);
     const [eligibilityError, setEligibilityError] = useState('');
+    const [mappingTarget, setMappingTarget] = useState(null);
+    const [mappingReferences, setMappingReferences] = useState(null);
+    const [mappingContext, setMappingContext] = useState(null);
+    const [mappingBusy, setMappingBusy] = useState(false);
     const [newDate, setNewDate] = useState('');
     const [lastSaved, setLastSaved] = useState(null);
 
@@ -56,6 +61,7 @@ const ScheduleEditor = () => {
     const handleCellClick = async (itemId, field) => {
         if (readOnly || savingId !== null) return;
         setEligibilityError('');
+        setMappingTarget(null);
         if (field === 'instructor') {
             const item = items.find((row) => row.id === itemId);
             setSavingId(itemId);
@@ -66,7 +72,12 @@ const ScheduleEditor = () => {
                 });
                 setDropdowns((previous) => ({ ...previous, instructors: data.instructors }));
                 setEligibilityError(data.eligibility_error || (data.instructors.length ? '' : 'Нет преподавателей с подтверждённым допуском на выбранную дату. Проверьте сведения в разделе «Преподаватели».'));
-                setEditingCell({ id: itemId, field });
+                if (data.eligibility_code === 'section_mapping_incomplete') {
+                    setMappingTarget(data.section_mapping);
+                    setEditingCell(null);
+                } else {
+                    setEditingCell({ id: itemId, field });
+                }
             } catch (error) {
                 setEligibilityError(error.response?.data?.error || 'Не удалось проверить допуски преподавателей. Повторите попытку.');
             } finally { setSavingId(null); }
@@ -257,19 +268,59 @@ const ScheduleEditor = () => {
         );
     };
 
+    const refreshMappingReferences = async () => {
+        const { data } = await api.get('/api/execution/methodist/instructors/references/');
+        setMappingReferences(data);
+    };
+
+    const openMappings = async (target = null) => {
+        if (readOnly || mappingBusy || savingId !== null) return;
+        setMappingBusy(true);
+        try {
+            await refreshMappingReferences();
+            setEditingCell(null);
+            setMappingContext({ module: target?.module_id || groupInfo?.module?.id || groupInfo?.module_id || '',
+                section: target?.section_id || '' });
+        } catch (error) {
+            setEligibilityError(error.response?.data?.error || 'Не удалось открыть настройку связей разделов.');
+        } finally { setMappingBusy(false); }
+    };
+
     const getStatusLabel = (status) => STATUS_CHOICES.find(s => s.value === status)?.label || status;
+
+    if (mappingContext && mappingReferences) return <TeacherSubjects
+        references={mappingReferences}
+        initialModule={mappingContext.module}
+        initialSection={mappingContext.section}
+        backLabel="← Вернуться в расписание"
+        onChanged={refreshMappingReferences}
+        onBack={() => {
+            setMappingContext(null); setMappingTarget(null); setEligibilityError('');
+            loadData();
+        }}
+    />;
 
     if (loading) return <div className={styles.loading}>Загрузка расписания...</div>;
 
     return (
         <div className={styles.container}>
-            {eligibilityError && <p role="alert">{eligibilityError}</p>}
+            {eligibilityError && <div className={styles.eligibilityNotice} role="alert">
+                <p>{eligibilityError}</p>
+                {mappingTarget && !readOnly && <button className={styles.backBtn}
+                    disabled={mappingBusy} onClick={() => openMappings(mappingTarget)}>
+                    {mappingBusy ? 'Загрузка…' : 'Связать раздел с предметом и форматом'}
+                </button>}
+            </div>}
             {readOnly && <p role="status">Группа отменена. Расписание доступно только для просмотра.</p>}
             <div className={styles.header}>
                 <button className={styles.backBtn} onClick={() => navigate(`/groups/${groupId}/documents`)}>
                     ← Назад к документам группы
                 </button>
                 
+                {!readOnly && <button className={styles.backBtn}
+                    disabled={mappingBusy || savingId !== null} onClick={() => openMappings()}>
+                    Связи предметов и разделов модуля
+                </button>}
                 <h1>📅 {readOnly ? 'Расписание отменённой группы' : 'Редактирование расписания'}</h1>
                 
                 {/* 🔥 ИНФОРМАЦИЯ О ГРУППЕ */}

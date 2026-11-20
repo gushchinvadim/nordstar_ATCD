@@ -1215,6 +1215,8 @@ def schedule_dropdowns(request, group_id):
     # 1. Инструкторы (активные сотрудники)
     instructors_qs = Staff.objects.filter(is_active=True, is_instructor=True).order_by('full_name')
     eligibility_error = None
+    eligibility_code = None
+    section_mapping = None
     if request.query_params.get('section_id'):
         from datetime import date as calendar_date
         from training.qualification_services import assignment_error
@@ -1224,7 +1226,11 @@ def schedule_dropdowns(request, group_id):
             deadline = calendar_date.fromisoformat(request.query_params['deadline']) if request.query_params.get('deadline') else None
         except (ValueError, Section.DoesNotExist):
             return Response({'error': 'Укажите корректные раздел и дату занятия.'}, status=400)
+        section_mapping = {'section_id': target_section.pk, 'module_id': group.module_id,
+            'title': target_section.title, 'subject_id': target_section.subject_id,
+            'teaching_device_type': target_section.teaching_device_type}
         if not target_section.subject_id or not target_section.teaching_device_type:
+            eligibility_code = 'section_mapping_incomplete'
             eligibility_error = 'В справочнике разделов укажите предмет и формат преподавания для проверки допуска.'
         allowed = [row.pk for row in instructors_qs if not assignment_error(row, target_section, target_date, deadline)]
         instructors_qs = instructors_qs.filter(pk__in=allowed)
@@ -1254,6 +1260,8 @@ def schedule_dropdowns(request, group_id):
     return Response({
         'instructors': list(instructors),
         'eligibility_error': eligibility_error,
+        'eligibility_code': eligibility_code,
+        'section_mapping': section_mapping,
         'classrooms': classroom_list,
         'sections': list(sections)
     })

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../../api/config';
 import styles from './Instructors.module.css';
 
@@ -16,6 +17,7 @@ function errorText(error) {
 function MappingRow({ row, references }) {
     const [subject, setSubject] = useState(row.subject || '');
     const [device, setDevice] = useState(row.teaching_device_type || '');
+    const [isMapped, setIsMapped] = useState(Boolean(row.subject && row.teaching_device_type));
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
@@ -29,6 +31,7 @@ function MappingRow({ row, references }) {
                 `${base}/instructor-section-mappings/${row.id}/`,
                 { subject: Number(subject), teaching_device_type: device },
             );
+            setIsMapped(true);
             setMessage(
                 data.message +
                     (data.upcoming_assignments_to_review
@@ -44,6 +47,9 @@ function MappingRow({ row, references }) {
     return (
         <article className={styles.panel}>
             <h3>{row.title}</h3>
+            {!isMapped && <p className={styles.notice}>
+                Связь не заполнена: назначение преподавателя недоступно.
+            </p>}
             <p className={styles.meta}>
                 {row.module} · {row.module_title}
             </p>
@@ -103,13 +109,14 @@ function MappingRow({ row, references }) {
         </article>
     );
 }
-export default function TeacherSubjects({ references, onBack, onChanged }) {
+export default function TeacherSubjects({ references, onBack, onChanged,
+    initialModule = '', initialSection = '', backLabel = '← К преподавателям' }) {
     const [name, setName] = useState('');
     const [code, setCode] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
-    const [filters, setFilters] = useState({ module: '', search: '' });
+    const [filters, setFilters] = useState({ module: initialModule, section: initialSection, search: '' });
     const [query, setQuery] = useState(filters);
     const [page, setPage] = useState(1);
     const [result, setResult] = useState(null);
@@ -157,13 +164,14 @@ export default function TeacherSubjects({ references, onBack, onChanged }) {
     return (
         <div className={styles.page}>
             <button className={styles.button} onClick={onBack}>
-                ← К преподавателям
+                {backLabel}
             </button>
             <h1>Предметы и разделы программ</h1>
             <p className={styles.notice}>
-                Эти связи используются для проверки допусков преподавателей.
-                Названия, содержание, часы программы и существующие назначения
-                сохраняются.
+                Модуль содержит разделы. Для каждого раздела выберите предмет и формат
+                преподавания. В расписании появятся преподаватели с подтверждённым
+                допуском по этому предмету и формату на дату занятия.
+                Названия, часы программы и существующие назначения сохраняются.
             </p>
             {error && (
                 <p role="alert" className={styles.error}>
@@ -175,6 +183,11 @@ export default function TeacherSubjects({ references, onBack, onChanged }) {
                     {notice}
                 </p>
             )}
+            <p className={styles.notice}>
+                Если нужного преподавателя нет в списке, откройте его карточку в разделе{' '}
+                <Link to="/instructors">«Преподаватели»</Link> и внесите предмет, формат,
+                номер документа и даты действия допуска. Сама связь раздела не выдаёт допуск.
+            </p>
             <section className={styles.panel}>
                 <h2>Добавить предмет в справочник</h2>
                 <form onSubmit={addSubject}>
@@ -228,7 +241,7 @@ export default function TeacherSubjects({ references, onBack, onChanged }) {
                         className={styles.field}
                         value={filters.module}
                         onChange={(e) =>
-                            setFilters({ ...filters, module: e.target.value })
+                            setFilters({ ...filters, module: e.target.value, section: '' })
                         }
                     >
                         <option value="">Все модули</option>
@@ -246,11 +259,15 @@ export default function TeacherSubjects({ references, onBack, onChanged }) {
                         type="search"
                         value={filters.search}
                         onChange={(e) =>
-                            setFilters({ ...filters, search: e.target.value })
+                            setFilters({ ...filters, search: e.target.value, section: '' })
                         }
                     />
                 </label>
                 <button className={styles.button}>Показать</button>
+                {query.section && <button type="button" className={styles.button} onClick={() => {
+                    const next = { ...filters, section: '', search: '' };
+                    setFilters(next); setQuery(next); setPage(1); setLoading(true);
+                }}>Все разделы модуля</button>}
             </form>
             {loading ? (
                 <p role="status">Загрузка…</p>

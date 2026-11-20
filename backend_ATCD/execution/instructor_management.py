@@ -285,6 +285,10 @@ def instructor_section_mappings(request):
     if module:
         if not module.isdigit(): return Response({'error': 'Некорректный модуль.'}, status=400)
         rows = rows.filter(stage__module_id=int(module))
+    section = request.query_params.get('section')
+    if section:
+        if not section.isdigit(): return Response({'error': 'Некорректный раздел.'}, status=400)
+        rows = rows.filter(pk=int(section))
     search = request.query_params.get('search', '').strip()
     if search: rows = rows.filter(title__icontains=search)
     paginator = PageNumberPagination(); paginator.page_size = 15

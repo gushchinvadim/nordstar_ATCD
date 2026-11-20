@@ -132,3 +132,11 @@
         border-color: var(--atcd-line);
     }
 }
+
+.eligibilityNotice {
+    padding: 12px;
+    margin-bottom: 16px;
+    border: 1px solid var(--atcd-line);
+    border-radius: 8px;
+    background: var(--atcd-warning-bg);
+}

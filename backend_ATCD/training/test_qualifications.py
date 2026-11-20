@@ -286,3 +286,58 @@ class InstructorQualificationTests(APITestCase):
             response = client.post('/training/import-qualifications/', {})
         self.assertEqual(response.status_code, 403)
         importer.assert_not_called()
+
+
+    def test_schedule_mapping_unlocks_only_teachers_with_matching_valid_qualification(self):
+        self.register(2)
+        self.section.subject = None
+        self.section.teaching_device_type = ''
+        self.section.save(update_fields=['subject', 'teaching_device_type'])
+        url = reverse('docs_api:api_schedule_dropdowns', args=[self.group.pk])
+        params = {'section_id': self.section.pk, 'date': self.today.isoformat()}
+        before = self.client.get(url, params)
+        self.assertEqual(before.data['eligibility_code'], 'section_mapping_incomplete')
+        self.assertEqual(before.data['section_mapping']['module_id'], self.group.module_id)
+        self.assertEqual(before.data['section_mapping']['section_id'], self.section.pk)
+        self.assertEqual(before.data['instructors'], [])
+        mapping = reverse('execution:update_instructor_section_mapping', args=[self.section.pk])
+        response = self.client.patch(mapping, {'subject': self.subject.pk, 'teaching_device_type': 'CLASS'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        after = self.client.get(url, params)
+        self.assertIsNone(after.data['eligibility_code'])
+        self.assertEqual([row['id'] for row in after.data['instructors']], [self.staff.pk])
+        item = ScheduleItem.objects.create(group=self.group, section=self.section, date=self.today)
+        assign = reverse('docs_api:api_update_schedule_item', args=[item.pk])
+        self.assertEqual(self.client.patch(assign, {'instructor': self.staff.pk}, format='json').status_code, 200)
+        self.assertEqual(self.client.get(url, dict(params, date=(self.today + timedelta(days=3)).isoformat())).data['instructors'], [])
+        self.client.patch(mapping, {'subject': self.subject.pk, 'teaching_device_type': 'FFS'}, format='json')
+        self.assertEqual(self.client.get(url, params).data['instructors'], [])
+
+    def test_section_mapping_editor_can_target_one_section_inside_its_module(self):
+        url = reverse('execution:instructor_section_mappings')
+        other_module = Module.objects.create(course=self.group.module.course, title='Other module', duration=2)
+        other = Section.objects.create(stage=Stage.objects.create(module=other_module, title='Other stage'), title='Other section')
+        response = self.client.get(url, {'module': self.group.module_id, 'section': self.section.pk})
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual([row['id'] for row in response.data['results']], [self.section.pk])
+        response = self.client.get(url, {'module': self.group.module_id, 'section': other.pk})
+        self.assertEqual(response.data['count'], 0)
+        self.assertEqual(self.client.get(url, {'section': 'invalid'}).status_code, 400)
+
+    def test_computer_testing_format_is_available_and_requires_matching_qualification(self):
+        references = self.client.get(reverse('execution:instructor_references'))
+        self.assertIn({'code': 'TEST', 'name': 'Компьютерное тестирование'}, references.data['devices'])
+        response = self.client.post(self.add_url, dict(self.payload(30), device_type='TEST'), format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+        mapping = reverse('execution:update_instructor_section_mapping', args=[self.section.pk])
+        response = self.client.patch(mapping, {'subject': self.subject.pk, 'teaching_device_type': 'TEST'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        candidates = reverse('docs_api:api_schedule_dropdowns', args=[self.group.pk])
+        params = {'section_id': self.section.pk, 'date': self.today.isoformat()}
+        self.assertEqual([row['id'] for row in self.client.get(candidates, params).data['instructors']], [self.staff.pk])
+        item = ScheduleItem.objects.create(group=self.group, section=self.section, date=self.today)
+        response = self.client.patch(reverse('docs_api:api_update_schedule_item', args=[item.pk]),
+            {'instructor': self.staff.pk}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.client.patch(mapping, {'subject': self.subject.pk, 'teaching_device_type': 'CBT'}, format='json')
+        self.assertEqual(self.client.get(candidates, params).data['instructors'], [])
