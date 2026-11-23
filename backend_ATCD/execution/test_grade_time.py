@@ -17,7 +17,7 @@ class LocalGradeTimeTests(APITestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username='local-grade-instructor', is_staff=True)
         self.staff = Staff.objects.create(user=self.user, full_name='Synthetic instructor', is_instructor=True)
-        location = Location.objects.create(name='Synthetic KJA', timezone='Asia/Krasnoyarsk')
+        location = Location.objects.create(name='SYN-KJA', timezone='Asia/Krasnoyarsk')
         course = Course.objects.create(title='Synthetic course')
         module = Module.objects.create(course=course, title='Synthetic module', duration=1)
         stage = Stage.objects.create(module=module, title='Synthetic stage')

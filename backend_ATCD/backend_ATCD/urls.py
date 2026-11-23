@@ -7,7 +7,10 @@ from core.admin_views import import_program_view, import_staff_view, import_stud
     import_organizations_view
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from execution.sim_export import sim_schedule
+
 urlpatterns = [
+    path("api/integrations/sim-training/schedule/", sim_schedule),
     path('', include('landing.urls')),
 
     path('admin/import/program/', import_program_view, name='import_program'),

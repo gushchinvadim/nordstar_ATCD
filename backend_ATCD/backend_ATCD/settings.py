@@ -197,3 +197,6 @@ LOGGING = {
 }
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# Shared read-only integration credential: never send to the React client.
+SIM_TRAINING_EXPORT_KEY = config('SIM_TRAINING_EXPORT_KEY', default='')
+SIM_TRAINING_COURSE_CODES = [v.strip() for v in config('SIM_TRAINING_COURSE_CODES', default='ППП.АУЦ.11').split(',') if v.strip()]
