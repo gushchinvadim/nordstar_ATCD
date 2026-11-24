@@ -28,6 +28,43 @@ function daysLabel(row) {
     if (row.days_left === 0) return 'Истекает сегодня';
     return `${row.days_left} дн.`;
 }
+function expirySummary(row) {
+    const days = row.nearest_expiry_days;
+    if (typeof days === 'number') {
+        if (days < 0) return { tone: 'danger', label: `Ближайший допуск просрочен на ${-days} дн.` };
+        if (days === 0) return { tone: 'danger', label: 'Ближайший допуск истекает сегодня' };
+        return {
+            tone: days <= 30 ? 'danger' : days <= 90 ? 'warning' : row.unconfirmed_count > 0 ? 'neutral' : 'valid',
+            label: `До окончания ближайшего допуска: ${days} дн.`,
+        };
+    }
+    return {
+        tone: 'neutral',
+        label: row.unconfirmed_count > 0
+            ? 'Есть неподтверждённые допуски'
+            : 'Нет данных о подтверждённых сроках',
+    };
+}
+function InstructorListCard({ row, onOpen }) {
+    const summary = expirySummary(row);
+    const toneClass = {
+        danger: styles.cardDanger,
+        warning: styles.cardWarning,
+        valid: styles.cardValid,
+        neutral: styles.cardNeutral,
+    }[summary.tone];
+    return (
+        <article className={`${styles.card} ${toneClass}`}>
+            <h2>{row.full_name}</h2>
+            <p className={styles.expiryStatus}>{summary.label}</p>
+            <p>{row.organization_name} {row.position_name}</p>
+            <p>{row.is_active ? 'Активен' : 'Неактивен'} · Предметов/форматов: {row.qualification_count}</p>
+            <p>Требуют подтверждения: {row.unconfirmed_count}</p>
+            <p>Ближайшее окончание: {dateLabel(row.nearest_expiry)}</p>
+            <button className={styles.button} onClick={onOpen}>Открыть карточку</button>
+        </article>
+    );
+}
 function Dialog({ title, busy, onClose, children }) {
     const dialog = useRef(null);
     useEffect(() => {
@@ -1076,36 +1113,18 @@ export default function Instructors() {
                 !error && (
                     <>
                         <p>Найдено: {result?.count || 0}</p>
+                        <p className={styles.legend}>
+                            Цвет по ближайшему сроку: зелёный — более 90 дней;
+                            жёлтый — 31–90 дней; красный — до 30 дней или просрочен.
+                            Неподтверждённые допуски требуют отдельной проверки.
+                        </p>
                         <div className={styles.grid}>
                             {result?.results.map((row) => (
-                                <article className={styles.card} key={row.id}>
-                                    <h2>{row.full_name}</h2>
-                                    <p>
-                                        {row.organization_name}{' '}
-                                        {row.position_name}
-                                    </p>
-                                    <p>
-                                        {row.is_active
-                                            ? 'Активен'
-                                            : 'Неактивен'}{' '}
-                                        · Предметов/форматов:{' '}
-                                        {row.qualification_count}
-                                    </p>
-                                    <p>
-                                        Требуют подтверждения:{' '}
-                                        {row.unconfirmed_count}
-                                    </p>
-                                    <p>
-                                        Ближайшее окончание:{' '}
-                                        {dateLabel(row.nearest_expiry)}
-                                    </p>
-                                    <button
-                                        className={styles.button}
-                                        onClick={() => setSelected(row.id)}
-                                    >
-                                        Открыть карточку
-                                    </button>
-                                </article>
+                                <InstructorListCard
+                                    key={row.id}
+                                    row={row}
+                                    onOpen={() => setSelected(row.id)}
+                                />
                             ))}
                         </div>
                         {result && (result.next || result.previous) && (

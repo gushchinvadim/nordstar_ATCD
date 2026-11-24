@@ -46,6 +46,7 @@ def account_allowed(staff):
 
 
 def staff_card(staff):
+    nearest_expiry = getattr(staff, 'nearest_expiry', None)
     return {'id': staff.pk, 'full_name': staff.full_name, 'email': staff.email, 'phone': staff.phone,
         'rauts_id': staff.rauts_id, 'is_active': staff.is_active, 'organization': staff.organization_id,
         'organization_name': str(staff.organization) if staff.organization_id else '',
@@ -53,7 +54,8 @@ def staff_card(staff):
         'username': staff.user.username if staff.user_id else None, 'can_manage_account': staff.is_active and account_allowed(staff),
         'qualification_count': getattr(staff, 'qualification_count', None),
         'unconfirmed_count': getattr(staff, 'unconfirmed_count', None),
-        'nearest_expiry': getattr(staff, 'nearest_expiry', None)}
+        'nearest_expiry': nearest_expiry,
+        'nearest_expiry_days': (nearest_expiry - timezone.localdate()).days if nearest_expiry else None}
 
 
 def qualification_card(row, today):

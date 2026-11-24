@@ -147,3 +147,33 @@
         padding: 14px;
     }
 }
+
+.cardDanger {
+    background: var(--atcd-danger-bg);
+    border-color: var(--atcd-danger);
+    border-inline-start: 6px solid var(--atcd-danger);
+}
+.cardWarning {
+    background: var(--atcd-warning-bg);
+    border-color: var(--atcd-warning);
+    border-inline-start: 6px solid var(--atcd-warning);
+}
+.cardValid {
+    background: var(--atcd-success-bg);
+    border-color: var(--atcd-success);
+    border-inline-start: 6px solid var(--atcd-success);
+}
+.cardNeutral {
+    border-inline-start: 6px solid var(--atcd-muted);
+}
+.expiryStatus {
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+.cardDanger .expiryStatus { color: var(--atcd-danger); }
+.cardWarning .expiryStatus { color: var(--atcd-warning); }
+.cardValid .expiryStatus { color: var(--atcd-success); }
+.legend {
+    color: var(--atcd-muted);
+    line-height: 1.5;
+}
