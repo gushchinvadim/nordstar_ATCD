@@ -18,9 +18,12 @@ urlpatterns = [
     path('admin/import/students/', import_students_view, name='import_students'),
     path('admin/import/group_enroll/', import_group_enroll_view, name='import_group_enroll'),
     path('admin/import/organizations/', import_organizations_view, name='import_organizations'),
+    # Keep qualification tools behind the existing /admin/ Django proxy.
+    path('admin/training-tools/', include('training.urls')),
     path('admin/', admin.site.urls),
 
-    path('training/', include('training.urls')),
+    # Compatibility for existing local links; generated links use /admin/.
+    path('training/', include('training.urls', namespace='training_legacy')),
     path('reporting/', include('reporting.urls')),
 
     # HTML-маршруты документов (если они нужны по старым ссылкам)

@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.admin.models import LogEntry
 from django.core.exceptions import ValidationError
 from django.test import Client
-from django.urls import reverse
+from django.urls import reverse, resolve
 from django.utils import timezone
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -278,6 +278,39 @@ class InstructorQualificationTests(APITestCase):
         self.assertEqual(self.client.patch(url, {'subject': new_subject.pk, 'teaching_device_type': 'FFS', 'title': 'Forbidden'}, format='json').status_code, 400)
         self.client.force_authenticate(self.user)
         self.assertEqual(self.client.get(reverse('execution:instructor_section_mappings')).status_code, 403)
+
+    def test_qualification_tools_generate_admin_proxy_urls(self):
+        for name in ('import_qualifications', 'export_qualifications_template', 'download_qualifications_template'):
+            url = reverse('training:' + name)
+            self.assertTrue(url.startswith('/admin/training-tools/'), url)
+            self.assertEqual(resolve(url).url_name, name)
+        self.assertEqual(resolve('/training/import-qualifications/').url_name, 'import_qualifications')
+
+    def test_import_errors_return_to_canonical_admin_page(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        self.methodist.is_staff = True
+        self.methodist.is_superuser = True
+        self.methodist.save(update_fields=['is_staff', 'is_superuser'])
+        client = Client(); client.force_login(self.methodist)
+        url = reverse('training:import_qualifications')
+        with patch('training.views.import_instructor_qualifications') as importer:
+            for data in ({}, {'excel_file': SimpleUploadedFile('invalid.txt', b'invalid')}):
+                response = client.post(url, data)
+                self.assertRedirects(response, url, fetch_redirect_response=False)
+            importer.assert_not_called()
+        response = client.get(url)
+        self.assertContains(response, 'name="excel_file"')
+        changelist = client.get(reverse('admin:training_instructorqualification_changelist'))
+        self.assertContains(changelist, url)
+        self.assertContains(changelist, reverse('training:export_qualifications_template'))
+
+    def test_canonical_import_requires_qualification_permissions(self):
+        self.user.is_staff = True; self.user.save(update_fields=['is_staff'])
+        client = Client(); client.force_login(self.user)
+        with patch('training.views.import_instructor_qualifications') as importer:
+            response = client.post(reverse('training:import_qualifications'), {})
+        self.assertEqual(response.status_code, 403)
+        importer.assert_not_called()
 
     def test_admin_import_cannot_bypass_qualification_permissions(self):
         self.user.is_staff = True; self.user.save(update_fields=['is_staff'])

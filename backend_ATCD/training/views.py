@@ -21,12 +21,12 @@ def import_qualifications_view(request):
 
         if not excel_file:
             messages.error(request, 'Файл не выбран!')
-            return redirect('import_qualifications')
+            return redirect('training:import_qualifications')
 
         # Проверяем расширение файла
         if not excel_file.name.endswith(('.xlsx', '.xls')):
             messages.error(request, 'Допустимы только файлы Excel (.xlsx, .xls)!')
-            return redirect('import_qualifications')
+            return redirect('training:import_qualifications')
 
         try:
             # Сохраняем файл во временную папку
@@ -64,7 +64,7 @@ def import_qualifications_view(request):
         except Exception as e:
             messages.error(request, f'❌ Ошибка импорта: {str(e)}')
 
-        return redirect('import_qualifications')
+        return redirect('training:import_qualifications')
 
     return render(request, 'admin/import_qualifications.html')
 
@@ -121,4 +121,4 @@ def download_qualifications_template_view(request):
 
     except Exception as e:
         messages.error(request, f'Ошибка экспорта: {str(e)}')
-        return redirect('export_qualifications_template')
+        return redirect('training:export_qualifications_template')
