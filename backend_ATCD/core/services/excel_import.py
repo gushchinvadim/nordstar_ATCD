@@ -7,6 +7,7 @@ from training.models import Course, Module, Stage, Section, Subsection, Subject,
 from people.models import Staff, Student
 from core.services.aircraft_utils import get_or_create_aircraft_type
 from django.contrib.auth.models import User
+from django.db import transaction
 from django.db.models.signals import post_save
 from people.signals import create_student_user, create_staff_user
 from django.conf import settings
@@ -162,8 +163,47 @@ def safe_float(value, default=0.0):
 # ==========================================
 # 1. ИМПОРТ ПРОГРАММЫ ПОДГОТОВКИ
 # ==========================================
+def _program_section_qualification(row, row_number, subject_cache):
+    """Resolve an explicit subject/format pair; empty cells preserve existing links."""
+    subject_code = str(row['subject_code']).strip() if pd.notna(row.get('subject_code')) else ''
+    device_type = str(row['device_type']).strip().upper() if pd.notna(row.get('device_type')) else ''
+    if not subject_code and not device_type:
+        return None
+    if not subject_code or not device_type:
+        raise ValueError(f'Строка {row_number}: заполните subject_code и device_type вместе.')
+    if device_type not in VALID_DEVICE_TYPES:
+        raise ValueError(
+            f'Строка {row_number}: неизвестный device_type «{device_type}». '
+            f'Допустимые значения: {", ".join(VALID_DEVICE_TYPES)}.')
+
+    cache_key = subject_code.casefold()
+    if cache_key not in subject_cache:
+        subjects = list(Subject.objects.filter(code__iexact=subject_code)[:2])
+        if not subjects:
+            raise ValueError(
+                f'Строка {row_number}: предмет с кодом «{subject_code}» не найден. '
+                'Создайте его в справочнике предметов или исправьте код.')
+        if len(subjects) > 1:
+            raise ValueError(
+                f'Строка {row_number}: код «{subject_code}» повторяется в справочнике предметов. '
+                'Устраните дубли перед импортом.')
+        if not subjects[0].is_active:
+            raise ValueError(f'Строка {row_number}: предмет «{subject_code}» неактивен.')
+        subject_cache[cache_key] = subjects[0]
+    return subject_cache[cache_key], device_type
+
+
+@transaction.atomic
 def import_training_program(file_path):
     df = pd.read_excel(file_path)
+    # Accept lower/upper case and surrounding spaces for the two optional headers.
+    df = df.rename(columns={column: str(column).strip().lower() for column in df.columns
+        if str(column).strip().lower() in {'subject_code', 'device_type'}})
+    for column in ('subject_code', 'device_type'):
+        if list(df.columns).count(column) > 1:
+            raise ValueError(f'Колонка {column} указана в файле несколько раз.')
+    subject_cache = {}
+    section_qualifications = {}
 
     # ВАЛИДАЦИЯ ЗАГОЛОВКОВ
     missing_cols = [col for col in REQUIRED_PROGRAM_COLUMNS if col not in df.columns]
@@ -183,6 +223,12 @@ def import_training_program(file_path):
     updated_subsections = 0
 
     for index, row in df.iterrows():
+        has_qualification = any(pd.notna(row.get(field)) and str(row[field]).strip()
+            for field in ('subject_code', 'device_type'))
+        if has_qualification and any(pd.isna(row.get(field)) or not str(row[field]).strip()
+                for field in ('COURSE', 'MODULE', 'STAGE', 'SECTION')):
+            raise ValueError(
+                f'Строка {index + 2}: для subject_code/device_type заполните COURSE, MODULE, STAGE и SECTION.')
         if pd.isna(row.get('COURSE')) and pd.isna(row.get('MODULE')):
             continue
 
@@ -272,6 +318,9 @@ def import_training_program(file_path):
             if detail_value not in VALID_DETAILS:
                 detail_value = 'none'
 
+            qualification = _program_section_qualification(row, index + 2, subject_cache)
+            qualification_fields = ({'subject': qualification[0], 'teaching_device_type': qualification[1]}
+                if qualification else {})
             section, created = Section.objects.get_or_create(
                 stage=stage, title=section_title,
                 defaults={
@@ -282,8 +331,18 @@ def import_training_program(file_path):
                     'min_score': safe_int(row.get('MIN_SCORE')) if pd.notna(row.get('MIN_SCORE')) and str(
                         row['MIN_SCORE']).replace('.', '').isdigit() else None,
                     'detail': detail_value,
+                    **qualification_fields,
                 }
             )
+            if qualification:
+                previous = section_qualifications.get(section.pk)
+                current = (qualification[0].pk, qualification[1])
+                if previous and previous[0] != current:
+                    raise ValueError(
+                        f'Строка {index + 2}: у раздела «{section_title}» указаны разные '
+                        f'subject_code/device_type (см. строку {previous[1]}). '
+                        'У одного раздела должен быть один предмет и один формат преподавания.')
+                section_qualifications[section.pk] = (current, index + 2)
             if created:
                 created_sections += 1
             else:
@@ -295,6 +354,8 @@ def import_training_program(file_path):
                 section.min_score = safe_int(row.get('MIN_SCORE')) if pd.notna(row.get('MIN_SCORE')) and str(
                     row['MIN_SCORE']).replace('.', '').isdigit() else None
                 section.detail = detail_value
+                for field, value in qualification_fields.items():
+                    setattr(section, field, value)
                 section.save()
                 updated_sections += 1
 

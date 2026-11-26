@@ -12,6 +12,9 @@
                 <label for="excel_file">Excel файл с программой подготовки:</label>
                 <input type="file" name="excel_file" id="excel_file" accept=".xlsx, .xls" required style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
                 <p class="help">Файл должен содержать колонки: COMPANY_CODE, COURSE, PROG_ID, MODULE, DURATION, MOD_ID, CODE, STAGE, SECTION, DETAILS, SUB_SECTION, DURATION_HOURS, ORDER, GRADE_TYPE, MIN_SCORE, ATTACHMENT_NUMBER, AIRCRAFT_TYPE, APPROVED, APPROVED_DATE</p>
+                <p class="help">Дополнительные колонки для проверки допусков: <strong>subject_code</strong> — код существующего активного предмета; <strong>device_type</strong> — формат преподавания: CLASS, FFS, FTD, CBT, TEST, ON_JOB, VR, ASP_W, ASP_L. Например: PNP-FA и TEST.</p>
+                <p class="help">Заполняйте обе колонки вместе. Связь задаётся для SECTION: у всех подразделов одного раздела предмет и формат должны совпадать. Пустые ячейки или отсутствие колонок сохраняют существующую связь. DETAILS по-прежнему задаёт тип расписания и не заменяет device_type.</p>
+                <p class="help">При ошибке импорт отменяется целиком. Предметы и допуски преподавателей этим импортом не создаются.</p>
             </div>
         </fieldset>
 
