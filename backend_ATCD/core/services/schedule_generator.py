@@ -1,9 +1,7 @@
 # core/services/schedule_generator.py
 import math
 from datetime import timedelta, time
-
 from django.db import transaction
-
 from execution.models import Group, ScheduleItem
 from training.models import Section
 

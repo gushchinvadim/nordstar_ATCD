@@ -11,7 +11,7 @@ const GroupDocumentsDetail = () => {
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null); 
 
-    const backendUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+    const [downloadingArchive, setDownloadingArchive] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -55,6 +55,37 @@ const GroupDocumentsDetail = () => {
             window.URL.revokeObjectURL(url);
         } catch (err) {
             alert(err.response?.data?.error || 'Ошибка сети при скачивании документа');
+        }
+    };
+
+    const handleDownloadArchive = async () => {
+        setDownloadingArchive(true);
+        try {
+            const response = await api.get(`/api/docs/groups/${groupId}/download-folder/`, { responseType: 'blob' });
+            if (response.data.type !== 'application/zip') {
+                throw new Error('Ожидался ZIP-архив');
+            }
+            const disposition = response.headers['content-disposition'] || '';
+            const filename = disposition.match(/filename="?([a-zA-Z0-9_]+\.zip)"?/i)?.[1];
+            const url = window.URL.createObjectURL(response.data);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename || `group_${groupId}.zip`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+        } catch (err) {
+            const status = err.response?.status;
+            if (status === 404) {
+                alert('У группы пока нет сохранённых документов.');
+            } else if (status === 403) {
+                alert('У вас нет доступа к архиву этой группы.');
+            } else {
+                alert('Не удалось скачать архив документов.');
+            }
+        } finally {
+            setDownloadingArchive(false);
         }
     };
 
@@ -203,14 +234,14 @@ const GroupDocumentsDetail = () => {
                         {actionLoading === 'all' ? '⏳ Генерация...' : '📄 Сгенерировать все PDF'}
                     </button>
                     
-                    <a 
-                        href={`${backendUrl}/docs/group/${group.id}/download-folder/`}
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className={styles.btnSecondaryLink}
+                    <button
+                        type="button"
+                        className={styles.btnSecondary}
+                        onClick={handleDownloadArchive}
+                        disabled={downloadingArchive}
                     >
-                        📦 Скачать ZIP
-                    </a>
+                        {downloadingArchive ? 'Подготовка архива…' : '📦 Скачать ZIP'}
+                    </button>
                 </div>
             </div>
 

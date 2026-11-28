@@ -1,5 +1,5 @@
-from docs.rendering import render_group_html
 # docs/services/document_storage.py
+from docs.rendering import render_group_html
 import os
 import re
 from datetime import date
@@ -204,8 +204,8 @@ class DocumentStorageService:
             'enrollments': Enrollment.objects.filter(group=self.group).select_related('student'),
             'aircraft_type': aircraft_type,
             'instructor_name': instructor_name,
-            'instructor_signature': instructor_signature,  # <-- НОВОЕ
-            'final_grades_dict': final_grades_dict,  # <-- НОВОЕ
+            'instructor_signature': instructor_signature,
+            'final_grades_dict': final_grades_dict,
             'logo_base64': get_logo_base64(),
         }
 

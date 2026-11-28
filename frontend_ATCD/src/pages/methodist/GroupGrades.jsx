@@ -104,6 +104,10 @@ const GroupGrades = () => {
     };
 
     const dismissFailed = async () => {
+        if (changedCells.size) {
+            setSaveMessage('Сначала сохраните изменения оценок.');
+            return;
+        }
         if (!window.confirm('⚠️ Отчислить всех студентов, не сдавших разделы? Это действие необратимо!')) {
             return;
         }
@@ -187,7 +191,6 @@ const GroupGrades = () => {
 
                     <tbody role="rowgroup">
                         {students
-                            .filter(student => student.status !== 'dismissed') // 🔥 Страховка: скрываем отчисленных
                             .map(student => (
                                 <tr role="row" key={student.enrollment_id} className={styles[`status${student.status}`]}>
                                     <td role="cell" data-label="№" className={styles.stickyCol1}>{student.number_in_group}</td>
@@ -202,7 +205,7 @@ const GroupGrades = () => {
                                             <td role="cell" data-label={assess.section_title} data-wide="" key={assess.section_id} className={`${styles.assessmentCell} ${isChanged ? styles.changed : ''}`}>
                                                 {assess.grade_type === 'binary' || assess.grade_type === 'pass_fail' ? (
                                                     <select 
-                                                        disabled={readOnly || saving}
+                                                        disabled={readOnly || saving || student.status === 'dismissed'}
                                                         aria-label={`Оценка: ${assess.section_title}`} value={assess.score ?? ''} 
                                                         onChange={(e) => handleCellChange(student.enrollment_id, assess.section_id, 'score', e.target.value === '' ? null : parseInt(e.target.value))}
                                                         className={styles.inputSelect}
@@ -215,7 +218,7 @@ const GroupGrades = () => {
                                                     <input 
                                                         type="number" 
                                                         min="0" max="5" 
-                                                        disabled={readOnly || saving}
+                                                        disabled={readOnly || saving || student.status === 'dismissed'}
                                                         aria-label={`Оценка: ${assess.section_title}`} value={assess.score ?? ''} 
                                                         onChange={(e) => handleCellChange(student.enrollment_id, assess.section_id, 'score', e.target.value === '' ? null : parseInt(e.target.value))}
                                                         className={styles.inputNumber}
@@ -225,14 +228,14 @@ const GroupGrades = () => {
                                                 
                                                 <input 
                                                     type="date" 
-                                                    disabled={readOnly || saving}
+                                                    disabled={readOnly || saving || student.status === 'dismissed'}
                                                     aria-label={`Дата: ${assess.section_title}`} value={assess.date || ''} 
                                                     onChange={(e) => handleCellChange(student.enrollment_id, assess.section_id, 'date', e.target.value)}
                                                     className={styles.inputDate}
                                                 />
                                                 
                                                 <select 
-                                                    disabled={readOnly || saving}
+                                                    disabled={readOnly || saving || student.status === 'dismissed'}
                                                     value={assess.instructor_id || ''} 
                                                     onChange={(e) => handleCellChange(student.enrollment_id, assess.section_id, 'instructor_id', e.target.value === '' ? null : parseInt(e.target.value))}
                                                     className={styles.inputSelectSmall}
