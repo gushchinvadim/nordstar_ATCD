@@ -16,6 +16,7 @@ from datetime import datetime, date
 from core.services.schedule_generator import generate_schedule_for_group
 from docs.serializers import ScheduleItemUpdateSerializer
 from docs.services.document_registry import DocumentRegistry
+from docs.services.group_archive import group_archive_response
 from docs.services.document_storage import DocumentStorageService
 from execution.models import Group, Enrollment, ScheduleItem, Assessment, ComplianceLog
 from people.models import Staff, Student
@@ -501,13 +502,12 @@ def get_help_content(request):
 @permission_classes([IsAuthenticated])
 @group_write_guard
 def group_grades_api(request, group_id):
-    group = get_object_or_404(Group, id=group_id)
+    group = get_schedule_group(request.user, id=group_id)
 
     if request.method == 'GET':
-        # 🔥 ИСПРАВЛЕНИЕ: Убрали 'dismissed' из списка. Отчисленные больше не придут на фронтенд
         students = Enrollment.objects.filter(
             group=group,
-            status__in=['enrolled', 'in_progress', 'completed']
+            status__in=['enrolled', 'in_progress', 'completed', 'dismissed']
         ).select_related('student').order_by('number_in_group')
 
         sections = Section.objects.filter(stage__module=group.module, grade_type__in=['numeric', 'binary']).order_by(
@@ -561,8 +561,14 @@ def group_grades_api(request, group_id):
                 'section_id'), update.get('score'), update.get('date'), update.get('instructor_id')
             if score is None or score == '': continue
 
-            enrollment = Enrollment.objects.get(id=enrollment_id)
-            section = Section.objects.get(id=section_id)
+            enrollment = Enrollment.objects.filter(pk=enrollment_id, group=group).first()
+            if enrollment is None:
+                errors.append('Слушатель не найден в этой группе.')
+                continue
+            if enrollment.status == 'dismissed':
+                errors.append('Оценки отчисленного слушателя доступны только для просмотра.')
+                continue
+            section = get_object_or_404(Section, id=section_id, stage__module=group.module)
 
             cache_key = f"schedule_{group.id}_{section.id}"
             if cache_key not in schedule_dates_cache:
@@ -663,28 +669,33 @@ def complete_all_passed(request, group_id):
 @permission_classes([IsAuthenticated])
 @group_write_guard
 def dismiss_failed(request, group_id):
-    """Отчисляет всех студентов, не сдавших ОЦЕНИВАЕМЫЕ разделы"""
-    group = get_object_or_404(Group, id=group_id)
+    """Отчисляет слушателей, не сдавших оцениваемые разделы."""
+    group = get_schedule_group(request.user, id=group_id)
     students = Enrollment.objects.filter(group=group, status__in=['enrolled', 'in_progress'])
-
-    # 🔥 ИСПРАВЛЕНИЕ: Берем ТОЛЬКО разделы, которые требуют оценки
-    sections = Section.objects.filter(stage__module=group.module, grade_type__in=['numeric', 'binary'])
+    required_sections = set(Section.objects.filter(
+        stage__module=group.module, grade_type__in=['numeric', 'binary']
+    ).values_list('id', flat=True))
+    dismissal_date = group_today(group)
 
     dismissed_count = 0
     for enrollment in students:
-        # 🔥 ИСПРАВЛЕНИЕ: Используем поле passed вместо score__gte=1
-        assessments = Assessment.objects.filter(enrollment=enrollment, section__in=sections, passed=True)
-        passed_section_ids = set(assessments.values_list('section_id', flat=True))
+        passed_sections = set(enrollment.assessments.filter(
+            section_id__in=required_sections, passed=True
+        ).values_list('section_id', flat=True))
+        if required_sections <= passed_sections:
+            continue
 
-        required_section_ids = set(sections.values_list('id', flat=True))
-
-        # Проверяем, что НЕ все оцениваемые разделы сданы
-        if not (passed_section_ids >= required_section_ids):
-            enrollment.status = 'dismissed'
-            enrollment.dismissal_date = timezone.now().date()
-            enrollment.dismissal_reason = 'Неуспеваемость (не сданы все оцениваемые разделы)'
-            enrollment.save()
-            dismissed_count += 1
+        enrollment.status = 'dismissed'
+        enrollment.dismissal_date = dismissal_date
+        enrollment.dismissal_reason = 'Неуспеваемость (не сданы все оцениваемые разделы)'
+        enrollment.order_out_number = enrollment.generate_order_out_number('dismissed')
+        if len(enrollment.order_out_number) > Enrollment._meta.get_field('order_out_number').max_length:
+            return Response({'error': 'Номер группы слишком длинный для номера приказа ОТ.'}, status=400)
+        enrollment.order_out_date = dismissal_date
+        enrollment.save(update_fields=[
+            'status', 'dismissal_date', 'dismissal_reason', 'order_out_number', 'order_out_date',
+        ])
+        dismissed_count += 1
 
     return Response({
         'success': True,
@@ -698,6 +709,15 @@ def active_curators_list(request):
     curator_ids = Group.objects.exclude(curator__isnull=True).values_list('curator_id', flat=True).distinct()
     staff = Staff.objects.filter(id__in=curator_ids).order_by('full_name')
     return Response([{'id': s.id, 'full_name': s.full_name} for s in staff])
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def download_group_archive_api(request, group_id):
+    group = get_object_or_404(Group, id=group_id)
+    if not can_manage_group(request.user, group):
+        raise PermissionDenied()
+    return group_archive_response(group)
 
 
 @api_view(['GET'])

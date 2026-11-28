@@ -3,11 +3,9 @@ from execution.group_lifecycle import group_write_guard
 from .rendering import render_group_document
 # docs/views.py
 import base64
-import io
 import json
 import logging
 import re
-import zipfile
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from django.contrib.admin.views.decorators import staff_member_required
@@ -36,6 +34,7 @@ from django.http import FileResponse, HttpResponse
 from django.contrib import messages
 from execution.models import Group, Enrollment
 from docs.services.document_registry import DocumentRegistry
+from docs.services.group_archive import group_archive_response
 from docs.services.document_storage import DocumentStorageService
 from .utils import get_logo_base64, get_exam_date_for_enrollment, get_instructor_final_signature
 from django.utils import timezone
@@ -2114,74 +2113,10 @@ def regenerate_iup(request, iup_id):
 
 @staff_member_required
 def download_group_folder(request, group_id):
-    """Скачивание всей папки группы в виде ZIP-архива"""
-    from urllib.parse import quote
-
+    """Скачать архив группы из админки."""
     group = get_object_or_404(Group, id=group_id)
+    return group_archive_response(group)
 
-    # Формируем путь к папке группы
-    year = str(group.start_date.year) if group.start_date else 'unknown'
-    module_code = re.sub(r'[^\w\-]', '_', group.module.code) if group.module else 'unknown_module'
-
-    # Санитизируем номер группы для пути (заменяем / на _)
-    safe_group_number = re.sub(r'[^\w\.\-]', '_', group.assigned_number)
-
-    group_folder = os.path.join(
-        settings.MEDIA_ROOT,
-        'documents', str(year), 'groups', module_code, safe_group_number
-    )
-
-    # Проверяем существование папки
-    if not os.path.exists(group_folder):
-        raise Http404(f"Папка группы не найдена: {safe_group_number}")
-
-    # Создаем ZIP-архив в памяти
-    zip_buffer = io.BytesIO()
-
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        for root, dirs, files in os.walk(group_folder):
-            for file in files:
-                file_path = os.path.join(root, file)
-                arcname = os.path.relpath(file_path, group_folder)
-                zip_file.write(file_path, arcname)
-
-    # Возвращаем архив
-    zip_buffer.seek(0)
-    response = HttpResponse(
-        zip_buffer.getvalue(),
-        content_type='application/zip'
-    )
-
-    # Формируем максимально безопасное имя файла
-    # 001.2026-СЗ_28-001 -> group_001_2026_SZ_28_001.zip
-    def make_safe_filename(text):
-        """Транслитерация + замена всех спецсимволов на подчёркивания"""
-        mapping = {
-            'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo',
-            'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
-            'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
-            'ф': 'f', 'х': 'kh', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
-            'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
-            'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'Yo',
-            'Ж': 'Zh', 'З': 'Z', 'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M',
-            'Н': 'N', 'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U',
-            'Ф': 'F', 'Х': 'Kh', 'Ц': 'Ts', 'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Sch',
-            'Ъ': '', 'Ы': 'Y', 'Ь': '', 'Э': 'E', 'Ю': 'Yu', 'Я': 'Ya'
-        }
-        # Транслитерируем
-        text = ''.join(mapping.get(c, c) for c in text)
-        # Заменяем всё, что не буква/цифра, на подчёркивание
-        text = re.sub(r'[^a-zA-Z0-9]', '_', text)
-        # Убираем множественные подчёркивания
-        text = re.sub(r'_+', '_', text).strip('_')
-        return text
-
-    safe_name = make_safe_filename(safe_group_number)
-    filename = f"group_{safe_name}.zip"
-
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-
-    return response
 
 @staff_member_required
 def dismissal_reference_view(request, group_id):

@@ -28,6 +28,8 @@ urlpatterns = [
 
     # === УПРАВЛЕНИЕ ДОКУМЕНТАМИ ГРУППЫ ===
     path('groups/<int:group_id>/documents/', api_views.group_documents_api, name='api_group_documents'),
+    path('groups/<int:group_id>/download-folder/', api_views.download_group_archive_api,
+         name='api_download_group_archive'),
     path('groups/<int:group_id>/save-document/', api_views.save_single_document_api, name='api_save_document'),
     path('groups/<int:group_id>/generate-all/', api_views.generate_all_documents_api,
          name='api_generate_all_documents'),
